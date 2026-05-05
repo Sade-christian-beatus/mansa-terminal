@@ -1,0 +1,33 @@
+# MANSA Dagster Configuration
+storage:
+  postgres:
+    postgres_url:
+      env: DATABASE_URL_DAGSTER
+
+run_storage:
+  module: dagster_postgres.run_storage
+  class: PostgresRunStorage
+  config:
+    postgres_url:
+      env: DATABASE_URL_DAGSTER
+
+event_log_storage:
+  module: dagster_postgres.event_log
+  class: PostgresEventLogStorage
+  config:
+    postgres_url:
+      env: DATABASE_URL_DAGSTER
+
+schedule_storage:
+  module: dagster_postgres.schedule_storage
+  class: PostgresScheduleStorage
+  config:
+    postgres_url:
+      env: DATABASE_URL_DAGSTER
+
+run_launcher:
+  module: dagster.core.launcher
+  class: DefaultRunLauncher
+
+telemetry:
+  enabled: false

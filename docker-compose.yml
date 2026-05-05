@@ -1,0 +1,32 @@
+services:
+  postgres:
+    image: postgres:15
+    container_name: mansa_postgres
+    environment:
+      POSTGRES_USER: mansa
+      POSTGRES_PASSWORD: mansa_password
+      POSTGRES_DB: mansa_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U mansa"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build:
+      context: ./apps/api
+    container_name: mansa_api
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://mansa:mansa_password@postgres:5432/mansa_db
+
+volumes:
+  postgres_data:

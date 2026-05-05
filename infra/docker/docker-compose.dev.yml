@@ -1,0 +1,134 @@
+# ============================================================
+# MANSA Terminal — Docker Compose (Développement Local)
+# Lance : PostgreSQL+TimescaleDB, Redis, API FastAPI, Dagster
+#
+# Usage :
+#   docker compose -f infra/docker/docker-compose.dev.yml up -d
+#   docker compose -f infra/docker/docker-compose.dev.yml logs -f api
+# ============================================================
+
+name: mansa-terminal-dev
+
+services:
+
+  # ---- PostgreSQL + TimescaleDB ----
+  db:
+    image: timescale/timescaledb:latest-pg16
+    container_name: mansa_db
+    environment:
+      POSTGRES_DB: mansa_db
+      POSTGRES_USER: mansa
+      POSTGRES_PASSWORD: mansa_dev_password
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8 --lc-collate=C --lc-ctype=C"
+      LANG: "C.UTF-8"
+      LC_ALL: "C.UTF-8"
+      TIMESCALEDB_TELEMETRY: "off"
+    ports:
+      - "5432:5432"
+    volumes:
+      - mansa_pgdata:/var/lib/postgresql/data
+      - ./init-db.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U mansa -d mansa_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  # ---- Redis ----
+  redis:
+    image: redis:7-alpine
+    container_name: mansa_redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - mansa_redis_data:/data
+    command: redis-server --appendonly yes --maxmemory 256mb
+             --maxmemory-policy allkeys-lru
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    restart: unless-stopped
+
+  # ---- FastAPI Backend ----
+  api:
+    build:
+      context: ../../apps/api
+      dockerfile: Dockerfile
+    container_name: mansa_api
+    ports:
+      - "8000:8000"
+    environment:
+      DATABASE_URL: postgresql+asyncpg://mansa:mansa_dev_password@db:5432/mansa_db
+      DATABASE_URL_SYNC: postgresql://mansa:mansa_dev_password@db:5432/mansa_db
+      REDIS_URL: redis://redis:6379/0
+      APP_ENV: development
+      DEBUG: "true"
+    env_file:
+      - ../../.env
+    volumes:
+      - ../../apps/api:/app  # Hot reload en dev
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: unless-stopped
+
+  # ---- Dagster Daemon ----
+  dagster-daemon:
+    build:
+      context: ../../data/pipelines
+      dockerfile: Dockerfile
+    container_name: mansa_dagster_daemon
+    environment:
+      DAGSTER_HOME: /dagster_home
+      DATABASE_URL: postgresql://mansa:mansa_dev_password@db:5432/mansa_db
+    env_file:
+      - ../../.env
+    volumes:
+      - mansa_dagster:/dagster_home
+      - ../../data/pipelines:/pipelines
+    depends_on:
+      db:
+        condition: service_healthy
+    command: dagster-daemon run
+    restart: unless-stopped
+
+  # ---- Dagster Webserver (UI) ----
+  dagster-webserver:
+    build:
+      context: ../../data/pipelines
+      dockerfile: Dockerfile
+    container_name: mansa_dagster_ui
+    ports:
+      - "3001:3001"
+    environment:
+      DAGSTER_HOME: /dagster_home
+      DATABASE_URL: postgresql://mansa:mansa_dev_password@db:5432/mansa_db
+    env_file:
+      - ../../.env
+    volumes:
+      - mansa_dagster:/dagster_home
+      - ../../data/pipelines:/pipelines
+    depends_on:
+      db:
+        condition: service_healthy
+    command: dagster-webserver -h 0.0.0.0 -p 3001
+    restart: unless-stopped
+
+volumes:
+  mansa_pgdata:
+    name: mansa_pgdata
+  mansa_redis_data:
+    name: mansa_redis_data
+  mansa_dagster:
+    name: mansa_dagster

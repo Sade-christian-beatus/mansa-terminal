@@ -1,0 +1,44 @@
+# === CORE API ===
+fastapi==0.118.2
+uvicorn[standard]==0.32.1
+
+# === DATABASE ===
+sqlalchemy==2.0.36
+asyncpg==0.30.0          # Driver async pour postgresql+asyncpg://
+psycopg2-binary==2.9.10  # Driver sync pour Alembic (DATABASE_URL_SYNC)
+alembic==1.14.0
+
+# === CONFIG ===
+python-dotenv==1.0.1
+pydantic==2.10.6
+pydantic-settings==2.7.0
+pydantic[email]          # EmailStr dans les schémas Pydantic
+
+# === AUTH ===
+bcrypt==4.2.1            # Hash des mots de passe
+PyJWT==2.10.1            # JWT tokens (import: jwt)
+
+# === HTTP ===
+httpx==0.28.1            # Client HTTP async pour les pipelines et tests
+
+# === RATE LIMITING ===
+slowapi==0.1.9           # Rate limiting middleware pour FastAPI
+limits==3.14.0           # Backend de comptage pour slowapi
+
+# === OBSERVABILITÉ ===
+sentry-sdk[fastapi]==2.20.0  # Error tracking + APM
+
+# === RETRY ===
+tenacity==9.0.0          # Retry avec backoff exponentiel (pipelines IMF/WB)
+
+# === AI ===
+anthropic==0.42.0        # SDK Claude API
+
+# === BILLING ===
+stripe==11.4.1           # Stripe Checkout + Webhooks
+
+# === FORMS ===
+python-multipart==0.0.20 # Nécessaire pour les form data FastAPI
+
+# === OPTIONNEL (Phase 2) ===
+pgvector                 # Recherche vectorielle pour le RAG

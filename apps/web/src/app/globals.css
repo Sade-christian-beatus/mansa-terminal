@@ -1,0 +1,87 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ============================================================
+   MANSA Terminal — Design System
+   Palette sombre inspirée Bloomberg/Refinitiv
+   ============================================================ */
+
+:root {
+  /* Couleurs primaires MANSA */
+  --mansa-green: #00D4AA;
+  --mansa-green-dark: #00A882;
+  --mansa-gold: #FFB800;
+  --mansa-blue: #3B82F6;
+
+  /* Backgrounds */
+  --bg-primary: #0A0E1A;
+  --bg-secondary: #0F1629;
+  --bg-card: #141B2E;
+  --bg-card-hover: #1A2236;
+  --bg-border: #1E2A42;
+
+  /* Textes */
+  --text-primary: #F1F5F9;
+  --text-secondary: #94A3B8;
+  --text-muted: #64748B;
+
+  /* États */
+  --positive: #10B981;
+  --negative: #EF4444;
+  --warning: #F59E0B;
+  --neutral: #6B7280;
+}
+
+/* Scrollbar stylisée */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: var(--bg-secondary); }
+::-webkit-scrollbar-thumb {
+  background: var(--bg-border);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover { background: #2A3A58; }
+
+/* Animations */
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Classes utilitaires MANSA */
+@layer components {
+  .mansa-card {
+    @apply bg-[#141B2E] border border-[#1E2A42] rounded-xl;
+  }
+
+  .mansa-card-hover {
+    @apply hover:bg-[#1A2236] hover:border-[#2A3A58] transition-colors duration-200;
+  }
+
+  .mansa-metric-positive {
+    @apply text-emerald-400 font-medium;
+  }
+
+  .mansa-metric-negative {
+    @apply text-red-400 font-medium;
+  }
+
+  .mansa-badge {
+    @apply inline-flex items-center gap-1 px-2 py-0.5 rounded-full
+           text-xs font-medium bg-[#1E2A42] text-gray-300;
+  }
+
+  .skeleton {
+    @apply bg-gradient-to-r from-[#141B2E] via-[#1E2A42] to-[#141B2E]
+           bg-[length:200%_100%] animate-[shimmer_1.5s_infinite];
+  }
+
+  .animate-fade-in {
+    animation: fadeIn 0.3s ease-out;
+  }
+}

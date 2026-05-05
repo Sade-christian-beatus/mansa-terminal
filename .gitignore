@@ -1,0 +1,68 @@
+# ============================================================
+# MANSA TERMINAL — .gitignore
+# ============================================================
+
+# Secrets — JAMAIS dans git
+.env
+.env.local
+.env.production
+.env.staging
+*.pem
+*.key
+secrets/
+
+# Python
+__pycache__/
+*.py[cod]
+*.so
+.Python
+venv/
+env/
+.venv/
+*.egg-info/
+dist/
+build/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+htmlcov/
+.coverage
+coverage.xml
+
+# Node / Next.js
+node_modules/
+.next/
+out/
+.turbo/
+*.tsbuildinfo
+npm-debug.log*
+yarn-error.log*
+
+# Dagster
+$DAGSTER_HOME/
+dagster.db
+dagster-daemon-heartbeat.db
+
+# Données brutes (stocker sur S3 en prod)
+data/raw/
+data/downloads/
+*.csv
+*.parquet
+*.tif
+*.h5
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+
+# Docker
+*.log
+
+# Terraform
+infra/terraform/.terraform/
+infra/terraform/*.tfstate
+infra/terraform/*.tfstate.backup
+infra/terraform/.terraform.lock.hcl

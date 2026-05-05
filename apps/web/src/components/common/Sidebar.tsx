@@ -1,0 +1,168 @@
+"use client";
+
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import {
+  BarChart3, Brain, Globe, TrendingUp, Leaf,
+  Radio, Settings, CreditCard, HelpCircle,
+} from "lucide-react";
+
+const NAV_ITEMS = [
+  {
+    label: "Macro Dashboard",
+    href: "/",
+    icon: BarChart3,
+    badge: null,
+  },
+  {
+    label: "AI Analyst",
+    href: "/ai",
+    icon: Brain,
+    badge: "NEW",
+  },
+  {
+    label: "Country Deep Dive",
+    href: "/countries",
+    icon: Globe,
+    badge: null,
+  },
+  {
+    label: "Markets",
+    href: "/markets",
+    icon: TrendingUp,
+    badge: "Phase 2",
+    disabled: true,
+  },
+  {
+    label: "Climate & ESG",
+    href: "/climate",
+    icon: Leaf,
+    badge: "Phase 2",
+    disabled: true,
+  },
+  {
+    label: "HF Signals",
+    href: "/signals",
+    icon: Radio,
+    badge: "Phase 3",
+    disabled: true,
+  },
+];
+
+const BOTTOM_ITEMS = [
+  { label: "Billing", href: "/billing", icon: CreditCard },
+  { label: "Settings", href: "/settings", icon: Settings },
+  { label: "Help", href: "/help", icon: HelpCircle },
+];
+
+export function Sidebar() {
+  const pathname = usePathname();
+
+  return (
+    <aside className="w-64 bg-[#0F1629] border-r border-[#1E2A42] flex flex-col
+                      flex-shrink-0">
+      {/* Logo */}
+      <div className="px-6 py-5 border-b border-[#1E2A42]">
+        <div className="flex items-center gap-3">
+          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-[#00D4AA]
+                          to-[#3B82F6] flex items-center justify-center">
+            <span className="text-white font-bold text-xs">M</span>
+          </div>
+          <div>
+            <div className="text-white font-bold text-sm tracking-wide">
+              MANSA Terminal
+            </div>
+            <div className="text-gray-500 text-xs">Africa Intelligence</div>
+          </div>
+        </div>
+      </div>
+
+      {/* Navigation principale */}
+      <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
+        {NAV_ITEMS.map((item) => {
+          const Icon = item.icon;
+          const isActive = pathname === item.href;
+
+          if (item.disabled) {
+            return (
+              <div
+                key={item.href}
+                className="flex items-center gap-3 px-3 py-2.5 rounded-lg
+                           text-gray-600 cursor-not-allowed"
+              >
+                <Icon size={16} />
+                <span className="text-sm">{item.label}</span>
+                {item.badge && (
+                  <span className="ml-auto text-xs px-1.5 py-0.5 rounded
+                                   bg-[#1E2A42] text-gray-600">
+                    {item.badge}
+                  </span>
+                )}
+              </div>
+            );
+          }
+
+          return (
+            <Link
+              key={item.href}
+              href={item.href}
+              className={`flex items-center gap-3 px-3 py-2.5 rounded-lg
+                         transition-colors duration-150 ${
+                isActive
+                  ? "bg-[#00D4AA]/10 text-[#00D4AA]"
+                  : "text-gray-400 hover:bg-[#141B2E] hover:text-gray-200"
+              }`}
+            >
+              <Icon size={16} />
+              <span className="text-sm font-medium">{item.label}</span>
+              {item.badge && (
+                <span className={`ml-auto text-xs px-1.5 py-0.5 rounded
+                                 font-medium ${
+                  isActive
+                    ? "bg-[#00D4AA]/20 text-[#00D4AA]"
+                    : "bg-[#1E2A42] text-gray-400"
+                }`}>
+                  {item.badge}
+                </span>
+              )}
+            </Link>
+          );
+        })}
+
+        {/* Divider */}
+        <div className="border-t border-[#1E2A42] my-2 mx-1" />
+
+        {/* MEAI Index — Feature signature Phase 3 */}
+        <div className="px-3 py-3 rounded-lg bg-gradient-to-r from-[#00D4AA]/5
+                        to-[#3B82F6]/5 border border-[#1E2A42]">
+          <div className="flex items-center gap-2 mb-1">
+            <Radio size={12} className="text-[#00D4AA]" />
+            <span className="text-xs font-semibold text-[#00D4AA]">MEAI Index</span>
+          </div>
+          <p className="text-xs text-gray-500">
+            MANSA Economic Activity Index — disponible en Phase 3
+          </p>
+        </div>
+      </nav>
+
+      {/* Navigation secondaire */}
+      <div className="px-3 pb-4 border-t border-[#1E2A42] pt-3 space-y-1">
+        {BOTTOM_ITEMS.map((item) => {
+          const Icon = item.icon;
+          return (
+            <Link
+              key={item.href}
+              href={item.href}
+              className="flex items-center gap-3 px-3 py-2 rounded-lg
+                         text-gray-500 hover:text-gray-300 hover:bg-[#141B2E]
+                         transition-colors text-sm"
+            >
+              <Icon size={14} />
+              {item.label}
+            </Link>
+          );
+        })}
+      </div>
+    </aside>
+  );
+}
