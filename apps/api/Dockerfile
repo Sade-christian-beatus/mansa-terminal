@@ -25,12 +25,14 @@ CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload
 FROM base as production
 COPY . .
 
+# Rendre le script de démarrage exécutable
+RUN chmod +x start.sh
+
 # Créer utilisateur non-root
 RUN adduser --disabled-password --gecos "" mansa
 USER mansa
 
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", \
-     "--workers", "4", "--proxy-headers"]
+CMD ["sh", "start.sh"]
 
 HEALTHCHECK --interval=30s --timeout=10s --retries=3 \
   CMD curl -f http://localhost:8000/health || exit 1

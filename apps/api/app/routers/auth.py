@@ -50,26 +50,40 @@ class RefreshRequest(BaseModel):
 
 # --- Helper cookies ---
 def _set_auth_cookies(response: Response, access_token: str, refresh_token: str) -> None:
-    """Pose les cookies httpOnly sur la réponse."""
+    """
+    Pose les cookies httpOnly sur la réponse.
+
+    En production (Vercel ↔ Railway = domaines différents) :
+      - SameSite=None obligatoire pour les requêtes cross-site
+      - Secure=True obligatoire quand SameSite=None
+    En dev (même domaine localhost) :
+      - SameSite=Lax suffit, Secure=False pour HTTP
+    """
     is_prod = settings.APP_ENV == "production"
-    kwargs = dict(httponly=True, samesite="lax", secure=is_prod)
+    samesite: str = "none" if is_prod else "lax"
 
     response.set_cookie(
         "access_token", access_token,
+        httponly=True,
+        secure=is_prod,
+        samesite=samesite,
         max_age=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
-        **kwargs,
     )
     response.set_cookie(
         "refresh_token", refresh_token,
+        httponly=True,
+        secure=is_prod,
+        samesite=samesite,
         max_age=settings.REFRESH_TOKEN_EXPIRE_DAYS * 24 * 3600,
-        path="/api/auth/refresh",  # cookie envoyé uniquement au refresh endpoint
-        **kwargs,
+        path="/api/auth/refresh",
     )
-    # Cookie lisible par JS/middleware pour savoir si connecté (pas le token lui-même)
+    # Cookie lisible par JS/middleware uniquement pour savoir si connecté
     response.set_cookie(
         "mansa_auth", "1",
+        httponly=False,
+        secure=is_prod,
+        samesite=samesite,
         max_age=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
-        httponly=False, samesite="lax", secure=is_prod,
     )
 
 

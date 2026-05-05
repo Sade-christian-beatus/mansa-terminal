@@ -6,8 +6,17 @@ Toutes les variables d'environnement validées avec Pydantic
 from functools import lru_cache
 from typing import List
 
-from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+def _make_asyncpg_url(url: str) -> str:
+    """Convertit postgresql:// → postgresql+asyncpg:// (Railway fournit le format sync)."""
+    if url.startswith("postgresql://") and "+asyncpg" not in url:
+        return url.replace("postgresql://", "postgresql+asyncpg://", 1)
+    if url.startswith("postgres://"):
+        # Certains providers utilisent postgres:// (alias non standard)
+        return url.replace("postgres://", "postgresql+asyncpg://", 1)
+    return url
 
 
 class Settings(BaseSettings):
@@ -31,13 +40,24 @@ class Settings(BaseSettings):
     SECRET_KEY: str = "dev_secret_key_change_later"
     DEBUG: bool = False
 
-    # CORS
-    CORS_ORIGINS: List[str] = [
-        "http://localhost:3000",
-        "https://app.mansa.ai",
-    ]
+    # CORS — accepte une chaîne CSV ou JSON depuis l'env var
+    # Ex : CORS_ORIGINS_RAW="https://mansa.vercel.app,https://app.mansa.ai"
+    # pydantic-settings v2 JSON-parse List[str] AVANT les field_validators,
+    # donc on stocke comme str brut et on expose une propriété.
+    CORS_ORIGINS_RAW: str = "http://localhost:3000,https://app.mansa.ai"
+
+    @property
+    def cors_origins(self) -> List[str]:
+        v = self.CORS_ORIGINS_RAW.strip()
+        if not v:
+            return ["http://localhost:3000"]
+        if v.startswith("["):
+            import json
+            return json.loads(v)
+        return [u.strip() for u in v.split(",") if u.strip()]
 
     # Base de données
+    # Railway fournit DATABASE_URL au format postgresql:// — on le transforme pour asyncpg
     DATABASE_URL: str = "postgresql://mansa:mansa_dev_password@localhost:5432/mansa_db"
     DATABASE_URL_SYNC: str = ""
     DB_POOL_SIZE: int = 10
@@ -102,8 +122,16 @@ class Settings(BaseSettings):
         return self.APP_ENV == "development"
 
     @property
+    def database_url_async(self) -> str:
+        """URL asyncpg pour FastAPI — convertit le format Railway si nécessaire."""
+        return _make_asyncpg_url(self.DATABASE_URL)
+
+    @property
     def database_url_sync_value(self) -> str:
-        return self.DATABASE_URL_SYNC or self.DATABASE_URL
+        """URL psycopg2 pour Alembic."""
+        raw = self.DATABASE_URL_SYNC or self.DATABASE_URL
+        # Normaliser postgres:// → postgresql://
+        return raw.replace("postgres://", "postgresql://", 1)
 
     @field_validator("DEBUG", mode="before")
     @classmethod
