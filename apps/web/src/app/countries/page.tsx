@@ -148,7 +148,7 @@ export default function CountriesPage() {
         </div>
       ) : filtered.length === 0 ? (
         <div className="text-center py-16 text-gray-500">
-          Aucun pays trouvé pour "{search}"
+          Aucun pays trouvé pour &quot;{search}&quot;
         </div>
       ) : (
         <div className="space-y-8">
