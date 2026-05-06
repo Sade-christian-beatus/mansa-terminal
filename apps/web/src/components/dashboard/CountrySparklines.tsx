@@ -1,22 +1,23 @@
 "use client";
 
-// Re-export TopCountriesTable
 export { TopCountriesTable } from "./AfricaHeatmap";
 
-// CountrySparklines — sparklines des 5 économies clés
+import { useRouter } from "next/navigation";
 import { LineChart, Line, ResponsiveContainer, Tooltip } from "recharts";
 import { useQuery } from "@tanstack/react-query";
 import { macroApi } from "@/lib/api";
 
 const SPARKLINE_COUNTRIES = [
-  { id: "NGA", name: "Nigeria", flag: "🇳🇬" },
+  { id: "NGA", name: "Nigeria",      flag: "🇳🇬" },
   { id: "ZAF", name: "South Africa", flag: "🇿🇦" },
-  { id: "EGY", name: "Egypt", flag: "🇪🇬" },
-  { id: "KEN", name: "Kenya", flag: "🇰🇪" },
-  { id: "ETH", name: "Ethiopia", flag: "🇪🇹" },
+  { id: "EGY", name: "Egypt",        flag: "🇪🇬" },
+  { id: "KEN", name: "Kenya",        flag: "🇰🇪" },
+  { id: "ETH", name: "Ethiopia",     flag: "🇪🇹" },
 ];
 
 function SparklineCard({ country }: { country: typeof SPARKLINE_COUNTRIES[0] }) {
+  const router = useRouter();
+
   const { data, isLoading } = useQuery({
     queryKey: ["sparkline", country.id],
     queryFn: () =>
@@ -28,7 +29,7 @@ function SparklineCard({ country }: { country: typeof SPARKLINE_COUNTRIES[0] }) 
     staleTime: 1000 * 60 * 60,
   });
 
-  const chartData = (data?.indicators?.NGDP_RPCH || []).map((p: any) => ({
+  const chartData = (data?.indicators?.NGDP_RPCH || []).map((p: { period: string; value: number }) => ({
     year: p.period,
     value: p.value,
   }));
@@ -37,7 +38,11 @@ function SparklineCard({ country }: { country: typeof SPARKLINE_COUNTRIES[0] }) 
   const isPositive = (latest ?? 0) >= 0;
 
   return (
-    <div className="mansa-card mansa-card-hover rounded-xl p-4 cursor-pointer">
+    <div
+      onClick={() => router.push(`/countries/${country.id}`)}
+      className="mansa-card mansa-card-hover rounded-xl p-4 cursor-pointer
+                 hover:border-[#00D4AA]/40 transition-all"
+    >
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2">
           <span className="text-lg">{country.flag}</span>
@@ -72,14 +77,16 @@ function SparklineCard({ country }: { country: typeof SPARKLINE_COUNTRIES[0] }) 
                 fontSize: "12px",
               }}
               itemStyle={{ color: "#94A3B8" }}
-              formatter={(v: number) => [`${v.toFixed(2)}%`, "GDP Growth"]}
-              labelFormatter={(l) => `Year: ${l}`}
+              formatter={(v: number) => [`${v.toFixed(2)}%`, "Croissance PIB"]}
+              labelFormatter={(l) => `Année: ${l}`}
             />
           </LineChart>
         </ResponsiveContainer>
       )}
 
-      <p className="text-xs text-gray-600 mt-2">GDP Real Growth · IMF WEO</p>
+      <p className="text-[10px] text-gray-600 mt-2">
+        Croissance PIB réel · FMI WEO
+      </p>
     </div>
   );
 }
@@ -87,9 +94,8 @@ function SparklineCard({ country }: { country: typeof SPARKLINE_COUNTRIES[0] }) 
 export function CountrySparklines() {
   return (
     <div>
-      <h2 className="text-sm font-semibold text-gray-400 mb-3 uppercase
-                     tracking-wider">
-        Top Economies — GDP Growth Trend
+      <h2 className="text-sm font-semibold text-gray-400 mb-3 uppercase tracking-wider">
+        Top Économies — Tendance croissance PIB
       </h2>
       <div className="grid grid-cols-5 gap-4">
         {SPARKLINE_COUNTRIES.map((c) => (
