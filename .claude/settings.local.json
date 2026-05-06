@@ -1,7 +1,14 @@
 {
   "permissions": {
     "allow": [
-      "Bash(npm run *)"
+      "Bash(npm run *)",
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)",
+      "Bash(git push *)",
+      "Bash(git config *)",
+      "Bash(curl -s -X POST https://api.github.com/repos/Sade-christian-beatus/mansa-terminal/pulls -H 'Authorization: token __CMDSUB_OUTPUT__' -H 'Accept: application/vnd.github+json' -H 'X-GitHub-Api-Version: 2022-11-28' -d '{ *)",
+      "Bash(docker compose *)",
+      "Bash(pip show *)"
     ]
   }
 }

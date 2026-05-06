@@ -98,6 +98,18 @@ export const aiApi = {
     api.get("/ai/history", { params: { limit } }),
 };
 
+// ---- Helpers Markets ----
+export const marketsApi = {
+  getFxRates:   () => api.get("/markets/fx"),
+  getIndices:   () => api.get("/markets/indices"),
+};
+
+// ---- Helpers Climate ----
+export const climateApi = {
+  getIndicators: (year?: number) => api.get("/climate/indicators", { params: { year } }),
+  getSummary:    () => api.get("/climate/summary"),
+};
+
 // ---- Helper AI Analyst (streaming SSE) ----
 export async function* streamAIQuery(
   question: string

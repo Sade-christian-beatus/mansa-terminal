@@ -18,8 +18,8 @@ export function Sidebar() {
     { labelKey: "nav_ai"        as const, href: "/ai",       icon: Brain,     badge: "NEW" },
     { labelKey: "nav_countries"   as const, href: "/countries",   icon: Globe,     badge: null },
     { labelKey: "nav_indicators"  as const, href: "/indicators",  icon: Database,  badge: null },
-    { labelKey: "nav_markets"     as const, href: "/markets",     icon: TrendingUp,badge: "Phase 2", disabled: true },
-    { labelKey: "nav_climate"   as const, href: "/climate",  icon: Leaf,      badge: "Phase 2", disabled: true },
+    { labelKey: "nav_markets"     as const, href: "/markets",     icon: TrendingUp, badge: null },
+    { labelKey: "nav_climate"     as const, href: "/climate",     icon: Leaf,       badge: null },
     { labelKey: "nav_signals"   as const, href: "/signals",  icon: Radio,     badge: "Phase 3", disabled: true },
   ];
 
