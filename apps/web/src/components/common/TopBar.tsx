@@ -3,9 +3,12 @@
 import { useState } from "react";
 import { Search, Bell, User, LogOut } from "lucide-react";
 import { useAuthStore } from "@/lib/auth-store";
+import { useLangStore } from "@/lib/lang-store";
+import { t } from "@/lib/translations";
 
 export function TopBar() {
   const { email, fullName, logout } = useAuthStore();
+  const locale = useLangStore((s) => s.locale);
   const [menuOpen, setMenuOpen] = useState(false);
 
   const displayName = fullName || email?.split("@")[0] || "Utilisateur";
@@ -19,7 +22,7 @@ export function TopBar() {
         <Search size={14} className="text-gray-500" />
         <input
           type="text"
-          placeholder="Rechercher un pays, un indicateur..."
+          placeholder={t("topbar_search", locale)}
           className="bg-transparent text-sm text-gray-300 placeholder-gray-600
                      focus:outline-none w-full"
         />
@@ -32,7 +35,7 @@ export function TopBar() {
         {/* Data freshness indicator */}
         <div className="flex items-center gap-2 text-xs text-gray-500">
           <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-          <span>Data: IMF · 2024</span>
+          <span>{t("topbar_data", locale)}</span>
         </div>
 
         {/* Notifications */}
@@ -63,7 +66,6 @@ export function TopBar() {
 
           {menuOpen && (
             <>
-              {/* Overlay pour fermer le menu */}
               <div
                 className="fixed inset-0 z-10"
                 onClick={() => setMenuOpen(false)}
@@ -71,15 +73,12 @@ export function TopBar() {
               <div className="absolute right-0 top-10 z-20 w-48 bg-[#0F1629]
                               border border-[#1E2A42] rounded-xl shadow-xl py-1">
                 <button
-                  onClick={() => {
-                    setMenuOpen(false);
-                    logout();
-                  }}
+                  onClick={() => { setMenuOpen(false); logout(); }}
                   className="w-full flex items-center gap-2 px-4 py-2.5 text-sm
                              text-red-400 hover:bg-red-400/10 transition-colors"
                 >
                   <LogOut size={14} />
-                  Se déconnecter
+                  {t("topbar_logout", locale)}
                 </button>
               </div>
             </>

@@ -11,19 +11,27 @@ import { macroApi } from "@/lib/api";
 import { ErrorCard } from "@/components/common/ErrorCard";
 
 const INDICATOR_META: Record<string, { label: string; unit: string; color: string }> = {
-  NGDP_RPCH:   { label: "GDP Real Growth",       unit: "%",      color: "#00D4AA" },
-  PCPIPCH:     { label: "Inflation CPI",          unit: "%",      color: "#F59E0B" },
-  GGXCNL_NGDP: { label: "Fiscal Balance",         unit: "% PIB",  color: "#3B82F6" },
+  NGDP_RPCH:   { label: "Croissance PIB réel",   unit: "%",      color: "#00D4AA" },
+  PCPIPCH:     { label: "Inflation IPC",          unit: "%",      color: "#F59E0B" },
+  GGXCNL_NGDP: { label: "Solde budgétaire",       unit: "% PIB",  color: "#3B82F6" },
   GGXWDG_NGDP: { label: "Dette publique",         unit: "% PIB",  color: "#8B5CF6" },
   BCA_NGDPD:   { label: "Compte courant",         unit: "% PIB",  color: "#EC4899" },
   NGDPDPC:     { label: "PIB par habitant",       unit: "USD",    color: "#10B981" },
   LUR:         { label: "Taux de chômage",        unit: "%",      color: "#EF4444" },
 };
 
+const REGION_LABELS: Record<string, string> = {
+  "West Africa": "Afrique de l'Ouest",
+  "East Africa": "Afrique de l'Est",
+  "North Africa": "Afrique du Nord",
+  "Central Africa": "Afrique Centrale",
+  "Southern Africa": "Afrique Australe",
+};
+
 const TIER_LABEL: Record<number, { label: string; color: string }> = {
-  1: { label: "Full Coverage",     color: "text-emerald-400 bg-emerald-400/10 border-emerald-400/20" },
-  2: { label: "Moderate Coverage", color: "text-amber-400 bg-amber-400/10 border-amber-400/20" },
-  3: { label: "Basic Coverage",    color: "text-gray-400 bg-gray-400/10 border-gray-400/20" },
+  1: { label: "Couverture complète",  color: "text-emerald-400 bg-emerald-400/10 border-emerald-400/20" },
+  2: { label: "Couverture modérée",   color: "text-amber-400 bg-amber-400/10 border-amber-400/20" },
+  3: { label: "Couverture basique",   color: "text-gray-400 bg-gray-400/10 border-gray-400/20" },
 };
 
 function KPICard({
@@ -45,7 +53,7 @@ function KPICard({
         <div className={`flex items-center gap-1 mt-1 text-xs font-mono
                          ${trendPositive ? "text-emerald-400" : "text-red-400"}`}>
           {trendPositive ? <TrendingUp size={12} /> : <TrendingDown size={12} />}
-          {trendPositive ? "+" : ""}{trend.toFixed(1)}{unit !== "USD" ? unit : "%"} vs prev.
+          {trendPositive ? "+" : ""}{trend.toFixed(1)}{unit !== "USD" ? unit : "%"} vs an préc.
         </div>
       )}
     </div>
@@ -188,7 +196,9 @@ export default function CountryDetailPage() {
                 {countryId}
               </span>
               {meta?.region && (
-                <span className="text-xs text-gray-500">{meta.region}</span>
+                <span className="text-xs text-gray-500">
+                  {REGION_LABELS[meta.region] ?? meta.region}
+                </span>
               )}
               {meta?.currency_code && (
                 <span className="text-xs text-gray-500 font-mono">
@@ -215,9 +225,9 @@ export default function CountryDetailPage() {
         </div>
       ) : (
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-          <KPICard label="GDP Growth" value={gdp.latest} unit="%" trend={gdp.trend} />
+          <KPICard label="Croissance PIB" value={gdp.latest} unit="%" trend={gdp.trend} />
           <KPICard label="Inflation" value={inf.latest} unit="%" trend={inf.trend} />
-          <KPICard label="Fiscal Balance" value={fis.latest} unit="% PIB" trend={fis.trend} />
+          <KPICard label="Solde budgétaire" value={fis.latest} unit="% PIB" trend={fis.trend} />
           <KPICard label="Dette publique" value={dbt.latest} unit="% PIB" trend={dbt.trend} />
         </div>
       )}
@@ -250,7 +260,7 @@ export default function CountryDetailPage() {
 
       {/* Source */}
       <p className="text-xs text-gray-700 pb-4">
-        Sources : IMF World Economic Outlook · World Bank WDI · MANSA Terminal
+        Sources : FMI World Economic Outlook · Banque Mondiale WDI · MANSA Terminal
       </p>
     </div>
   );

@@ -67,7 +67,18 @@ async def get_active_subscription(
     current_user: Annotated[User, Depends(get_current_active_user)],
     db: AsyncSession = Depends(get_db),
 ) -> Subscription:
-    """Retourne l'objet Subscription actif de l'utilisateur, ou 402 si absent."""
+    """Retourne l'objet Subscription actif de l'utilisateur, ou 402 si absent.
+    En mode development, retourne un abonnement fictif pour les tests locaux."""
+    from app.core.config import settings
+    if settings.APP_ENV == "development":
+        fake_sub = Subscription()
+        fake_sub.user_id = current_user.id
+        fake_sub.plan = "professional"
+        fake_sub.status = "active"
+        fake_sub.seats = 5
+        fake_sub.is_active = True
+        return fake_sub
+
     result = await db.execute(
         select(Subscription).where(
             Subscription.user_id == current_user.id,
@@ -87,7 +98,12 @@ async def require_active_subscription(
     current_user: Annotated[User, Depends(get_current_active_user)],
     db: AsyncSession = Depends(get_db),
 ) -> User:
-    """Vérifie que l'utilisateur a un abonnement actif (retourne User)"""
+    """Vérifie que l'utilisateur a un abonnement actif (retourne User).
+    En mode development, le check est bypassé pour faciliter les tests locaux."""
+    from app.core.config import settings
+    if settings.APP_ENV == "development":
+        return current_user
+
     result = await db.execute(
         select(Subscription).where(
             Subscription.user_id == current_user.id,

@@ -6,57 +6,27 @@ import {
   BarChart3, Brain, Globe, TrendingUp, Leaf,
   Radio, Settings, CreditCard, HelpCircle,
 } from "lucide-react";
-
-const NAV_ITEMS = [
-  {
-    label: "Macro Dashboard",
-    href: "/",
-    icon: BarChart3,
-    badge: null,
-  },
-  {
-    label: "AI Analyst",
-    href: "/ai",
-    icon: Brain,
-    badge: "NEW",
-  },
-  {
-    label: "Country Deep Dive",
-    href: "/countries",
-    icon: Globe,
-    badge: null,
-  },
-  {
-    label: "Markets",
-    href: "/markets",
-    icon: TrendingUp,
-    badge: "Phase 2",
-    disabled: true,
-  },
-  {
-    label: "Climate & ESG",
-    href: "/climate",
-    icon: Leaf,
-    badge: "Phase 2",
-    disabled: true,
-  },
-  {
-    label: "HF Signals",
-    href: "/signals",
-    icon: Radio,
-    badge: "Phase 3",
-    disabled: true,
-  },
-];
-
-const BOTTOM_ITEMS = [
-  { label: "Billing", href: "/billing", icon: CreditCard },
-  { label: "Settings", href: "/settings", icon: Settings },
-  { label: "Help", href: "/help", icon: HelpCircle },
-];
+import { useLangStore } from "@/lib/lang-store";
+import { t } from "@/lib/translations";
 
 export function Sidebar() {
   const pathname = usePathname();
+  const locale = useLangStore((s) => s.locale);
+
+  const NAV_ITEMS = [
+    { labelKey: "nav_dashboard" as const, href: "/",         icon: BarChart3, badge: null },
+    { labelKey: "nav_ai"        as const, href: "/ai",       icon: Brain,     badge: "NEW" },
+    { labelKey: "nav_countries" as const, href: "/countries",icon: Globe,     badge: null },
+    { labelKey: "nav_markets"   as const, href: "/markets",  icon: TrendingUp,badge: "Phase 2", disabled: true },
+    { labelKey: "nav_climate"   as const, href: "/climate",  icon: Leaf,      badge: "Phase 2", disabled: true },
+    { labelKey: "nav_signals"   as const, href: "/signals",  icon: Radio,     badge: "Phase 3", disabled: true },
+  ];
+
+  const BOTTOM_ITEMS = [
+    { labelKey: "nav_billing"  as const, href: "/billing",  icon: CreditCard },
+    { labelKey: "nav_settings" as const, href: "/settings", icon: Settings },
+    { labelKey: "nav_help"     as const, href: "/help",     icon: HelpCircle },
+  ];
 
   return (
     <aside className="w-64 bg-[#0F1629] border-r border-[#1E2A42] flex flex-col
@@ -82,6 +52,7 @@ export function Sidebar() {
         {NAV_ITEMS.map((item) => {
           const Icon = item.icon;
           const isActive = pathname === item.href;
+          const label = t(item.labelKey, locale);
 
           if (item.disabled) {
             return (
@@ -91,7 +62,7 @@ export function Sidebar() {
                            text-gray-600 cursor-not-allowed"
               >
                 <Icon size={16} />
-                <span className="text-sm">{item.label}</span>
+                <span className="text-sm">{label}</span>
                 {item.badge && (
                   <span className="ml-auto text-xs px-1.5 py-0.5 rounded
                                    bg-[#1E2A42] text-gray-600">
@@ -114,7 +85,7 @@ export function Sidebar() {
               }`}
             >
               <Icon size={16} />
-              <span className="text-sm font-medium">{item.label}</span>
+              <span className="text-sm font-medium">{label}</span>
               {item.badge && (
                 <span className={`ml-auto text-xs px-1.5 py-0.5 rounded
                                  font-medium ${
@@ -132,16 +103,16 @@ export function Sidebar() {
         {/* Divider */}
         <div className="border-t border-[#1E2A42] my-2 mx-1" />
 
-        {/* MEAI Index — Feature signature Phase 3 */}
+        {/* MEAI Index */}
         <div className="px-3 py-3 rounded-lg bg-gradient-to-r from-[#00D4AA]/5
                         to-[#3B82F6]/5 border border-[#1E2A42]">
           <div className="flex items-center gap-2 mb-1">
             <Radio size={12} className="text-[#00D4AA]" />
-            <span className="text-xs font-semibold text-[#00D4AA]">MEAI Index</span>
+            <span className="text-xs font-semibold text-[#00D4AA]">
+              {t("meai_label", locale)}
+            </span>
           </div>
-          <p className="text-xs text-gray-500">
-            MANSA Economic Activity Index — disponible en Phase 3
-          </p>
+          <p className="text-xs text-gray-500">{t("meai_desc", locale)}</p>
         </div>
       </nav>
 
@@ -158,7 +129,7 @@ export function Sidebar() {
                          transition-colors text-sm"
             >
               <Icon size={14} />
-              {item.label}
+              {t(item.labelKey, locale)}
             </Link>
           );
         })}

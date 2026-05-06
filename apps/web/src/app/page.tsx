@@ -9,11 +9,11 @@ import { useQuery } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 
 const INDICATORS = [
-  { code: "NGDP_RPCH", label: "GDP Growth" },
-  { code: "PCPIPCH", label: "Inflation" },
-  { code: "GGXCNL_NGDP", label: "Fiscal Balance" },
-  { code: "GGXWDG_NGDP", label: "Public Debt" },
-  { code: "BCA_NGDPD", label: "Current Account" },
+  { code: "NGDP_RPCH", label: "Croissance PIB réel" },
+  { code: "PCPIPCH", label: "Inflation IPC" },
+  { code: "GGXCNL_NGDP", label: "Solde budgétaire" },
+  { code: "GGXWDG_NGDP", label: "Dette publique" },
+  { code: "BCA_NGDPD", label: "Compte courant" },
 ];
 
 export default function DashboardPage() {
@@ -33,10 +33,10 @@ export default function DashboardPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-white">
-            Africa Macro Dashboard
+            Tableau de bord macro-africain
           </h1>
           <p className="text-gray-400 text-sm mt-1">
-            54 economies · Real-time data · IMF / World Bank
+            54 économies · Données temps réel · FMI / Banque Mondiale
           </p>
         </div>
         <div className="flex items-center gap-3">

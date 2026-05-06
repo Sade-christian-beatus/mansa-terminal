@@ -17,24 +17,26 @@ interface Country {
   flag_emoji: string | null;
 }
 
-const REGIONS = [
-  "All",
-  "West Africa",
-  "East Africa",
-  "North Africa",
-  "Central Africa",
-  "Southern Africa",
-];
+// Valeurs DB en anglais → libellés FR pour l'affichage
+const REGION_LABELS: Record<string, string> = {
+  "All": "Tous",
+  "West Africa": "Afrique de l'Ouest",
+  "East Africa": "Afrique de l'Est",
+  "North Africa": "Afrique du Nord",
+  "Central Africa": "Afrique Centrale",
+  "Southern Africa": "Afrique Australe",
+};
+const REGIONS = Object.keys(REGION_LABELS);
 
 const TIER_LABEL: Record<number, { label: string; color: string }> = {
-  1: { label: "Full", color: "text-emerald-400 bg-emerald-400/10" },
-  2: { label: "Moderate", color: "text-amber-400 bg-amber-400/10" },
-  3: { label: "Basic", color: "text-gray-400 bg-gray-400/10" },
+  1: { label: "Complet", color: "text-emerald-400 bg-emerald-400/10" },
+  2: { label: "Modéré", color: "text-amber-400 bg-amber-400/10" },
+  3: { label: "Basique", color: "text-gray-400 bg-gray-400/10" },
 };
 
 export default function CountriesPage() {
   const [search, setSearch] = useState("");
-  const [selectedRegion, setSelectedRegion] = useState("All");
+  const [selectedRegion, setSelectedRegion] = useState<string>("All");
 
   const { data: countries = [], isLoading } = useQuery<Country[]>({
     queryKey: ["countries"],
@@ -74,10 +76,10 @@ export default function CountriesPage() {
         <div>
           <h1 className="text-2xl font-bold text-white flex items-center gap-3">
             <Globe size={22} className="text-[#00D4AA]" />
-            Country Coverage
+            Couverture des pays
           </h1>
           <p className="text-gray-400 text-sm mt-1">
-            {countries.length} économies africaines · IMF / World Bank · Tiers 1–3
+            {countries.length} économies africaines · FMI / Banque Mondiale · Niveaux 1–3
           </p>
         </div>
 
@@ -129,7 +131,7 @@ export default function CountriesPage() {
                     : "bg-[#0F1629] border border-[#1E2A42] text-gray-400 hover:text-gray-200"
                 }`}
               >
-                {r === "All" ? "Tous" : r.split(" ")[0]}
+                {r === "All" ? "Tous" : REGION_LABELS[r]?.split(" ")[0] ?? r}
               </button>
             ))}
           </div>
@@ -157,7 +159,7 @@ export default function CountriesPage() {
             .map(([region, regionCountries]) => (
               <div key={region}>
                 <div className="flex items-center gap-2 mb-3">
-                  <h2 className="text-sm font-semibold text-gray-300">{region}</h2>
+                  <h2 className="text-sm font-semibold text-gray-300">{REGION_LABELS[region] ?? region}</h2>
                   <span className="text-xs text-gray-600">
                     ({regionCountries.length})
                   </span>
