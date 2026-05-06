@@ -21,7 +21,7 @@ from app.core.limiter import limiter
 from app.models.models import User, Subscription, AIQuery, KnowledgeDocument, MacroIndicator
 
 router = APIRouter()
-client = anthropic.Anthropic(api_key=settings.ANTHROPIC_API_KEY)
+client = anthropic.AsyncAnthropic(api_key=settings.ANTHROPIC_API_KEY)
 
 # Pays africains pour extraction automatique
 AFRICAN_COUNTRIES = {
@@ -192,42 +192,44 @@ async def query_ai_analyst(
         output_tokens = 0
 
         try:
-            with client.messages.stream(
+            async with client.messages.stream(
                 model=settings.ANTHROPIC_MODEL_ID,
                 max_tokens=settings.ANTHROPIC_MAX_TOKENS,
                 system=SYSTEM_PROMPT,
                 messages=[{"role": "user", "content": full_prompt}],
             ) as stream:
-                for text in stream.text_stream:
+                async for text in stream.text_stream:
                     full_response.append(text)
-                    # Format SSE
                     yield f"data: {json.dumps({'type': 'text', 'content': text})}\n\n"
-
-                # Récupérer les métriques d'usage
-                message = stream.get_final_message()
+                # get_final_message() doit être appelé dans le bloc async with
+                message = await stream.get_final_message()
                 input_tokens = message.usage.input_tokens
                 output_tokens = message.usage.output_tokens
 
-        except anthropic.APIError as e:
+        except Exception as e:
             yield f"data: {json.dumps({'type': 'error', 'content': str(e)})}\n\n"
             return
 
-        # Sauvegarder la requête en base
+        # Sauvegarder la requête en base (dans un try séparé pour ne pas perdre le stream)
         duration_ms = int((time.time() - start_time) * 1000)
-        ai_query = AIQuery(
-            user_id=sub.user_id,
-            question=body.question,
-            response="".join(full_response),
-            input_tokens=input_tokens,
-            output_tokens=output_tokens,
-            countries_mentioned=countries,
-            duration_ms=duration_ms,
-        )
-        db.add(ai_query)
-        await db.commit()
+        query_id = ""
+        try:
+            ai_query = AIQuery(
+                user_id=sub.user_id,
+                question=body.question,
+                response="".join(full_response),
+                input_tokens=input_tokens,
+                output_tokens=output_tokens,
+                countries_mentioned=countries,
+                duration_ms=duration_ms,
+            )
+            db.add(ai_query)
+            await db.commit()
+            query_id = str(ai_query.id)
+        except Exception:
+            pass  # La réponse a déjà été streamée — ne pas bloquer le signal done
 
-        # Signal de fin
-        yield f"data: {json.dumps({'type': 'done', 'query_id': str(ai_query.id)})}\n\n"
+        yield f"data: {json.dumps({'type': 'done', 'query_id': query_id})}\n\n"
 
     return StreamingResponse(
         generate(),

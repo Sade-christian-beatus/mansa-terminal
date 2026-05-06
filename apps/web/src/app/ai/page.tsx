@@ -111,6 +111,12 @@ export default function AIAnalystPage() {
       );
     } finally {
       setIsLoading(false);
+      // Garantit que isStreaming est false même si aucun chunk "done" n'est reçu
+      setMessages((prev) =>
+        prev.map((m) =>
+          m.id === assistantMessage.id ? { ...m, isStreaming: false } : m
+        )
+      );
     }
   };
 

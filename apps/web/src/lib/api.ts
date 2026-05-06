@@ -105,7 +105,7 @@ export async function* streamAIQuery(
   const response = await fetch(`${API_URL}/api/ai/query`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    credentials: "include", // cookies httpOnly envoyés automatiquement
+    credentials: "include",
     body: JSON.stringify({ question }),
   });
 
@@ -114,24 +114,35 @@ export async function* streamAIQuery(
   }
 
   const reader = response.body?.getReader();
-  const decoder = new TextDecoder();
+  const decoder = new TextDecoder("utf-8", { fatal: false });
 
   if (!reader) return;
+
+  // Buffer les lignes incomplètes entre chunks TCP.
+  // Sans ça, une ligne SSE coupée entre deux reads échoue silencieusement
+  // et l'assistant reste vide (isStreaming bloqué).
+  let buffer = "";
 
   while (true) {
     const { done, value } = await reader.read();
     if (done) break;
 
-    const chunk = decoder.decode(value);
-    const lines = chunk.split("\n").filter((l) => l.startsWith("data: "));
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split("\n");
+    buffer = lines.pop() ?? ""; // ligne potentiellement incomplète → reste dans le buffer
 
     for (const line of lines) {
+      if (!line.startsWith("data: ")) continue;
       try {
-        const data = JSON.parse(line.slice(6));
-        yield data;
+        yield JSON.parse(line.slice(6));
       } catch {
-        // Ignorer les lignes malformées
+        // ignorer les lignes malformées
       }
     }
+  }
+
+  // Traiter ce qui reste dans le buffer après fermeture
+  if (buffer.startsWith("data: ")) {
+    try { yield JSON.parse(buffer.slice(6)); } catch { /* ignorer */ }
   }
 }

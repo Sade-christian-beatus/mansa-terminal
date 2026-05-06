@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
-const PUBLIC_PATHS = ["/auth/login", "/auth/register"];
+const PUBLIC_PATHS = ["/auth/login", "/auth/register", "/auth/verify-email"];
 
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
@@ -10,12 +10,13 @@ export function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  // Le token JWT est stocké en localStorage (côté client uniquement).
-  // Le middleware Edge ne peut pas lire localStorage → on utilise un cookie
-  // "mansa_auth" posé par le frontend après connexion réussie.
-  const authCookie = request.cookies.get("mansa_auth");
+  // mansa_auth : cookie non-httpOnly posé au login, dure autant que le refresh token.
+  // access_token : cookie httpOnly, utilisé comme fallback si mansa_auth absent.
+  const hasSession =
+    request.cookies.get("mansa_auth")?.value ||
+    request.cookies.get("access_token")?.value;
 
-  if (!authCookie?.value) {
+  if (!hasSession) {
     const loginUrl = new URL("/auth/login", request.url);
     loginUrl.searchParams.set("next", pathname);
     return NextResponse.redirect(loginUrl);

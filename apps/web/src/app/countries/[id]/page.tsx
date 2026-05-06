@@ -243,7 +243,7 @@ export default function CountryDetailPage() {
               <div key={i} className="mansa-card rounded-xl p-4 h-52 skeleton" />
             ))}
           </div>
-        ) : (
+        ) : Object.values(macro?.indicators ?? {}).some((pts) => (pts as []).length > 0) ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {Object.entries(macro?.indicators ?? {}).map(([code, pts]) =>
               (pts as { period: string; value: number }[]).length > 0 ? (
@@ -254,6 +254,16 @@ export default function CountryDetailPage() {
                 />
               ) : null
             )}
+          </div>
+        ) : (
+          <div className="mansa-card rounded-xl p-8 text-center">
+            <p className="text-gray-400 text-sm font-medium mb-1">
+              Aucune série temporelle disponible pour ce pays.
+            </p>
+            <p className="text-gray-600 text-xs">
+              Les données macro-fiscales sont chargées par les pipelines Dagster (IMF WEO · World Bank WDI).
+              Lancez <code className="text-[#00D4AA] bg-[#00D4AA]/10 px-1 rounded">dagster job execute -j full_historical_refresh</code> pour les charger.
+            </p>
           </div>
         )}
       </div>

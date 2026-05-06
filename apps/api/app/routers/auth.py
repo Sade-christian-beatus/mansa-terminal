@@ -78,12 +78,14 @@ def _set_auth_cookies(response: Response, access_token: str, refresh_token: str)
         path="/api/auth/refresh",
     )
     # Cookie lisible par JS/middleware uniquement pour savoir si connecté
+    # Dure aussi longtemps que le refresh token (pas l'access token) pour
+    # que le middleware laisse passer l'utilisateur même après expiration de l'access token.
     response.set_cookie(
         "mansa_auth", "1",
         httponly=False,
         secure=is_prod,
         samesite=samesite,
-        max_age=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
+        max_age=settings.REFRESH_TOKEN_EXPIRE_DAYS * 24 * 3600,
     )
 
 
