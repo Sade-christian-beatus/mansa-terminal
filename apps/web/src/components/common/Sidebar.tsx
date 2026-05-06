@@ -40,10 +40,10 @@ export function Sidebar() {
             <span className="text-white font-bold text-xs">M</span>
           </div>
           <div>
-            <div className="text-white font-bold text-sm tracking-wide">
+            <div className="text-white font-bold text-sm tracking-wide" translate="no">
               MANSA Terminal
             </div>
-            <div className="text-gray-500 text-xs">Africa Intelligence</div>
+            <div className="text-gray-500 text-xs" translate="no">Africa Intelligence</div>
           </div>
         </div>
       </div>
