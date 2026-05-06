@@ -4,8 +4,9 @@ const translations = {
   // ── Sidebar ──────────────────────────────────────────────────────────
   nav_dashboard:   { fr: "Tableau de bord", en: "Dashboard" },
   nav_ai:          { fr: "IA Analyst",      en: "AI Analyst" },
-  nav_countries:   { fr: "Analyse pays",    en: "Country Deep Dive" },
-  nav_markets:     { fr: "Marchés",         en: "Markets" },
+  nav_countries:    { fr: "Analyse pays",    en: "Country Deep Dive" },
+  nav_indicators:   { fr: "Indicateurs",    en: "Indicators" },
+  nav_markets:      { fr: "Marchés",        en: "Markets" },
   nav_climate:     { fr: "Climat & ESG",   en: "Climate & ESG" },
   nav_signals:     { fr: "Signaux HF",      en: "HF Signals" },
   nav_billing:     { fr: "Facturation",     en: "Billing" },

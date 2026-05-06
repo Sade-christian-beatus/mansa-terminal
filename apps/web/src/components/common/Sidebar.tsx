@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
-  BarChart3, Brain, Globe, TrendingUp, Leaf,
+  BarChart3, Brain, Globe, Database, TrendingUp, Leaf,
   Radio, Settings, CreditCard, HelpCircle,
 } from "lucide-react";
 import { useLangStore } from "@/lib/lang-store";
@@ -16,8 +16,9 @@ export function Sidebar() {
   const NAV_ITEMS = [
     { labelKey: "nav_dashboard" as const, href: "/",         icon: BarChart3, badge: null },
     { labelKey: "nav_ai"        as const, href: "/ai",       icon: Brain,     badge: "NEW" },
-    { labelKey: "nav_countries" as const, href: "/countries",icon: Globe,     badge: null },
-    { labelKey: "nav_markets"   as const, href: "/markets",  icon: TrendingUp,badge: "Phase 2", disabled: true },
+    { labelKey: "nav_countries"   as const, href: "/countries",   icon: Globe,     badge: null },
+    { labelKey: "nav_indicators"  as const, href: "/indicators",  icon: Database,  badge: null },
+    { labelKey: "nav_markets"     as const, href: "/markets",     icon: TrendingUp,badge: "Phase 2", disabled: true },
     { labelKey: "nav_climate"   as const, href: "/climate",  icon: Leaf,      badge: "Phase 2", disabled: true },
     { labelKey: "nav_signals"   as const, href: "/signals",  icon: Radio,     badge: "Phase 3", disabled: true },
   ];

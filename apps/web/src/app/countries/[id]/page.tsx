@@ -6,19 +6,46 @@ import {
   LineChart, Line, XAxis, YAxis, CartesianGrid,
   Tooltip, ResponsiveContainer,
 } from "recharts";
-import { ArrowLeft, TrendingUp, TrendingDown, Minus } from "lucide-react";
+import { ArrowLeft, TrendingUp, TrendingDown } from "lucide-react";
 import { macroApi } from "@/lib/api";
 import { ErrorCard } from "@/components/common/ErrorCard";
+import { CATALOG_BY_ID } from "@/lib/indicator-catalog";
 
-const INDICATOR_META: Record<string, { label: string; unit: string; color: string }> = {
-  NGDP_RPCH:   { label: "Croissance PIB réel",   unit: "%",      color: "#00D4AA" },
-  PCPIPCH:     { label: "Inflation IPC",          unit: "%",      color: "#F59E0B" },
-  GGXCNL_NGDP: { label: "Solde budgétaire",       unit: "% PIB",  color: "#3B82F6" },
-  GGXWDG_NGDP: { label: "Dette publique",         unit: "% PIB",  color: "#8B5CF6" },
-  BCA_NGDPD:   { label: "Compte courant",         unit: "% PIB",  color: "#EC4899" },
-  NGDPDPC:     { label: "PIB par habitant",       unit: "USD",    color: "#10B981" },
-  LUR:         { label: "Taux de chômage",        unit: "%",      color: "#EF4444" },
+const INDICATOR_COLORS: Record<string, string> = {
+  NGDP_RPCH:   "#00D4AA",
+  PCPIPCH:     "#F59E0B",
+  GGXCNL_NGDP: "#3B82F6",
+  GGXWDG_NGDP: "#8B5CF6",
+  BCA_NGDPD:   "#EC4899",
+  NGDPDPC:     "#10B981",
+  LUR:         "#EF4444",
 };
+
+function getIndicatorMeta(code: string) {
+  const ind = CATALOG_BY_ID[code];
+  if (ind) {
+    const unitMap: Record<string, string> = {
+      "gdp_growth": "%", "inflation_cpi": "%", "fiscal_balance": "% PIB",
+      "public_debt": "% PIB", "current_account": "% PIB", "gdp_per_capita": "USD",
+      "unemployment": "%",
+    };
+    const unit =
+      code === "NGDPDPC" ? "USD" :
+      code.endsWith("_NGDP") || code.endsWith("_NGDPD") ? "% PIB" : "%";
+    return { label: ind.name_fr, unit, color: INDICATOR_COLORS[code] ?? "#00D4AA" };
+  }
+  const fallback: Record<string, { label: string; unit: string }> = {
+    NGDP_RPCH:   { label: "Croissance PIB réel",  unit: "%" },
+    PCPIPCH:     { label: "Inflation IPC",         unit: "%" },
+    GGXCNL_NGDP: { label: "Solde budgétaire",      unit: "% PIB" },
+    GGXWDG_NGDP: { label: "Dette publique",        unit: "% PIB" },
+    BCA_NGDPD:   { label: "Compte courant",        unit: "% PIB" },
+    NGDPDPC:     { label: "PIB par habitant",      unit: "USD" },
+    LUR:         { label: "Taux de chômage",       unit: "%" },
+  };
+  const fb = fallback[code];
+  return { label: fb?.label ?? code, unit: fb?.unit ?? "", color: INDICATOR_COLORS[code] ?? "#00D4AA" };
+}
 
 const REGION_LABELS: Record<string, string> = {
   "West Africa": "Afrique de l'Ouest",
@@ -66,7 +93,7 @@ function IndicatorChart({
   code: string;
   points: { period: string; value: number }[];
 }) {
-  const meta = INDICATOR_META[code] ?? { label: code, unit: "", color: "#00D4AA" };
+  const meta = getIndicatorMeta(code);
   const sorted = [...points].sort((a, b) => a.period.localeCompare(b.period));
 
   return (
