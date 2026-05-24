@@ -45,7 +45,10 @@ class Settings(BaseSettings):
     # Ex : CORS_ORIGINS_RAW="https://mansa.vercel.app,https://app.mansa.ai"
     # pydantic-settings v2 JSON-parse List[str] AVANT les field_validators,
     # donc on stocke comme str brut et on expose une propriété.
-    CORS_ORIGINS_RAW: str = "http://localhost:3000,https://app.mansa.ai"
+    CORS_ORIGINS_RAW: str = "http://localhost:3000,https://mansa-terminal.vercel.app"
+
+    # URL publique du frontend — utilisée pour les emails de vérification
+    FRONTEND_URL: str = "https://mansa-terminal.vercel.app"
 
     @property
     def cors_origins(self) -> List[str]:

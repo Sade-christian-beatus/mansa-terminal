@@ -64,6 +64,12 @@ jobs:
       - name: Install script dependencies
         run: pip install -r scripts/requirements.txt
 
+      # ── Seed countries (idempotent — upsert) ────────────────────────────
+      - name: Seed countries table
+        run: python scripts/seed_countries.py
+        env:
+          DATABASE_URL_SYNC: ${{ secrets.DATABASE_URL_SYNC }}
+
       # ── Déterminer quelle(s) source(s) ingérer ──────────────────────────
       # Pour les crons, on lance toujours les deux.
       # Pour workflow_dispatch, on respecte le choix de l'utilisateur.
