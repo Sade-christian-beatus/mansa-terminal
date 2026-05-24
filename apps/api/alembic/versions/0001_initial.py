@@ -13,8 +13,17 @@ depends_on = None
 
 
 def upgrade() -> None:
-    # ---- Extension TimescaleDB & pgvector ----
-    op.execute("CREATE EXTENSION IF NOT EXISTS timescaledb CASCADE;")
+    # ---- Extensions PostgreSQL ----
+    # timescaledb : optionnel — disponible en local/Docker mais pas sur Supabase.
+    # Non utilisé dans cette migration (volume ~25K lignes ne le justifie pas).
+    from sqlalchemy import text
+    conn = op.get_bind()
+    try:
+        conn.execute(text("CREATE EXTENSION IF NOT EXISTS timescaledb CASCADE;"))
+    except Exception:
+        pass  # Supabase : extension indisponible, on continue sans elle
+
+    # pgvector : disponible sur Supabase (activer dans Dashboard > Extensions)
     op.execute("CREATE EXTENSION IF NOT EXISTS vector;")
 
     # ---- Table: users ----
@@ -278,4 +287,9 @@ def downgrade() -> None:
     op.drop_table("subscriptions")
     op.drop_table("users")
     op.execute("DROP EXTENSION IF EXISTS vector;")
-    op.execute("DROP EXTENSION IF EXISTS timescaledb;")
+    # timescaledb peut ne pas exister sur Supabase — on ignore l'erreur
+    from sqlalchemy import text
+    try:
+        op.get_bind().execute(text("DROP EXTENSION IF EXISTS timescaledb;"))
+    except Exception:
+        pass

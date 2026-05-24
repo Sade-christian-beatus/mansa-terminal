@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { FX_FALLBACK } from "@/lib/demo-data";
 
 const CURRENCIES = "NGN,ZAR,KES,GHS,EGP,ETB,MAD,TZS,UGX,XOF,XAF";
 
@@ -19,16 +20,15 @@ export async function GET() {
       }),
     ]);
 
-    if (!latestRes.ok) throw new Error("Frankfurter API error");
+    if (!latestRes.ok) throw new Error(`Frankfurter API ${latestRes.status}`);
 
     const latest = await latestRes.json();
     const prev = prevRes.ok ? await prevRes.json() : null;
 
     return NextResponse.json({ latest, prev });
   } catch {
-    return NextResponse.json(
-      { error: "FX data temporarily unavailable" },
-      { status: 503 }
-    );
+    // Retourner le fallback statique plutôt qu'une erreur 503
+    // → le MarketTicker affiche toujours des données (indicateur "DEMO" discret)
+    return NextResponse.json(FX_FALLBACK);
   }
 }

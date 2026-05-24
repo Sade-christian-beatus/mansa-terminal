@@ -5,6 +5,7 @@ import { useQuery } from "@tanstack/react-query";
 interface FxResponse {
   latest?: { rates: Record<string, number>; date: string };
   prev?: { rates: Record<string, number> };
+  isFallback?: boolean;
 }
 
 const CURRENCY_META: Record<string, { flag: string }> = {
@@ -35,8 +36,8 @@ export function MarketTicker() {
     refetchInterval: 1000 * 60 * 5,
   });
 
-  const rates = data?.latest?.rates ?? {};
-  const prevRates = data?.prev?.rates ?? {};
+  const rates = (data?.latest?.rates ?? {}) as Record<string, number>;
+  const prevRates = (data?.prev?.rates ?? {}) as Record<string, number>;
 
   const items = Object.entries(rates)
     .filter(([code]) => CURRENCY_META[code])
@@ -60,10 +61,12 @@ export function MarketTicker() {
 
   return (
     <div className="h-8 bg-[#080D1A] border-b border-[#1E2A42] overflow-hidden flex items-stretch">
-      {/* Badge FX LIVE */}
-      <div className="shrink-0 flex items-center gap-1.5 px-3 border-r border-[#1E2A42] bg-[#00D4AA]/5">
-        <span className="w-1.5 h-1.5 rounded-full bg-[#00D4AA] animate-pulse" />
-        <span className="text-[#00D4AA] text-[10px] font-mono font-bold tracking-widest">FX</span>
+      {/* Badge FX LIVE / DEMO */}
+      <div className={`shrink-0 flex items-center gap-1.5 px-3 border-r border-[#1E2A42] ${data?.isFallback ? "bg-amber-500/5" : "bg-[#00D4AA]/5"}`}>
+        <span className={`w-1.5 h-1.5 rounded-full ${data?.isFallback ? "bg-amber-400" : "bg-[#00D4AA] animate-pulse"}`} />
+        <span className={`text-[10px] font-mono font-bold tracking-widest ${data?.isFallback ? "text-amber-400" : "text-[#00D4AA]"}`}>
+          {data?.isFallback ? "DEMO" : "FX"}
+        </span>
       </div>
 
       {/* Label base */}

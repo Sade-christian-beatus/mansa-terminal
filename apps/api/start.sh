@@ -1,6 +1,6 @@
 #!/bin/sh
-# MANSA Terminal — Script de démarrage Railway
-# 1. Migrations Alembic  2. Démarrage API
+# MANSA Terminal — Script de démarrage Render
+# 1. Migrations Alembic  2. Démarrage API (1 worker — Render Free 512MB)
 
 set -e
 
@@ -12,6 +12,7 @@ echo "🚀 Starting MANSA API..."
 exec uvicorn app.main:app \
   --host 0.0.0.0 \
   --port "${PORT:-8000}" \
-  --workers 2 \
+  --workers 1 \
   --proxy-headers \
-  --forwarded-allow-ips="*"
+  --forwarded-allow-ips="*" \
+  --timeout-keep-alive 75

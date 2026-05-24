@@ -1,21 +1,23 @@
 import { NextResponse } from "next/server";
+import { getImfFallback } from "@/lib/demo-data";
 
-const AFRICA_ISO3 = [
+const AFRICA_ISO3 = new Set([
   "DZA","AGO","BEN","BWA","BFA","BDI","CPV","CMR","CAF","TCD",
   "COM","COD","COG","CIV","DJI","EGY","GNQ","ERI","SWZ","ETH",
   "GAB","GMB","GHA","GIN","GNB","KEN","LSO","LBR","LBY","MDG",
   "MWI","MLI","MRT","MUS","MAR","MOZ","NAM","NER","NGA","RWA",
   "STP","SEN","SLE","SOM","ZAF","SSD","SDN","TZA","TGO","TUN",
   "UGA","ZMB","ZWE",
-];
+]);
 
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
   const indicator = searchParams.get("indicator") || "NGDP_RPCH";
-  const periods = searchParams.get("periods") || "2019,2020,2021,2022,2023,2024";
+  const periodsParam = searchParams.get("periods") || "2019,2020,2021,2022,2023,2024";
+  const periods = periodsParam.split(",");
 
   try {
-    const url = `https://www.imf.org/external/datamapper/api/v1/${indicator}?periods=${periods}`;
+    const url = `https://www.imf.org/external/datamapper/api/v1/${indicator}?periods=${periodsParam}`;
     const res = await fetch(url, { next: { revalidate: 3600 } });
     if (!res.ok) throw new Error(`IMF API error: ${res.status}`);
     const raw = await res.json();
@@ -26,12 +28,14 @@ export async function GET(req: Request) {
       if (allValues[iso3]) africaValues[iso3] = allValues[iso3];
     }
 
-    return NextResponse.json({
-      indicator,
-      periods: periods.split(","),
-      values: africaValues,
-    });
+    // Si l'API répond mais sans données (body vide), basculer sur le fallback
+    if (Object.keys(africaValues).length === 0) {
+      return NextResponse.json(getImfFallback(indicator, periods));
+    }
+
+    return NextResponse.json({ indicator, periods, values: africaValues });
   } catch {
-    return NextResponse.json({ error: "IMF data unavailable" }, { status: 503 });
+    // Fallback statique : données WEO Oct 2024 pour 15 grandes économies africaines
+    return NextResponse.json(getImfFallback(indicator, periods));
   }
 }
