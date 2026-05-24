@@ -53,6 +53,11 @@
   to { opacity: 1; transform: translateY(0); }
 }
 
+@keyframes ticker {
+  0%   { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+
 /* Classes utilitaires MANSA */
 @layer components {
   .mansa-card {

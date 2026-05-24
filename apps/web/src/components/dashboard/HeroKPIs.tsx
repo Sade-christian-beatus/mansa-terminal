@@ -1,0 +1,154 @@
+"use client";
+
+import { useQuery } from "@tanstack/react-query";
+import { TrendingUp, Globe, BarChart3, Landmark } from "lucide-react";
+
+interface ImfData {
+  values: Record<string, Record<string, number>>;
+}
+
+function median(arr: number[]): number {
+  if (!arr.length) return 0;
+  const s = [...arr].sort((a, b) => a - b);
+  const m = Math.floor(s.length / 2);
+  return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2;
+}
+
+function useAggregates() {
+  const { data: gdp, isLoading: l1 } = useQuery<ImfData>({
+    queryKey: ["imf-hero-gdp"],
+    queryFn: () => fetch("/api/imf?indicator=NGDP_RPCH&periods=2023,2024").then((r) => r.json()),
+    staleTime: 1000 * 60 * 60,
+  });
+  const { data: inf, isLoading: l2 } = useQuery<ImfData>({
+    queryKey: ["imf-hero-inf"],
+    queryFn: () => fetch("/api/imf?indicator=PCPIPCH&periods=2023,2024").then((r) => r.json()),
+    staleTime: 1000 * 60 * 60,
+  });
+  const { data: debt } = useQuery<ImfData>({
+    queryKey: ["imf-hero-debt"],
+    queryFn: () => fetch("/api/imf?indicator=GGXWDG_NGDP&periods=2024").then((r) => r.json()),
+    staleTime: 1000 * 60 * 60,
+  });
+
+  const gdp24 = Object.values(gdp?.values ?? {}).map((v) => v["2024"]).filter(Boolean) as number[];
+  const gdp23 = Object.values(gdp?.values ?? {}).map((v) => v["2023"]).filter(Boolean) as number[];
+  const inf24 = Object.values(inf?.values ?? {}).map((v) => v["2024"]).filter(Boolean) as number[];
+  const debt24 = Object.values(debt?.values ?? {}).map((v) => v["2024"]).filter(Boolean) as number[];
+
+  return {
+    isLoading: l1 || l2,
+    medianGdp: median(gdp24),
+    medianGdpPrev: median(gdp23),
+    growingCount: gdp24.filter((v) => v > 3).length,
+    total: gdp24.length,
+    medianInf: median(inf24),
+    highInfCount: inf24.filter((v) => v > 8).length,
+    medianDebt: median(debt24),
+  };
+}
+
+interface CardProps {
+  title: string;
+  value: string;
+  sub: string;
+  trend?: "up" | "down" | "warn" | null;
+  trendLabel?: string;
+  icon: React.ReactNode;
+  barColor: string;
+  isLoading?: boolean;
+}
+
+function KpiCard({ title, value, sub, trend, trendLabel, icon, barColor, isLoading }: CardProps) {
+  if (isLoading) {
+    return (
+      <div className="bg-[#0D1426] border border-[#1E2A42] rounded-lg p-4 animate-pulse">
+        <div className="h-2.5 bg-[#1E2A42] rounded w-24 mb-4" />
+        <div className="h-7 bg-[#1E2A42] rounded w-16 mb-2" />
+        <div className="h-2.5 bg-[#1E2A42] rounded w-36" />
+      </div>
+    );
+  }
+
+  const trendColors = {
+    up: "text-green-400",
+    down: "text-red-400",
+    warn: "text-amber-400",
+  };
+
+  return (
+    <div className="bg-[#0D1426] border border-[#1E2A42] rounded-lg p-4 hover:border-[#2A3A52] transition-colors relative overflow-hidden group">
+      <div className={`absolute top-0 inset-x-0 h-[2px] ${barColor}`} />
+
+      <div className="flex items-start justify-between mb-3">
+        <span className="text-gray-500 text-[10px] font-mono uppercase tracking-widest leading-tight">
+          {title}
+        </span>
+        <span className="text-gray-600 group-hover:text-gray-400 transition-colors">{icon}</span>
+      </div>
+
+      <div className="flex items-baseline gap-2 mb-1">
+        <span className="text-white text-2xl font-bold font-mono tabular-nums">{value}</span>
+        {trend && trendLabel && (
+          <span className={`text-[11px] font-mono ${trendColors[trend] ?? "text-gray-500"}`}>
+            {trend === "up" ? "▲" : trend === "down" ? "▼" : "⚠"}
+            &nbsp;{trendLabel}
+          </span>
+        )}
+      </div>
+
+      <p className="text-gray-600 text-[11px] leading-tight">{sub}</p>
+    </div>
+  );
+}
+
+export function HeroKPIs() {
+  const { isLoading, medianGdp, medianGdpPrev, growingCount, total, medianInf, highInfCount, medianDebt } =
+    useAggregates();
+
+  const gdpTrend = medianGdp >= medianGdpPrev ? "up" : "down";
+
+  return (
+    <div className="grid grid-cols-4 gap-4">
+      <KpiCard
+        title="Croissance PIB médiane"
+        value={`${medianGdp.toFixed(1)}%`}
+        sub={`Afrique · 54 économies · 2024e`}
+        trend={gdpTrend}
+        trendLabel={`${medianGdpPrev.toFixed(1)}% en 2023`}
+        icon={<TrendingUp size={14} />}
+        barColor="bg-[#00D4AA]"
+        isLoading={isLoading}
+      />
+      <KpiCard
+        title="Pays en forte croissance"
+        value={String(growingCount || "—")}
+        sub={`${total ? Math.round((growingCount / total) * 100) : 0}% des pays affichent >3% · 2024e`}
+        trend="up"
+        trendLabel={`/ ${total} pays`}
+        icon={<Globe size={14} />}
+        barColor="bg-blue-500"
+        isLoading={isLoading}
+      />
+      <KpiCard
+        title="Inflation médiane"
+        value={`${medianInf.toFixed(1)}%`}
+        sub={`${highInfCount} pays avec inflation >8% — risque élevé`}
+        trend={medianInf > 8 ? "warn" : null}
+        icon={<BarChart3 size={14} />}
+        barColor={medianInf > 8 ? "bg-amber-500" : "bg-green-500"}
+        isLoading={isLoading}
+      />
+      <KpiCard
+        title="Dette publique médiane"
+        value={`${medianDebt.toFixed(0)}%`}
+        sub="Médiane Afrique · % du PIB · 2024e"
+        trend={medianDebt > 60 ? "warn" : null}
+        trendLabel={medianDebt > 60 ? "Seuil DSA >60%" : undefined}
+        icon={<Landmark size={14} />}
+        barColor={medianDebt > 60 ? "bg-red-500" : "bg-purple-500"}
+        isLoading={isLoading}
+      />
+    </div>
+  );
+}

@@ -27,6 +27,15 @@ const config: Config = {
         sans: ["Inter", "system-ui", "sans-serif"],
         mono: ["JetBrains Mono", "monospace"],
       },
+      animation: {
+        ticker: "ticker 35s linear infinite",
+      },
+      keyframes: {
+        ticker: {
+          "0%":   { transform: "translateX(0)" },
+          "100%": { transform: "translateX(-50%)" },
+        },
+      },
     },
   },
   plugins: [
