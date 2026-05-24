@@ -69,10 +69,11 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title=settings.APP_NAME,
     version=settings.APP_VERSION,
-    debug=settings.DEBUG,
+    debug=False,                                          # jamais True en prod
     lifespan=lifespan,
-    docs_url="/docs",
-    redoc_url="/redoc",
+    docs_url="/docs" if settings.APP_ENV != "production" else None,
+    redoc_url="/redoc" if settings.APP_ENV != "production" else None,
+    openapi_url="/openapi.json" if settings.APP_ENV != "production" else None,
 )
 
 # ---- Rate limiting ----
@@ -98,9 +99,10 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origins,
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allow_headers=["Authorization", "Content-Type", "X-Request-ID", "Accept"],
     expose_headers=["X-Request-ID", "X-Response-Time"],
+    max_age=600,
 )
 
 # ---- Routers ----
@@ -116,9 +118,9 @@ app.include_router(climate.router,    prefix="/api/climate",   tags=["Climate"])
 
 @app.get("/", tags=["Root"])
 async def root():
+    # Ne jamais exposer APP_ENV ni le nom des services internes en production
     return {
-        "service": settings.APP_NAME,
+        "service": "MANSA Terminal API",
         "version": settings.APP_VERSION,
-        "env": settings.APP_ENV,
-        "docs": "/docs",
+        "status": "operational",
     }

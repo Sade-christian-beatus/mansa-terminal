@@ -1,6 +1,9 @@
 """
 MANSA Terminal — Dependencies FastAPI
-Injection de dépendances : user courant, vérification abonnement
+Injection de dépendances : user courant, vérification abonnement.
+
+SECURITY: Aucun bypass APP_ENV. Aucune fake auth.
+Pour la démo MVP, chaque utilisateur enregistré reçoit un trial 30j (voir auth.py).
 """
 from typing import Annotated
 from fastapi import Depends, HTTPException, Request, status
@@ -26,10 +29,10 @@ async def get_current_user(
     request: Request,
     db: AsyncSession = Depends(get_db),
 ) -> User:
-    """Extrait et valide l'utilisateur depuis le cookie httpOnly ou le Bearer token"""
+    """Extrait et valide l'utilisateur depuis le cookie httpOnly ou le Bearer token."""
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="Token invalide ou expiré",
+        detail="Non authentifié",
         headers={"WWW-Authenticate": "Bearer"},
     )
 
@@ -46,7 +49,7 @@ async def get_current_user(
         raise credentials_exception
 
     result = await db.execute(
-        select(User).where(User.id == user_id, User.is_active == True)
+        select(User).where(User.id == user_id, User.is_active == True)  # noqa: E712
     )
     user = result.scalar_one_or_none()
     if not user:
@@ -56,7 +59,7 @@ async def get_current_user(
 
 
 async def get_current_active_user(
-    current_user: Annotated[User, Depends(get_current_user)]
+    current_user: Annotated[User, Depends(get_current_user)],
 ) -> User:
     if not current_user.is_active:
         raise HTTPException(status_code=400, detail="Compte inactif")
@@ -67,29 +70,19 @@ async def get_active_subscription(
     current_user: Annotated[User, Depends(get_current_active_user)],
     db: AsyncSession = Depends(get_db),
 ) -> Subscription:
-    """Retourne l'objet Subscription actif de l'utilisateur, ou 402 si absent.
-    En mode development, retourne un abonnement fictif pour les tests locaux."""
-    from app.core.config import settings
-    if settings.APP_ENV == "development":
-        fake_sub = Subscription()
-        fake_sub.user_id = current_user.id
-        fake_sub.plan = "professional"
-        fake_sub.status = "active"
-        fake_sub.seats = 5
-        fake_sub.is_active = True
-        return fake_sub
-
+    """Retourne l'abonnement actif. Raise 402 si absent.
+    En MVP démo : chaque utilisateur enregistré reçoit un trial automatique via auth.py."""
     result = await db.execute(
         select(Subscription).where(
             Subscription.user_id == current_user.id,
-            Subscription.status.in_(["trialing", "active"])
+            Subscription.status.in_(["trialing", "active"]),
         )
     )
     sub = result.scalar_one_or_none()
     if not sub:
         raise HTTPException(
             status_code=status.HTTP_402_PAYMENT_REQUIRED,
-            detail="Abonnement requis. Rendez-vous sur /billing pour souscrire.",
+            detail="Abonnement requis. Contactez l'équipe MANSA pour accéder à la plateforme.",
         )
     return sub
 
@@ -98,23 +91,18 @@ async def require_active_subscription(
     current_user: Annotated[User, Depends(get_current_active_user)],
     db: AsyncSession = Depends(get_db),
 ) -> User:
-    """Vérifie que l'utilisateur a un abonnement actif (retourne User).
-    En mode development, le check est bypassé pour faciliter les tests locaux."""
-    from app.core.config import settings
-    if settings.APP_ENV == "development":
-        return current_user
-
+    """Vérifie abonnement actif, retourne User."""
     result = await db.execute(
         select(Subscription).where(
             Subscription.user_id == current_user.id,
-            Subscription.status.in_(["trialing", "active"])
+            Subscription.status.in_(["trialing", "active"]),
         )
     )
     sub = result.scalar_one_or_none()
     if not sub:
         raise HTTPException(
             status_code=status.HTTP_402_PAYMENT_REQUIRED,
-            detail="Abonnement requis. Rendez-vous sur /billing pour souscrire.",
+            detail="Abonnement requis.",
         )
     return current_user
 
@@ -123,12 +111,12 @@ async def require_professional_plan(
     current_user: Annotated[User, Depends(get_current_active_user)],
     db: AsyncSession = Depends(get_db),
 ) -> User:
-    """Réservé aux plans Professional et Enterprise"""
+    """Réservé aux plans Professional et Enterprise."""
     result = await db.execute(
         select(Subscription).where(
             Subscription.user_id == current_user.id,
             Subscription.status.in_(["trialing", "active"]),
-            Subscription.plan.in_(["professional", "enterprise"])
+            Subscription.plan.in_(["professional", "enterprise"]),
         )
     )
     sub = result.scalar_one_or_none()

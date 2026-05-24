@@ -1,0 +1,5 @@
+# MANSA Terminal — Dépendances scripts d'ingestion
+# Minimal — indépendant de apps/api/requirements.txt
+httpx>=0.27.0
+tenacity>=8.2.0
+psycopg2-binary>=2.9.9
