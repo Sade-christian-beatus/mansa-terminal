@@ -1,0 +1,46 @@
+# ============================================================
+# MANSA Terminal — Keepalive Render Free
+#
+# Render Free s'endort après 15 min d'inactivité (cold start ~50s).
+# Ce workflow ping /health toutes les 5 min pour maintenir l'instance
+# éveillée en permanence.
+#
+# GitHub Actions cron minimum = 5 min.
+# Chaque run dure ~5s (curl seul) → ~3 min/jour de CI utilisées.
+# Bien en dessous du quota gratuit (2000 min/mois).
+#
+# Variable optionnelle (GitHub repo vars, pas secrets) :
+#   RENDER_API_URL : URL de base si différent de mansa-terminal.onrender.com
+# ============================================================
+
+name: Render Keepalive
+
+on:
+  schedule:
+    - cron: "*/5 * * * *"   # Toutes les 5 minutes, 24h/24
+  workflow_dispatch:          # Déclenchement manuel possible
+
+concurrency:
+  group: keepalive
+  cancel-in-progress: true    # Un seul ping à la fois
+
+jobs:
+  ping:
+    name: Ping health endpoint
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+
+    steps:
+      - name: Ping /health
+        run: |
+          API_URL="${{ vars.RENDER_API_URL || 'https://mansa-terminal.onrender.com' }}"
+          echo "Pinging ${API_URL}/health ..."
+          HTTP_CODE=$(curl --silent --max-time 30 --retry 2 --retry-delay 3 \
+            -o /dev/null -w "%{http_code}" \
+            "${API_URL}/health")
+          echo "HTTP ${HTTP_CODE}"
+          if [ "$HTTP_CODE" != "200" ]; then
+            echo "Warning: health check returned HTTP ${HTTP_CODE} (cold start possible)"
+            # Ne pas faire échouer le job — un cold start retourne 503 puis 200
+            exit 0
+          fi

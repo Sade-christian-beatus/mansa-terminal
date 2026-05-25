@@ -113,7 +113,7 @@ jobs:
 
       - name: Build
         env:
-          NEXT_PUBLIC_API_URL: https://mansa-api.onrender.com
+          NEXT_PUBLIC_API_URL: https://mansa-terminal.onrender.com
         run: |
           cd apps/web
           npm run build
@@ -131,6 +131,6 @@ jobs:
       - name: Summary
         run: |
           echo "## 🚀 Deploy triggered" >> "$GITHUB_STEP_SUMMARY"
-          echo "- **Render** auto-deploy on push → https://mansa-api.onrender.com" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **Render** auto-deploy on push → https://mansa-terminal.onrender.com" >> "$GITHUB_STEP_SUMMARY"
           echo "- **Vercel** auto-deploy on push → https://mansa-terminal.vercel.app" >> "$GITHUB_STEP_SUMMARY"
           echo "- Commit: ${{ github.sha }}" >> "$GITHUB_STEP_SUMMARY"

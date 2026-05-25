@@ -1,29 +1,109 @@
+# ============================================================
+# MANSA Terminal — Render.com deployment configuration
+#
+# Déploiement automatique sur push vers main.
+# releaseCommand exécute la migration Alembic AVANT le restart
+# du service → zéro downtime sur les changements de schéma.
+#
+# Variables sync: false → à renseigner manuellement dans
+# Render Dashboard > Environment (voir DEPLOY.md).
+# ============================================================
+
 services:
   - type: web
-    name: mansa-api
+    name: mansa-terminal
     runtime: python
     rootDir: apps/api
     plan: free
-    region: frankfurt       # Le plus proche d'Afrique du Nord/Europe
+    region: frankfurt        # Le plus proche d'Afrique du Nord/Europe
+
     buildCommand: pip install -r requirements.txt
-    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    startCommand: bash start.sh
+
+    # Migration automatique avant chaque restart (idempotent — Alembic skip si déjà appliquée)
+    releaseCommand: alembic upgrade head
+
     healthCheckPath: /health
+
+    # ── Variables d'environnement ──────────────────────────────────────────
+    # sync: false → valeur saisie dans le Dashboard Render (jamais dans ce fichier)
+    # sync: true  → valeur fixe committée ici (non-sensible uniquement)
     envVars:
-      - key: ANTHROPIC_API_KEY
-        sync: false          # À renseigner dans le dashboard Render
+
+      # ── Application ───────────────────────────────────────────────────
+      - key: APP_ENV
+        value: production         # Forcé en production — ne jamais changer
+      - key: APP_NAME
+        value: MANSA Terminal
+      - key: APP_VERSION
+        value: "1.0.0"
+      - key: PORT
+        value: "8000"
+      - key: LOG_LEVEL
+        value: INFO
+
+      # ── Sécurité (secrets — saisir dans le Dashboard) ─────────────────
       - key: SECRET_KEY
-        sync: false
+        sync: false               # python -c "import secrets; print(secrets.token_hex(32))"
       - key: JWT_SECRET_KEY
-        sync: false
+        sync: false               # Différent de SECRET_KEY
+
+      # ── URLs ──────────────────────────────────────────────────────────
+      - key: FRONTEND_URL
+        value: https://mansa-terminal.vercel.app
+      - key: CORS_ORIGINS_RAW
+        value: https://mansa-terminal.vercel.app
+
+      # ── Base de données (Supabase Transaction Pooler) ─────────────────
       - key: DATABASE_URL
-        sync: false          # Format : postgresql+asyncpg://user:pass@host:5432/db
+        sync: false               # postgresql+asyncpg://postgres.PROJ:PWD@aws-0-eu-west-1.pooler.supabase.com:6543/postgres
       - key: DATABASE_URL_SYNC
-        sync: false          # Format : postgresql://user:pass@host:5432/db (Alembic)
+        sync: false               # postgresql://postgres.PROJ:PWD@aws-0-eu-west-1.pooler.supabase.com:5432/postgres
+      - key: DB_POOL_SIZE
+        value: "5"
+      - key: DB_MAX_OVERFLOW
+        value: "10"
+
+      # ── Redis (Upstash) ───────────────────────────────────────────────
       - key: REDIS_URL
-        sync: false          # Format : rediss://:pass@host:6380 (Upstash)
+        sync: false               # rediss://default:PWD@HOST.upstash.io:6379
+
+      # ── AI — Anthropic Claude ────────────────────────────────────────
+      - key: ANTHROPIC_API_KEY
+        sync: false               # sk-ant-api03-...
+      - key: ANTHROPIC_MODEL_ID
+        value: claude-sonnet-4-5
+      - key: ANTHROPIC_MAX_TOKENS
+        value: "2000"
+
+      # ── Observabilité — Sentry ────────────────────────────────────────
+      - key: SENTRY_DSN
+        sync: false               # Laisser vide pour désactiver
+
+      # ── JWT ───────────────────────────────────────────────────────────
+      - key: ACCESS_TOKEN_EXPIRE_MINUTES
+        value: "30"
+      - key: REFRESH_TOKEN_EXPIRE_DAYS
+        value: "7"
+
+      # ── Email (SMTP Gmail) ────────────────────────────────────────────
+      - key: SMTP_HOST
+        value: smtp.gmail.com
+      - key: SMTP_PORT
+        value: "587"
+      - key: SMTP_USER
+        sync: false               # votre.email@gmail.com
+      - key: SMTP_PASSWORD
+        sync: false               # Mot de passe d'application Gmail 16 chars
+
+      # ── Stripe (Phase 2 — laisser vide pour désactiver) ───────────────
       - key: STRIPE_SECRET_KEY
         sync: false
       - key: STRIPE_WEBHOOK_SECRET
         sync: false
-      - key: PORT
-        value: "8000"
+      - key: STRIPE_PRICE_STARTER
+        sync: false
+      - key: STRIPE_PRICE_PROFESSIONAL
+        sync: false
+      - key: STRIPE_PRICE_ENTERPRISE
+        sync: false
