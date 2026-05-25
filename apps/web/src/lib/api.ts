@@ -4,7 +4,9 @@
  */
 import axios, { AxiosError } from "axios";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+// En dev, on utilise le proxy Next.js (/api/*) pour éviter les problèmes de cookies cross-origin.
+// En production, NEXT_PUBLIC_API_URL est vide — le proxy suffit.
+const API_URL = typeof window !== "undefined" ? "" : (process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000");
 
 const _api = axios.create({
   baseURL: `${API_URL}/api`,
@@ -28,8 +30,8 @@ _api.interceptors.response.use(
         // Réessayer la requête originale
         return _api(error.config);
       } catch {
-        // Refresh échoué → rediriger vers login
-        if (typeof window !== "undefined") {
+        // Refresh échoué → rediriger vers login (jamais depuis une page /auth pour éviter la boucle infinie)
+        if (typeof window !== "undefined" && !window.location.pathname.startsWith("/auth")) {
           window.location.href = "/auth/login";
         }
       }
