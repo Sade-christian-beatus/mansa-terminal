@@ -1,18 +1,22 @@
 #!/bin/sh
 # MANSA Terminal — Script de démarrage Railway
-# 1. Migrations Alembic (non-fatales)  2. Démarrage API
-
-set -e
+# 1. Migrations Alembic  2. Démarrage API
 
 echo "=== MANSA Terminal startup ==="
-echo "DATABASE_URL set: $([ -n "$DATABASE_URL" ] && echo yes || echo NO — check Railway env vars)"
+echo "DATABASE_URL set: $([ -n "$DATABASE_URL" ] && echo yes || echo 'NO — set it in Railway Variables')"
+echo "APP_ENV: ${APP_ENV:-development}"
 echo "PORT: ${PORT:-8000}"
 
 echo "Applying database migrations..."
 if alembic upgrade head; then
     echo "Migrations OK"
 else
-    echo "WARNING: Migrations failed — starting API anyway (check DB connection)"
+    if [ "${APP_ENV:-development}" = "production" ]; then
+        echo "ERROR: Migrations failed in production — aborting"
+        exit 1
+    else
+        echo "WARNING: Migrations failed — starting API anyway (dev mode)"
+    fi
 fi
 
 echo "Starting MANSA API on port ${PORT:-8000}..."

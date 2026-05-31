@@ -5,12 +5,6 @@
   "installCommand": "npm ci",
   "outputDirectory": ".next",
   "regions": ["cdg1"],
-  "rewrites": [
-    {
-      "source": "/api/backend/:path*",
-      "destination": "https://your-api.up.railway.app/api/:path*"
-    }
-  ],
   "headers": [
     {
       "source": "/(.*)",

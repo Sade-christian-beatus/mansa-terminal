@@ -25,7 +25,7 @@ CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload
 FROM base as production
 
 # Créer utilisateur non-root avant la copie
-RUN adduser --disabled-password --gecos "" mansa
+RUN adduser --disabled-password --gecos "" --shell /bin/false mansa
 
 COPY --chown=mansa:mansa . .
 
