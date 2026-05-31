@@ -23,13 +23,14 @@ CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload
 
 # ---- Production stage ----
 FROM base as production
-COPY . .
 
-# Rendre le script de démarrage exécutable
+# Créer utilisateur non-root avant la copie
+RUN adduser --disabled-password --gecos "" --shell /bin/false mansa
+
+COPY --chown=mansa:mansa . .
+
 RUN chmod +x start.sh
 
-# Créer utilisateur non-root
-RUN adduser --disabled-password --gecos "" mansa
 USER mansa
 
 CMD ["sh", "start.sh"]
