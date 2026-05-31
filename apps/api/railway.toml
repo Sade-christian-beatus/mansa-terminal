@@ -1,9 +1,9 @@
 [build]
 builder = "DOCKERFILE"
 dockerfilePath = "Dockerfile"
+dockerBuildTarget = "production"
 
 [deploy]
-# Migrations d'abord, puis démarrage API
 startCommand = "sh start.sh"
 healthcheckPath = "/health"
 healthcheckTimeout = 60

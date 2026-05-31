@@ -5,18 +5,20 @@
   "installCommand": "npm ci",
   "outputDirectory": ".next",
   "regions": ["cdg1"],
-  "env": {
-    "NEXT_PUBLIC_API_URL": "@api_url",
-    "NEWS_API_KEY": "@news_api_key"
-  },
+  "rewrites": [
+    {
+      "source": "/api/backend/:path*",
+      "destination": "https://your-api.up.railway.app/api/:path*"
+    }
+  ],
   "headers": [
     {
       "source": "/(.*)",
       "headers": [
-        { "key": "X-Frame-Options",           "value": "DENY" },
-        { "key": "X-Content-Type-Options",     "value": "nosniff" },
-        { "key": "Referrer-Policy",            "value": "strict-origin-when-cross-origin" },
-        { "key": "Permissions-Policy",         "value": "camera=(), microphone=(), geolocation=()" }
+        { "key": "X-Frame-Options",       "value": "DENY" },
+        { "key": "X-Content-Type-Options", "value": "nosniff" },
+        { "key": "Referrer-Policy",        "value": "strict-origin-when-cross-origin" },
+        { "key": "Permissions-Policy",     "value": "camera=(), microphone=(), geolocation=()" }
       ]
     }
   ]
