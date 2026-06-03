@@ -13,18 +13,12 @@ depends_on = None
 
 
 def upgrade() -> None:
-    # ---- Extensions PostgreSQL ----
-    # timescaledb : optionnel — disponible en local/Docker mais pas sur Supabase.
-    # Non utilisé dans cette migration (volume ~25K lignes ne le justifie pas).
-    from sqlalchemy import text
+    # ---- Extension pgvector (timescaledb supprimé : non dispo sur Supabase free) ----
+    # Exécuter en AUTOCOMMIT pour qu'un échec n'avorte pas la transaction principale
     conn = op.get_bind()
-    try:
-        conn.execute(text("CREATE EXTENSION IF NOT EXISTS timescaledb CASCADE;"))
-    except Exception:
-        pass  # Supabase : extension indisponible, on continue sans elle
-
-    # pgvector : disponible sur Supabase (activer dans Dashboard > Extensions)
-    op.execute("CREATE EXTENSION IF NOT EXISTS vector;")
+    conn.execution_options(isolation_level="AUTOCOMMIT").execute(
+        sa.text("CREATE EXTENSION IF NOT EXISTS vector;")
+    )
 
     # ---- Table: users ----
     op.create_table(
