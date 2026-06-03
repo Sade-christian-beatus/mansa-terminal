@@ -13,9 +13,12 @@ depends_on = None
 
 
 def upgrade() -> None:
-    # ---- Extension TimescaleDB & pgvector ----
-    op.execute("CREATE EXTENSION IF NOT EXISTS timescaledb CASCADE;")
-    op.execute("CREATE EXTENSION IF NOT EXISTS vector;")
+    # ---- Extension pgvector (timescaledb supprimé : non dispo sur Supabase free) ----
+    # Exécuter en AUTOCOMMIT pour qu'un échec n'avorte pas la transaction principale
+    conn = op.get_bind()
+    conn.execution_options(isolation_level="AUTOCOMMIT").execute(
+        sa.text("CREATE EXTENSION IF NOT EXISTS vector;")
+    )
 
     # ---- Table: users ----
     op.create_table(
@@ -278,4 +281,3 @@ def downgrade() -> None:
     op.drop_table("subscriptions")
     op.drop_table("users")
     op.execute("DROP EXTENSION IF EXISTS vector;")
-    op.execute("DROP EXTENSION IF EXISTS timescaledb;")
