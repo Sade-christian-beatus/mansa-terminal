@@ -5,6 +5,7 @@ import { TrendingUp, Globe, BarChart3, Landmark } from "lucide-react";
 
 interface ImfData {
   values: Record<string, Record<string, number>>;
+  isFallback?: boolean;
 }
 
 function median(arr: number[]): number {
@@ -19,25 +20,36 @@ function useAggregates() {
     queryKey: ["imf-hero-gdp"],
     queryFn: () => fetch("/api/imf?indicator=NGDP_RPCH&periods=2023,2024").then((r) => r.json()),
     staleTime: 1000 * 60 * 60,
+    retry: 1,
   });
   const { data: inf, isLoading: l2 } = useQuery<ImfData>({
     queryKey: ["imf-hero-inf"],
     queryFn: () => fetch("/api/imf?indicator=PCPIPCH&periods=2023,2024").then((r) => r.json()),
     staleTime: 1000 * 60 * 60,
+    retry: 1,
   });
   const { data: debt } = useQuery<ImfData>({
     queryKey: ["imf-hero-debt"],
     queryFn: () => fetch("/api/imf?indicator=GGXWDG_NGDP&periods=2024").then((r) => r.json()),
     staleTime: 1000 * 60 * 60,
+    retry: 1,
   });
 
-  const gdp24 = Object.values(gdp?.values ?? {}).map((v) => v["2024"]).filter(Boolean) as number[];
-  const gdp23 = Object.values(gdp?.values ?? {}).map((v) => v["2023"]).filter(Boolean) as number[];
-  const inf24 = Object.values(inf?.values ?? {}).map((v) => v["2024"]).filter(Boolean) as number[];
-  const debt24 = Object.values(debt?.values ?? {}).map((v) => v["2024"]).filter(Boolean) as number[];
+  // Typage explicite pour éviter que `?? {}` élargisse vers Record<string, unknown>
+  const gdpVals = (gdp?.values ?? {}) as Record<string, Record<string, number>>;
+  const infVals = (inf?.values ?? {}) as Record<string, Record<string, number>>;
+  const debtVals = (debt?.values ?? {}) as Record<string, Record<string, number>>;
+
+  const gdp24 = Object.values(gdpVals).map((v) => v["2024"]).filter((v): v is number => v != null);
+  const gdp23 = Object.values(gdpVals).map((v) => v["2023"]).filter((v): v is number => v != null);
+  const inf24 = Object.values(infVals).map((v) => v["2024"]).filter((v): v is number => v != null);
+  const debt24 = Object.values(debtVals).map((v) => v["2024"]).filter((v): v is number => v != null);
+
+  const isFallback = !!(gdp?.isFallback || inf?.isFallback || debt?.isFallback);
 
   return {
     isLoading: l1 || l2,
+    isFallback,
     medianGdp: median(gdp24),
     medianGdpPrev: median(gdp23),
     growingCount: gdp24.filter((v) => v > 3).length,
@@ -103,12 +115,18 @@ function KpiCard({ title, value, sub, trend, trendLabel, icon, barColor, isLoadi
 }
 
 export function HeroKPIs() {
-  const { isLoading, medianGdp, medianGdpPrev, growingCount, total, medianInf, highInfCount, medianDebt } =
+  const { isLoading, isFallback, medianGdp, medianGdpPrev, growingCount, total, medianInf, highInfCount, medianDebt } =
     useAggregates();
 
   const gdpTrend = medianGdp >= medianGdpPrev ? "up" : "down";
 
   return (
+    <div className="space-y-1">
+      {isFallback && (
+        <p className="text-[10px] font-mono text-amber-400/60 text-right pr-1">
+          ⚠ Données de démonstration · FMI WEO Oct 2024
+        </p>
+      )}
     <div className="grid grid-cols-4 gap-4">
       <KpiCard
         title="Croissance PIB médiane"
@@ -149,6 +167,7 @@ export function HeroKPIs() {
         barColor={medianDebt > 60 ? "bg-red-500" : "bg-purple-500"}
         isLoading={isLoading}
       />
+    </div>
     </div>
   );
 }

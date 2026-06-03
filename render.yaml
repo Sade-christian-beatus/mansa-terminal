@@ -1,0 +1,29 @@
+services:
+  - type: web
+    name: mansa-api
+    runtime: python
+    rootDir: apps/api
+    plan: free
+    region: frankfurt       # Le plus proche d'Afrique du Nord/Europe
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
+    envVars:
+      - key: ANTHROPIC_API_KEY
+        sync: false          # À renseigner dans le dashboard Render
+      - key: SECRET_KEY
+        sync: false
+      - key: JWT_SECRET_KEY
+        sync: false
+      - key: DATABASE_URL
+        sync: false          # Format : postgresql+asyncpg://user:pass@host:5432/db
+      - key: DATABASE_URL_SYNC
+        sync: false          # Format : postgresql://user:pass@host:5432/db (Alembic)
+      - key: REDIS_URL
+        sync: false          # Format : rediss://:pass@host:6380 (Upstash)
+      - key: STRIPE_SECRET_KEY
+        sync: false
+      - key: STRIPE_WEBHOOK_SECRET
+        sync: false
+      - key: PORT
+        value: "8000"

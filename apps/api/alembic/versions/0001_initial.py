@@ -281,3 +281,9 @@ def downgrade() -> None:
     op.drop_table("subscriptions")
     op.drop_table("users")
     op.execute("DROP EXTENSION IF EXISTS vector;")
+    # timescaledb peut ne pas exister sur Supabase — on ignore l'erreur
+    from sqlalchemy import text
+    try:
+        op.get_bind().execute(text("DROP EXTENSION IF EXISTS timescaledb;"))
+    except Exception:
+        pass

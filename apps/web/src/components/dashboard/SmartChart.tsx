@@ -37,6 +37,7 @@ const RANGES = [
 
 interface ImfData {
   values: Record<string, Record<string, number | null>>;
+  isFallback?: boolean;
 }
 
 interface TooltipPayload {
@@ -79,6 +80,7 @@ export function SmartChart() {
     queryFn: () =>
       fetch(`/api/imf?indicator=${indicator}&periods=${range.years.join(",")}`).then((r) => r.json()),
     staleTime: 1000 * 60 * 60,
+    retry: 1,
   });
 
   const chartData = useMemo(() => {
@@ -111,6 +113,11 @@ export function SmartChart() {
         <div className="flex items-center gap-2">
           <span className="w-1.5 h-1.5 rounded-full bg-[#00D4AA]" />
           <span className="text-white text-xs font-semibold">Analyse comparative</span>
+          {data?.isFallback && (
+            <span className="text-amber-400/70 text-[9px] font-mono border border-amber-400/20 px-1 py-0.5 rounded">
+              DEMO
+            </span>
+          )}
         </div>
         <div className="flex items-center gap-0.5">
           {RANGES.map((r, i) => (

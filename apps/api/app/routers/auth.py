@@ -9,6 +9,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from pydantic import BaseModel, EmailStr
 
+import uuid
+from datetime import datetime, timezone, timedelta
+
 from app.core.config import settings
 from app.core.database import get_db
 from app.core.dependencies import get_current_active_user
@@ -18,7 +21,7 @@ from app.core.security import (
     create_access_token, create_refresh_token,
     create_email_verify_token, decode_token,
 )
-from app.models.models import User
+from app.models.models import User, Subscription
 from app.services.email import send_verification_email
 
 router = APIRouter()
@@ -115,6 +118,17 @@ async def register(
     db.add(user)
     await db.flush()
     await db.refresh(user)
+
+    # Auto-créer un trial 30 jours (plan Professional) pour chaque inscription
+    # → Remplace l'ancien bypass APP_ENV == "development" dans dependencies.py
+    trial_sub = Subscription(
+        user_id=user.id,
+        plan="professional",
+        status="trialing",
+        seats=1,
+        trial_ends_at=datetime.now(timezone.utc) + timedelta(days=30),
+    )
+    db.add(trial_sub)
 
     access_token = create_access_token({"sub": str(user.id)})
     refresh_token = create_refresh_token({"sub": str(user.id)})
