@@ -21,9 +21,12 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      // Les cookies httpOnly sont posés par le backend dans la réponse
       const data = await authApi.login(email, password);
       setUser({ userId: data.user_id, email: data.email, fullName: data.full_name });
+      // Pose mansa_auth côté frontend (même domaine = SameSite=Lax OK)
+      // pour que le middleware Next.js le détecte immédiatement
+      const maxAge = 7 * 24 * 3600;
+      document.cookie = `mansa_auth=1; path=/; max-age=${maxAge}; samesite=lax${location.protocol === "https:" ? "; secure" : ""}`;
       router.push("/");
     } catch (err: unknown) {
       const detail = (err as { response?: { data?: { detail?: string } } })
