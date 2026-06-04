@@ -6,8 +6,15 @@ import axios, { AxiosError } from "axios";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
+// En production (browser), on passe par le proxy Next.js (/api/backend → Railway)
+// pour que les cookies httpOnly soient same-domain (mansa-terminal.vercel.app).
+// En dev local, on appelle directement le backend sur :8000.
+const IS_BROWSER = typeof window !== "undefined";
+const IS_PROD = process.env.NODE_ENV === "production";
+const API_BASE = IS_BROWSER && IS_PROD ? "/api/backend" : `${API_URL}/api`;
+
 const _api = axios.create({
-  baseURL: `${API_URL}/api`,
+  baseURL: API_BASE,
   timeout: 30000,
   headers: { "Content-Type": "application/json" },
   withCredentials: true, // envoie les cookies httpOnly automatiquement
@@ -114,7 +121,8 @@ export const climateApi = {
 export async function* streamAIQuery(
   question: string
 ): AsyncGenerator<{ type: string; content?: string; query_id?: string }> {
-  const response = await fetch(`${API_URL}/api/ai/query`, {
+  const streamBase = IS_BROWSER && IS_PROD ? "/api/backend" : `${API_URL}/api`;
+  const response = await fetch(`${streamBase}/ai/query`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     credentials: "include",
