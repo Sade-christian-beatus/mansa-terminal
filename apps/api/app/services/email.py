@@ -44,11 +44,7 @@ def send_verification_email(to_email: str, token: str) -> bool:
     Retourne True si envoyé, False sinon (ne lève pas d'exception).
     Si SMTP non configuré, logge le lien pour le dev local.
     """
-    app_url = "http://localhost:3000"
-    if settings.APP_ENV == "production":
-        app_url = "https://app.mansa.ai"
-
-    verify_url = f"{app_url}/auth/verify-email?token={token}"
+    verify_url = f"{settings.FRONTEND_URL}/auth/verify-email?token={token}"
 
     if not settings.SMTP_USER or not settings.SMTP_PASSWORD:
         logger.warning(

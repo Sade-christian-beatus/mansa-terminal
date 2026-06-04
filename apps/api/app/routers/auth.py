@@ -3,7 +3,7 @@ MANSA Terminal — Router Auth
 Inscription, connexion, refresh token — cookies httpOnly
 """
 from typing import Annotated
-from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request, Response, status
 from fastapi.responses import JSONResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
@@ -99,6 +99,7 @@ def _set_auth_cookies(response: Response, access_token: str, refresh_token: str)
 async def register(
     request: Request,
     data: RegisterRequest,
+    background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
 ):
     """Créer un nouveau compte MANSA"""
@@ -134,7 +135,8 @@ async def register(
     refresh_token = create_refresh_token({"sub": str(user.id)})
 
     verify_token = create_email_verify_token(str(user.id))
-    send_verification_email(user.email, verify_token)
+    # BackgroundTask → la réponse 201 est immédiate, l'email s'envoie après
+    background_tasks.add_task(send_verification_email, user.email, verify_token)
 
     response = JSONResponse(
         status_code=status.HTTP_201_CREATED,
