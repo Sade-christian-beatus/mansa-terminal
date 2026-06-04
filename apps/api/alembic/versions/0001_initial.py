@@ -13,19 +13,7 @@ depends_on = None
 
 
 def upgrade() -> None:
-    # ---- Extension pgvector (timescaledb supprimé : non dispo sur Supabase free) ----
-    # Utilise une connexion raw pour éviter le conflit avec la transaction Alembic
-    conn = op.get_bind()
-    raw_conn = conn.connection
-    old_isolation = raw_conn.isolation_level
-    raw_conn.set_isolation_level(0)  # AUTOCOMMIT
-    try:
-        raw_conn.cursor().execute("CREATE EXTENSION IF NOT EXISTS vector;")
-        raw_conn.commit()
-    except Exception:
-        pass  # pgvector déjà installé ou non disponible — non bloquant
-    finally:
-        raw_conn.set_isolation_level(old_isolation)
+    # pgvector est pré-installé sur Supabase — aucune action nécessaire ici
 
     # ---- Table: users ----
     op.create_table(
