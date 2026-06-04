@@ -28,16 +28,19 @@ _api.interceptors.response.use(
       try {
         // Le refresh_token est dans un cookie httpOnly — pas besoin de le lire
         await axios.post(
-          `${API_URL}/api/auth/refresh`,
+          `${IS_BROWSER && IS_PROD ? "/api/backend" : API_URL + "/api"}/auth/refresh`,
           {},
           { withCredentials: true },
         );
         // Réessayer la requête originale
         return _api(error.config);
       } catch {
-        // Refresh échoué → rediriger vers login
+        // Refresh échoué → rediriger vers login SEULEMENT si on n'y est pas déjà
         if (typeof window !== "undefined") {
-          window.location.href = "/auth/login";
+          const isAuthPage = window.location.pathname.startsWith("/auth");
+          if (!isAuthPage) {
+            window.location.href = "/auth/login";
+          }
         }
       }
     }
