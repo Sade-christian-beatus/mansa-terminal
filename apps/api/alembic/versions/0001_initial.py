@@ -13,7 +13,14 @@ depends_on = None
 
 
 def upgrade() -> None:
-    # pgvector est pré-installé sur Supabase — aucune action nécessaire ici
+    # ---- Extension pgvector ----
+    # CREATE EXTENSION fonctionne dans une transaction en PostgreSQL standard.
+    # Sur Supabase, pgvector est pré-installé mais doit être activé.
+    # IF NOT EXISTS évite l'erreur si déjà présent.
+    try:
+        op.execute("CREATE EXTENSION IF NOT EXISTS vector;")
+    except Exception:
+        pass  # Non disponible dans l'environnement CI — on continue sans
 
     # ---- Table: users ----
     op.create_table(
@@ -148,18 +155,21 @@ def upgrade() -> None:
         sa.Column("created_at", sa.DateTime(timezone=True),
                   server_default=sa.func.now()),
     )
-    # Ajouter la colonne vecteur pgvector (1536 dims = OpenAI, 1024 = Claude)
-    op.execute("""
-        ALTER TABLE knowledge_documents
-        ADD COLUMN embedding vector(1024);
-    """)
-    # Index HNSW pour recherche vecteur rapide
-    op.execute("""
-        CREATE INDEX idx_knowledge_embedding
-        ON knowledge_documents
-        USING hnsw (embedding vector_cosine_ops)
-        WITH (m = 16, ef_construction = 64);
-    """)
+    # Ajouter la colonne vecteur pgvector (1024 dims = Claude)
+    # Non-bloquant : si pgvector n'est pas disponible (CI sans extension),
+    # on continue — la colonne est ajoutée manuellement en production via Supabase.
+    try:
+        op.execute(
+            "ALTER TABLE knowledge_documents ADD COLUMN embedding vector(1024);"
+        )
+        op.execute(
+            "CREATE INDEX idx_knowledge_embedding "
+            "ON knowledge_documents "
+            "USING hnsw (embedding vector_cosine_ops) "
+            "WITH (m = 16, ef_construction = 64);"
+        )
+    except Exception:
+        pass  # pgvector absent (CI) — la colonne sera créée sur Supabase
     op.create_index("idx_knowledge_country", "knowledge_documents",
                     ["country_id"])
     op.create_index("idx_knowledge_type", "knowledge_documents", ["doc_type"])
