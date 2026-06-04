@@ -23,11 +23,12 @@ export default function LoginPage() {
     try {
       const data = await authApi.login(email, password);
       setUser({ userId: data.user_id, email: data.email, fullName: data.full_name });
-      // Pose mansa_auth côté frontend (même domaine = SameSite=Lax OK)
-      // pour que le middleware Next.js le détecte immédiatement
+      // Pose mansa_auth côté frontend (même domaine = SameSite=Lax, pas de blocage cross-origin)
       const maxAge = 7 * 24 * 3600;
       document.cookie = `mansa_auth=1; path=/; max-age=${maxAge}; samesite=lax${location.protocol === "https:" ? "; secure" : ""}`;
-      router.push("/");
+      // Rechargement complet (hard navigation) pour que le middleware
+      // Next.js reçoive le cookie dans la requête HTTP initiale
+      window.location.href = "/";
     } catch (err: unknown) {
       const detail = (err as { response?: { data?: { detail?: string } } })
         ?.response?.data?.detail;

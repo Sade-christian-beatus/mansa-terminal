@@ -31,10 +31,10 @@ export default function RegisterPage() {
     try {
       const data = await authApi.register(form);
       setUser({ userId: data.user_id, email: data.email, fullName: data.full_name });
-      // Pose mansa_auth côté frontend (même domaine = SameSite=Lax OK)
+      // Pose mansa_auth côté frontend puis rechargement complet
       const maxAge = 7 * 24 * 3600;
       document.cookie = `mansa_auth=1; path=/; max-age=${maxAge}; samesite=lax${location.protocol === "https:" ? "; secure" : ""}`;
-      router.push("/");
+      window.location.href = "/";
     } catch (err: unknown) {
       const detail = (err as { response?: { data?: { detail?: string } } })
         ?.response?.data?.detail;
