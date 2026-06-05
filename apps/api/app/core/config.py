@@ -76,14 +76,20 @@ class Settings(BaseSettings):
     SENTRY_DSN: str = ""
     LOG_LEVEL: str = "INFO"
 
-    # Auth JWT
+    # Auth JWT (legacy — conservé pour compatibilité tokens existants)
     JWT_SECRET_KEY: str = "dev_jwt_secret_change_later"
     JWT_ALGORITHM: str = "HS256"
-    # RS256 en production : coller les clés PEM sur une seule ligne (\n encodé)
     JWT_PRIVATE_KEY: str = ""
     JWT_PUBLIC_KEY: str = ""
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
     REFRESH_TOKEN_EXPIRE_DAYS: int = 7
+
+    # Supabase Auth (remplace progressivement le JWT maison)
+    SUPABASE_URL: str = ""
+    SUPABASE_ANON_KEY: str = ""
+    # JWT Secret → Supabase Dashboard → Settings → API → JWT Settings
+    # Utilisé par FastAPI pour vérifier les tokens émis par Supabase Auth
+    SUPABASE_JWT_SECRET: str = ""
 
     # Stripe — hors scope MVP
     STRIPE_SECRET_KEY: str = ""

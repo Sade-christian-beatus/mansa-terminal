@@ -1,5 +1,10 @@
+/**
+ * MANSA Terminal — Auth Store (Zustand)
+ * Utilise la session Supabase comme source de vérité.
+ * Plus de JWT maison ni de cookies httpOnly personnalisés.
+ */
 import { create } from "zustand";
-import { authApi } from "@/lib/api";
+import { supabase } from "@/lib/supabase/client";
 
 interface AuthState {
   userId: string | null;
@@ -8,8 +13,7 @@ interface AuthState {
   isAuthenticated: boolean;
   setUser: (user: { userId: string; email: string; fullName?: string | null }) => void;
   logout: () => Promise<void>;
-  hydrate: () => void;
-  fetchUserDetails: () => Promise<void>;
+  hydrate: () => Promise<void>;
 }
 
 export const useAuthStore = create<AuthState>((set) => ({
@@ -22,39 +26,42 @@ export const useAuthStore = create<AuthState>((set) => ({
     set({ userId, email, fullName: fullName ?? null, isAuthenticated: true }),
 
   logout: async () => {
-    try {
-      await authApi.logout();
-    } catch {
-      // Si le serveur est injoignable, on déconnecte quand même côté client
-    }
+    await supabase.auth.signOut();
     set({ userId: null, email: null, fullName: null, isAuthenticated: false });
     window.location.href = "/auth/login";
   },
 
-  // Vérifie le cookie "mansa_auth" (non-httpOnly) pour initialisation synchrone
-  hydrate: () => {
-    if (typeof window === "undefined") return;
-    const hasCookie = document.cookie
-      .split(";")
-      .some((c) => c.trim().startsWith("mansa_auth="));
-    if (hasCookie) {
-      set({ isAuthenticated: true });
-    }
-  },
-
-  // Récupère les détails utilisateur via /api/auth/me (async, après hydration)
-  fetchUserDetails: async () => {
-    try {
-      const user = await authApi.me();
+  /**
+   * Initialise le store depuis la session Supabase active.
+   * Appelé au montage de l'AppShell — remplace l'ancienne vérification de cookie.
+   */
+  hydrate: async () => {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (session?.user) {
+      const { user } = session;
+      const meta = user.user_metadata ?? {};
       set({
-        userId: user.user_id,
-        email: user.email,
-        fullName: user.full_name ?? null,
+        userId: user.id,
+        email: user.email ?? null,
+        fullName: meta.full_name ?? null,
         isAuthenticated: true,
       });
-    } catch {
-      // Non connecté ou token expiré — réinitialiser
-      set({ userId: null, email: null, fullName: null, isAuthenticated: false });
     }
+
+    // Écouter les changements de session (login / logout / refresh)
+    supabase.auth.onAuthStateChange((_event, session) => {
+      if (session?.user) {
+        const { user } = session;
+        const meta = user.user_metadata ?? {};
+        set({
+          userId: user.id,
+          email: user.email ?? null,
+          fullName: meta.full_name ?? null,
+          isAuthenticated: true,
+        });
+      } else {
+        set({ userId: null, email: null, fullName: null, isAuthenticated: false });
+      }
+    });
   },
 }));

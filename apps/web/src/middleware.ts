@@ -1,30 +1,63 @@
-import { NextResponse } from "next/server";
-import type { NextRequest } from "next/server";
+/**
+ * MANSA Terminal — Middleware Next.js
+ * Rafraîchit la session Supabase sur chaque requête et protège les routes privées.
+ */
+import { createServerClient } from "@supabase/ssr";
+import { NextResponse, type NextRequest } from "next/server";
 
-const PUBLIC_PATHS = ["/auth/login", "/auth/register", "/auth/verify-email"];
+const PUBLIC_ROUTES = ["/auth/login", "/auth/register", "/auth/verify-email"];
+const AUTH_ROUTES   = ["/auth/login", "/auth/register"];
 
-export function middleware(request: NextRequest) {
-  const { pathname } = request.nextUrl;
+export async function middleware(request: NextRequest) {
+  let supabaseResponse = NextResponse.next({ request });
 
-  if (PUBLIC_PATHS.some((p) => pathname.startsWith(p))) {
-    return NextResponse.next();
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        getAll() {
+          return request.cookies.getAll();
+        },
+        setAll(cookiesToSet) {
+          cookiesToSet.forEach(({ name, value }) =>
+            request.cookies.set(name, value)
+          );
+          supabaseResponse = NextResponse.next({ request });
+          cookiesToSet.forEach(({ name, value, options }) =>
+            supabaseResponse.cookies.set(name, value, options)
+          );
+        },
+      },
+    }
+  );
+
+  // IMPORTANT : ne pas supprimer — rafraîchit le token Supabase
+  const { data: { user } } = await supabase.auth.getUser();
+
+  const pathname = request.nextUrl.pathname;
+  const isPublicRoute = PUBLIC_ROUTES.some((r) => pathname.startsWith(r));
+  const isAuthRoute   = AUTH_ROUTES.some((r) => pathname.startsWith(r));
+
+  // Non connecté → login (sauf routes publiques)
+  if (!user && !isPublicRoute) {
+    const url = request.nextUrl.clone();
+    url.pathname = "/auth/login";
+    return NextResponse.redirect(url);
   }
 
-  // mansa_auth : cookie non-httpOnly posé au login, dure autant que le refresh token.
-  // access_token : cookie httpOnly, utilisé comme fallback si mansa_auth absent.
-  const hasSession =
-    request.cookies.get("mansa_auth")?.value ||
-    request.cookies.get("access_token")?.value;
-
-  if (!hasSession) {
-    const loginUrl = new URL("/auth/login", request.url);
-    loginUrl.searchParams.set("next", pathname);
-    return NextResponse.redirect(loginUrl);
+  // Connecté → hors des pages auth
+  if (user && isAuthRoute) {
+    const url = request.nextUrl.clone();
+    url.pathname = "/";
+    return NextResponse.redirect(url);
   }
 
-  return NextResponse.next();
+  return supabaseResponse;
 }
 
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon.ico|api/).*)"],
+  matcher: [
+    "/((?!_next/static|_next/image|favicon.ico|api/imf|api/backend|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+  ],
 };

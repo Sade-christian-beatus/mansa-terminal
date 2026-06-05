@@ -1,44 +1,73 @@
 /**
  * MANSA Terminal — Client API centralisé
- * Axios avec cookies httpOnly — plus de tokens en localStorage
+ * Axios avec Bearer token Supabase (Authorization: Bearer <access_token>)
+ * Le token est récupéré depuis la session Supabase avant chaque requête.
  */
 import axios, { AxiosError } from "axios";
+import { supabase } from "@/lib/supabase/client";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
+// En production, passer par le proxy Next.js (/api/backend → Railway)
+// pour éviter les problèmes CORS cross-domain.
+const IS_BROWSER = typeof window !== "undefined";
+const IS_PROD = process.env.NODE_ENV === "production";
+const API_BASE = IS_BROWSER && IS_PROD ? "/api/backend" : `${API_URL}/api`;
+
 const _api = axios.create({
-  baseURL: `${API_URL}/api`,
+  baseURL: API_BASE,
   timeout: 30000,
   headers: { "Content-Type": "application/json" },
-  withCredentials: true, // envoie les cookies httpOnly automatiquement
 });
 
-// Intercepteur réponse — renouveler les tokens sur 401
+// ── Intercepteur requête — attache le Bearer token Supabase ──────────────
+_api.interceptors.request.use(async (config) => {
+  if (typeof window !== "undefined") {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (session?.access_token) {
+      config.headers["Authorization"] = `Bearer ${session.access_token}`;
+    }
+  }
+  return config;
+});
+
+// ── Intercepteur réponse — refresh automatique sur 401 ──────────────────
+let _refreshPromise: Promise<void> | null = null;
+
+async function _doRefresh(): Promise<void> {
+  const { error } = await supabase.auth.refreshSession();
+  if (error) throw error;
+}
+
 _api.interceptors.response.use(
   (response) => response.data,
-  async (error: AxiosError) => {
-    if (error.response?.status === 401 && error.config) {
+  async (error: AxiosError & { config?: { _retry?: boolean } }) => {
+    const config = error.config;
+
+    if (error.response?.status === 401 && config && !config._retry) {
+      config._retry = true;
       try {
-        // Le refresh_token est dans un cookie httpOnly — pas besoin de le lire
-        await axios.post(
-          `${API_URL}/api/auth/refresh`,
-          {},
-          { withCredentials: true },
-        );
-        // Réessayer la requête originale
-        return _api(error.config);
+        if (!_refreshPromise) {
+          _refreshPromise = _doRefresh().finally(() => { _refreshPromise = null; });
+        }
+        await _refreshPromise;
+        // Réessayer avec le nouveau token (l'intercepteur request l'attachera)
+        return _api(config);
       } catch {
-        // Refresh échoué → rediriger vers login
         if (typeof window !== "undefined") {
-          window.location.href = "/auth/login";
+          const isAuthPage = window.location.pathname.startsWith("/auth");
+          if (!isAuthPage) {
+            await supabase.auth.signOut();
+            window.location.href = "/auth/login";
+          }
         }
       }
     }
     return Promise.reject(error);
-  },
+  }
 );
 
-// Cast so callers get the data type directly (the response interceptor unwraps .data).
+// Cast pour que les appelants reçoivent directement le type de données
 export const api = _api as unknown as {
   get: <T = any>(url: string, config?: object) => Promise<T>;
   post: <T = any>(url: string, data?: unknown, config?: object) => Promise<T>;
@@ -46,30 +75,24 @@ export const api = _api as unknown as {
   delete: <T = any>(url: string, config?: object) => Promise<T>;
 };
 
-// ---- Helpers Auth ----
+// ── Helpers Auth ────────────────────────────────────────────────────────
 export interface AuthUser {
   user_id: string;
   email: string;
   full_name?: string | null;
+  organization?: string | null;
+  is_verified: boolean;
 }
 
 export const authApi = {
-  register: (data: {
-    email: string;
-    password: string;
-    full_name: string;
-    organization?: string;
-  }) => api.post<AuthUser>("/auth/register", data),
+  /** Synchronise l'utilisateur Supabase dans notre DB après signup/login. */
+  sync: (data?: { full_name?: string; organization?: string }) =>
+    api.post<AuthUser>("/auth/sync", data ?? {}),
 
-  login: (email: string, password: string) =>
-    api.post<AuthUser>("/auth/login", { email, password }),
-
-  logout: () => api.post("/auth/logout"),
-
-  me: () => api.get<AuthUser & { is_verified: boolean; organization?: string }>("/auth/me"),
+  me: () => api.get<AuthUser>("/auth/me"),
 };
 
-// ---- Helpers Macro ----
+// ── Helpers Macro ────────────────────────────────────────────────────────
 export const macroApi = {
   getCountries: (params?: { region?: string; tier?: number }) =>
     api.get("/macro/countries", { params }),
@@ -83,7 +106,7 @@ export const macroApi = {
     api.get("/macro/heatmap/africa", { params: { indicator, year } }),
 };
 
-// ---- Helpers AI Analyst ----
+// ── Helpers AI Analyst ──────────────────────────────────────────────────
 export interface AIHistoryItem {
   id: string;
   question: string;
@@ -98,62 +121,55 @@ export const aiApi = {
     api.get("/ai/history", { params: { limit } }),
 };
 
-// ---- Helpers Markets ----
+// ── Helpers Markets ──────────────────────────────────────────────────────
 export const marketsApi = {
-  getFxRates:   () => api.get("/markets/fx"),
-  getIndices:   () => api.get("/markets/indices"),
+  getFxRates: () => api.get("/markets/fx"),
+  getIndices:  () => api.get("/markets/indices"),
 };
 
-// ---- Helpers Climate ----
+// ── Helpers Climate ──────────────────────────────────────────────────────
 export const climateApi = {
   getIndicators: (year?: number) => api.get("/climate/indicators", { params: { year } }),
   getSummary:    () => api.get("/climate/summary"),
 };
 
-// ---- Helper AI Analyst (streaming SSE) ----
+// ── Streaming SSE AI Analyst ────────────────────────────────────────────
 export async function* streamAIQuery(
   question: string
 ): AsyncGenerator<{ type: string; content?: string; query_id?: string }> {
-  const response = await fetch(`${API_URL}/api/ai/query`, {
+  const streamBase = IS_BROWSER && IS_PROD ? "/api/backend" : `${API_URL}/api`;
+
+  // Récupérer le token Supabase pour le streaming fetch (pas Axios)
+  const { data: { session } } = await supabase.auth.getSession();
+  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  if (session?.access_token) {
+    headers["Authorization"] = `Bearer ${session.access_token}`;
+  }
+
+  const response = await fetch(`${streamBase}/ai/query`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
-    credentials: "include",
+    headers,
     body: JSON.stringify({ question }),
   });
 
-  if (!response.ok) {
-    throw new Error(`AI API error: ${response.status}`);
-  }
+  if (!response.ok) throw new Error(`AI API error: ${response.status}`);
 
   const reader = response.body?.getReader();
   const decoder = new TextDecoder("utf-8", { fatal: false });
-
   if (!reader) return;
 
-  // Buffer les lignes incomplètes entre chunks TCP.
-  // Sans ça, une ligne SSE coupée entre deux reads échoue silencieusement
-  // et l'assistant reste vide (isStreaming bloqué).
   let buffer = "";
-
   while (true) {
     const { done, value } = await reader.read();
     if (done) break;
-
     buffer += decoder.decode(value, { stream: true });
     const lines = buffer.split("\n");
-    buffer = lines.pop() ?? ""; // ligne potentiellement incomplète → reste dans le buffer
-
+    buffer = lines.pop() ?? "";
     for (const line of lines) {
       if (!line.startsWith("data: ")) continue;
-      try {
-        yield JSON.parse(line.slice(6));
-      } catch {
-        // ignorer les lignes malformées
-      }
+      try { yield JSON.parse(line.slice(6)); } catch { /* ignorer */ }
     }
   }
-
-  // Traiter ce qui reste dans le buffer après fermeture
   if (buffer.startsWith("data: ")) {
     try { yield JSON.parse(buffer.slice(6)); } catch { /* ignorer */ }
   }
