@@ -30,6 +30,10 @@ class User(Base):
     role = Column(String(20), nullable=False, default="analyst")
     is_active = Column(Boolean, nullable=False, default=True)
     is_verified = Column(Boolean, nullable=False, default=False)
+    # Révocation stateless des refresh tokens : incrémenté à chaque logout /
+    # changement de mot de passe. Tout refresh token portant un "ver" différent
+    # est immédiatement rejeté sans avoir besoin d'une blocklist Redis.
+    token_version = Column(Integer, nullable=False, default=1)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 

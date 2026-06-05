@@ -132,7 +132,9 @@ async def register(
     db.add(trial_sub)
 
     access_token = create_access_token({"sub": str(user.id)})
-    refresh_token = create_refresh_token({"sub": str(user.id)})
+    refresh_token = create_refresh_token(
+        {"sub": str(user.id)}, token_version=user.token_version
+    )
 
     verify_token = create_email_verify_token(str(user.id))
     # BackgroundTask → la réponse 201 est immédiate, l'email s'envoie après
@@ -170,7 +172,9 @@ async def login(
         )
 
     access_token = create_access_token({"sub": str(user.id)})
-    refresh_token = create_refresh_token({"sub": str(user.id)})
+    refresh_token = create_refresh_token(
+        {"sub": str(user.id)}, token_version=user.token_version
+    )
 
     response = JSONResponse(
         content=TokenResponse(
@@ -198,8 +202,29 @@ async def get_me(
 
 
 @router.post("/logout")
-async def logout():
-    """Déconnexion — supprime les cookies d'authentification"""
+async def logout(
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Déconnexion — supprime les cookies ET invalide tous les refresh tokens
+    existants en incrémentant token_version en base.
+    Tout ancien refresh token capturé devient immédiatement inutilisable.
+    """
+    # Récupérer l'utilisateur à partir du refresh token (si présent)
+    raw_token = request.cookies.get("refresh_token")
+    if raw_token:
+        payload = decode_token(raw_token)
+        user_id = payload.get("sub") if payload else None
+        if user_id:
+            result = await db.execute(
+                select(User).where(User.id == user_id, User.is_active == True)
+            )
+            user = result.scalar_one_or_none()
+            if user:
+                user.token_version = (user.token_version or 1) + 1
+                await db.commit()
+
     response = JSONResponse(content={"message": "Déconnecté"})
     for cookie in ("access_token", "refresh_token", "mansa_auth"):
         response.delete_cookie(cookie, path="/")
@@ -263,8 +288,20 @@ async def refresh_token(
             detail="Utilisateur introuvable",
         )
 
+    # SECURITY: vérifier que la version du token correspond à la version en base.
+    # Si l'utilisateur s'est déconnecté ou a changé son mot de passe depuis,
+    # token_version a été incrémenté et ce token est révoqué.
+    token_ver = payload.get("ver", 1)
+    if token_ver != (user.token_version or 1):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Refresh token révoqué — veuillez vous reconnecter",
+        )
+
     access_token = create_access_token({"sub": str(user.id)})
-    new_refresh = create_refresh_token({"sub": str(user.id)})
+    new_refresh = create_refresh_token(
+        {"sub": str(user.id)}, token_version=user.token_version
+    )
 
     response = JSONResponse(
         content=TokenResponse(
