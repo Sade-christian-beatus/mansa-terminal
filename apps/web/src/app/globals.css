@@ -3,54 +3,82 @@
 @tailwind utilities;
 
 /* ============================================================
-   MANSA Terminal — Design System
-   Palette sombre inspirée Bloomberg/Refinitiv
+   MANSA Terminal — Design System v2
+   Palette sombre inspirée Bloomberg / Refinitiv
    ============================================================ */
 
 :root {
-  /* Couleurs primaires MANSA */
-  --mansa-green: #00D4AA;
-  --mansa-green-dark: #00A882;
-  --mansa-gold: #FFB800;
-  --mansa-blue: #3B82F6;
+  /* ── Couleurs primaires MANSA ─────────────────────────────── */
+  --mansa-green:       #00D4AA;
+  --mansa-green-dark:  #00A882;
+  --mansa-green-glow:  rgba(0, 212, 170, 0.15);
+  --mansa-gold:        #FFB800;
+  --mansa-blue:        #3B82F6;
+  --mansa-blue-glow:   rgba(59, 130, 246, 0.15);
 
-  /* Backgrounds */
-  --bg-primary: #0A0E1A;
-  --bg-secondary: #0F1629;
-  --bg-card: #141B2E;
-  --bg-card-hover: #1A2236;
-  --bg-border: #1E2A42;
+  /* ── Backgrounds ──────────────────────────────────────────── */
+  --bg-primary:        #080C18;   /* page background */
+  --bg-secondary:      #0D1225;   /* sidebar / topbar */
+  --bg-card:           #111827;   /* carte standard */
+  --bg-card-raised:    #162032;   /* carte élevée / hover */
+  --bg-input:          #0D1629;   /* champs de formulaire */
+  --bg-border:         #1E2A42;   /* bordures standard */
+  --bg-border-subtle:  #162032;   /* bordures subtiles */
 
-  /* Textes */
-  --text-primary: #F1F5F9;
+  /* ── Textes ────────────────────────────────────────────────── */
+  --text-primary:   #F1F5F9;
   --text-secondary: #94A3B8;
-  --text-muted: #64748B;
+  --text-muted:     #64748B;
+  --text-disabled:  #374151;
 
-  /* États */
-  --positive: #10B981;
-  --negative: #EF4444;
-  --warning: #F59E0B;
-  --neutral: #6B7280;
+  /* ── États ─────────────────────────────────────────────────── */
+  --positive:  #10B981;
+  --negative:  #EF4444;
+  --warning:   #F59E0B;
+  --neutral:   #6B7280;
+
+  /* ── Espacements & formes ──────────────────────────────────── */
+  --radius-sm:  6px;
+  --radius-md:  10px;
+  --radius-lg:  14px;
+  --radius-xl:  18px;
+
+  /* ── Ombres ────────────────────────────────────────────────── */
+  --shadow-card:  0 1px 3px rgba(0,0,0,.4), 0 4px 16px rgba(0,0,0,.3);
+  --shadow-popup: 0 8px 32px rgba(0,0,0,.6), 0 2px 8px rgba(0,0,0,.4);
 }
 
-/* Scrollbar stylisée */
-::-webkit-scrollbar { width: 6px; height: 6px; }
-::-webkit-scrollbar-track { background: var(--bg-secondary); }
-::-webkit-scrollbar-thumb {
-  background: var(--bg-border);
-  border-radius: 3px;
-}
+/* ── Reset de base ─────────────────────────────────────────── */
+html { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
+body { background: var(--bg-primary); color: var(--text-primary); }
+
+/* ── Scrollbar ─────────────────────────────────────────────── */
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--bg-border); border-radius: 99px; }
 ::-webkit-scrollbar-thumb:hover { background: #2A3A58; }
 
-/* Animations */
+/* ── Focus visible (accessibilité) ────────────────────────── */
+:focus-visible {
+  outline: 2px solid var(--mansa-green);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
+
+/* ── Animations ────────────────────────────────────────────── */
 @keyframes shimmer {
-  0% { background-position: -200% 0; }
-  100% { background-position: 200% 0; }
+  0%   { background-position: -200% 0; }
+  100% { background-position:  200% 0; }
 }
 
 @keyframes fadeIn {
-  from { opacity: 0; transform: translateY(4px); }
-  to { opacity: 1; transform: translateY(0); }
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes fadeInFast {
+  from { opacity: 0; }
+  to   { opacity: 1; }
 }
 
 @keyframes ticker {
@@ -58,35 +86,132 @@
   100% { transform: translateX(-50%); }
 }
 
-/* Classes utilitaires MANSA */
+@keyframes pulse-green {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(0, 212, 170, 0.4); }
+  50%       { box-shadow: 0 0 0 5px rgba(0, 212, 170, 0); }
+}
+
+@keyframes countUp {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ── Composants utilitaires ────────────────────────────────── */
 @layer components {
+
+  /* Cartes */
   .mansa-card {
-    @apply bg-[#141B2E] border border-[#1E2A42] rounded-xl;
+    @apply rounded-xl border;
+    background: var(--bg-card);
+    border-color: var(--bg-border);
+    box-shadow: var(--shadow-card);
   }
 
   .mansa-card-hover {
-    @apply hover:bg-[#1A2236] hover:border-[#2A3A58] transition-colors duration-200;
+    @apply transition-all duration-200 cursor-pointer;
+  }
+  .mansa-card-hover:hover {
+    background: var(--bg-card-raised);
+    border-color: #2A3A58;
+    box-shadow: 0 4px 24px rgba(0,0,0,.5);
+    transform: translateY(-1px);
   }
 
-  .mansa-metric-positive {
-    @apply text-emerald-400 font-medium;
-  }
+  /* Métriques */
+  .mansa-metric-positive { @apply text-emerald-400 font-semibold; }
+  .mansa-metric-negative { @apply text-red-400  font-semibold; }
+  .mansa-metric-warn     { @apply text-amber-400 font-semibold; }
 
-  .mansa-metric-negative {
-    @apply text-red-400 font-medium;
-  }
-
+  /* Badge */
   .mansa-badge {
     @apply inline-flex items-center gap-1 px-2 py-0.5 rounded-full
-           text-xs font-medium bg-[#1E2A42] text-gray-300;
+           text-xs font-medium;
+    background: var(--bg-border);
+    color: var(--text-secondary);
   }
 
+  /* Badge accent */
+  .mansa-badge-green {
+    @apply mansa-badge;
+    background: var(--mansa-green-glow);
+    color: var(--mansa-green);
+  }
+
+  /* Skeleton */
   .skeleton {
-    @apply bg-gradient-to-r from-[#141B2E] via-[#1E2A42] to-[#141B2E]
-           bg-[length:200%_100%] animate-[shimmer_1.5s_infinite];
+    @apply rounded;
+    background: linear-gradient(
+      90deg,
+      var(--bg-card) 0%,
+      var(--bg-border) 50%,
+      var(--bg-card) 100%
+    );
+    background-size: 200% 100%;
+    animation: shimmer 1.6s ease-in-out infinite;
   }
 
-  .animate-fade-in {
-    animation: fadeIn 0.3s ease-out;
+  /* Animations */
+  .animate-fade-in      { animation: fadeIn     0.35s ease-out both; }
+  .animate-fade-in-fast { animation: fadeInFast 0.2s  ease-out both; }
+  .animate-count-up     { animation: countUp    0.4s  ease-out both; }
+
+  /* Glow buttons / accents */
+  .mansa-glow-green {
+    box-shadow: 0 0 20px var(--mansa-green-glow), 0 0 4px rgba(0,212,170,.2);
+  }
+
+  /* Séparateur */
+  .mansa-divider {
+    @apply border-t;
+    border-color: var(--bg-border);
+  }
+
+  /* Input standard */
+  .mansa-input {
+    @apply w-full rounded-lg px-3 py-2 text-sm text-gray-300
+           placeholder-gray-600 outline-none transition-colors;
+    background: var(--bg-input);
+    border: 1px solid var(--bg-border);
+  }
+  .mansa-input:focus {
+    border-color: rgba(0, 212, 170, 0.5);
+    box-shadow: 0 0 0 3px rgba(0, 212, 170, 0.08);
+  }
+
+  /* Bouton primaire */
+  .mansa-btn-primary {
+    @apply inline-flex items-center gap-2 px-4 py-2 rounded-lg
+           text-sm font-semibold text-white transition-all duration-150;
+    background: linear-gradient(135deg, var(--mansa-green), var(--mansa-green-dark));
+  }
+  .mansa-btn-primary:hover {
+    filter: brightness(1.1);
+    box-shadow: 0 4px 16px rgba(0,212,170,.3);
+  }
+
+  /* Bouton ghost */
+  .mansa-btn-ghost {
+    @apply inline-flex items-center gap-2 px-3 py-1.5 rounded-lg
+           text-sm text-gray-400 transition-colors;
+    background: transparent;
+    border: 1px solid var(--bg-border);
+  }
+  .mansa-btn-ghost:hover {
+    background: var(--bg-card);
+    color: var(--text-primary);
+    border-color: #2A3A58;
+  }
+
+  /* Barre de navigation active (sidebar) */
+  .nav-item-active {
+    color: var(--mansa-green) !important;
+    background: rgba(0, 212, 170, 0.08);
+    border-left: 2px solid var(--mansa-green);
+  }
+
+  /* Live dot */
+  .live-dot {
+    @apply w-2 h-2 rounded-full bg-emerald-400;
+    animation: pulse-green 2s ease-in-out infinite;
   }
 }

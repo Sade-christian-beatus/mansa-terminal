@@ -74,42 +74,86 @@ interface CardProps {
 function KpiCard({ title, value, sub, trend, trendLabel, icon, barColor, isLoading }: CardProps) {
   if (isLoading) {
     return (
-      <div className="bg-[#0D1426] border border-[#1E2A42] rounded-lg p-4 animate-pulse">
-        <div className="h-2.5 bg-[#1E2A42] rounded w-24 mb-4" />
-        <div className="h-7 bg-[#1E2A42] rounded w-16 mb-2" />
-        <div className="h-2.5 bg-[#1E2A42] rounded w-36" />
+      <div className="rounded-xl p-5 animate-pulse" style={{ background: "var(--bg-card)", border: "1px solid var(--bg-border)" }}>
+        <div className="skeleton h-2.5 rounded w-28 mb-5" />
+        <div className="skeleton h-8 rounded w-20 mb-3" />
+        <div className="skeleton h-2.5 rounded w-40" />
       </div>
     );
   }
 
-  const trendColors = {
-    up: "text-green-400",
-    down: "text-red-400",
-    warn: "text-amber-400",
+  const trendMeta: Record<string, { color: string; symbol: string }> = {
+    up:   { color: "#10B981", symbol: "▲" },
+    down: { color: "#EF4444", symbol: "▼" },
+    warn: { color: "#F59E0B", symbol: "⚠" },
   };
+  const meta = trend ? trendMeta[trend] : null;
 
   return (
-    <div className="bg-[#0D1426] border border-[#1E2A42] rounded-lg p-4 hover:border-[#2A3A52] transition-colors relative overflow-hidden group">
-      <div className={`absolute top-0 inset-x-0 h-[2px] ${barColor}`} />
+    <div
+      className="rounded-xl p-5 relative overflow-hidden group transition-all duration-200 animate-count-up"
+      style={{
+        background: "var(--bg-card)",
+        border: "1px solid var(--bg-border)",
+        boxShadow: "var(--shadow-card)",
+      }}
+      onMouseEnter={(e) => {
+        (e.currentTarget as HTMLElement).style.background = "var(--bg-card-raised)";
+        (e.currentTarget as HTMLElement).style.borderColor = "#2A3A58";
+        (e.currentTarget as HTMLElement).style.transform = "translateY(-2px)";
+        (e.currentTarget as HTMLElement).style.boxShadow = "0 6px 28px rgba(0,0,0,.5)";
+      }}
+      onMouseLeave={(e) => {
+        (e.currentTarget as HTMLElement).style.background = "var(--bg-card)";
+        (e.currentTarget as HTMLElement).style.borderColor = "var(--bg-border)";
+        (e.currentTarget as HTMLElement).style.transform = "";
+        (e.currentTarget as HTMLElement).style.boxShadow = "var(--shadow-card)";
+      }}
+    >
+      {/* Barre colorée en haut */}
+      <div className={`absolute top-0 inset-x-0 h-[3px] ${barColor} opacity-90`} />
 
-      <div className="flex items-start justify-between mb-3">
-        <span className="text-gray-500 text-[10px] font-mono uppercase tracking-widest leading-tight">
+      {/* Reflet subtil */}
+      <div className="absolute inset-0 bg-gradient-to-b from-white/[0.02] to-transparent pointer-events-none" />
+
+      {/* Header */}
+      <div className="flex items-start justify-between mb-4">
+        <span
+          className="text-[10px] font-mono font-semibold uppercase tracking-widest leading-tight"
+          style={{ color: "var(--text-muted)" }}
+        >
           {title}
         </span>
-        <span className="text-gray-600 group-hover:text-gray-400 transition-colors">{icon}</span>
+        <span
+          className="transition-colors duration-200"
+          style={{ color: "var(--text-disabled)" }}
+        >
+          {icon}
+        </span>
       </div>
 
-      <div className="flex items-baseline gap-2 mb-1">
-        <span className="text-white text-2xl font-bold font-mono tabular-nums">{value}</span>
-        {trend && trendLabel && (
-          <span className={`text-[11px] font-mono ${trendColors[trend] ?? "text-gray-500"}`}>
-            {trend === "up" ? "▲" : trend === "down" ? "▼" : "⚠"}
-            &nbsp;{trendLabel}
+      {/* Valeur principale */}
+      <div className="flex items-baseline gap-2.5 mb-2">
+        <span
+          className="text-3xl font-extrabold font-mono tabular-nums tracking-tight"
+          style={{ color: "var(--text-primary)" }}
+        >
+          {value}
+        </span>
+        {meta && trendLabel && (
+          <span
+            className="text-[11px] font-mono font-semibold flex items-center gap-0.5"
+            style={{ color: meta.color }}
+          >
+            {meta.symbol} {trendLabel}
           </span>
         )}
       </div>
 
-      <p className="text-gray-600 text-[11px] leading-tight">{sub}</p>
+      {/* Sous-texte */}
+      <p className="text-[11px] leading-relaxed" style={{ color: "var(--text-muted)" }}>
+        {sub}
+      </p>
     </div>
   );
 }
