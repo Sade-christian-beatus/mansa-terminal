@@ -20,20 +20,35 @@ const _api = axios.create({
   withCredentials: true, // envoie les cookies httpOnly automatiquement
 });
 
+// ── Refresh token — promise partagée ────────────────────────────────────────
+// Une seule promesse en vol à la fois : les 401 concurrents se branchent dessus
+// plutôt que de déclencher N appels /auth/refresh simultanés (stampede).
+let _refreshPromise: Promise<void> | null = null;
+
+async function _doRefresh(): Promise<void> {
+  const refreshBase = IS_BROWSER && IS_PROD ? "/api/backend" : `${API_URL}/api`;
+  await axios.post(`${refreshBase}/auth/refresh`, {}, { withCredentials: true });
+}
+
 // Intercepteur réponse — renouveler les tokens sur 401
 _api.interceptors.response.use(
   (response) => response.data,
-  async (error: AxiosError) => {
-    if (error.response?.status === 401 && error.config) {
+  async (error: AxiosError & { config?: { _retry?: boolean } }) => {
+    const config = error.config;
+
+    // Ne tenter le refresh qu'une seule fois par requête originale
+    if (error.response?.status === 401 && config && !config._retry) {
+      config._retry = true; // garde-fou : évite la boucle infinie
       try {
-        // Le refresh_token est dans un cookie httpOnly — pas besoin de le lire
-        await axios.post(
-          `${IS_BROWSER && IS_PROD ? "/api/backend" : API_URL + "/api"}/auth/refresh`,
-          {},
-          { withCredentials: true },
-        );
-        // Réessayer la requête originale
-        return _api(error.config);
+        // Partager la promesse en cours si un refresh est déjà en vol
+        if (!_refreshPromise) {
+          _refreshPromise = _doRefresh().finally(() => {
+            _refreshPromise = null;
+          });
+        }
+        await _refreshPromise;
+        // Réessayer la requête originale avec le nouveau cookie
+        return _api(config);
       } catch {
         // Refresh échoué → rediriger vers login SEULEMENT si on n'y est pas déjà
         if (typeof window !== "undefined") {
