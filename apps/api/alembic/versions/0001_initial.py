@@ -12,15 +12,28 @@ branch_labels = None
 depends_on = None
 
 
+def _run_optional(sql: str) -> None:
+    """
+    Exécute une instruction SQL optionnelle sans avorter la transaction.
+
+    Un try/except Python ne suffit pas : si PostgreSQL renvoie une erreur,
+    la transaction est marquée "aborted" côté serveur et toutes les
+    instructions suivantes échouent. Le SAVEPOINT isole l'erreur.
+    """
+    conn = op.get_bind()
+    conn.execute(sa.text("SAVEPOINT _optional_stmt"))
+    try:
+        conn.execute(sa.text(sql))
+        conn.execute(sa.text("RELEASE SAVEPOINT _optional_stmt"))
+    except Exception:
+        conn.execute(sa.text("ROLLBACK TO SAVEPOINT _optional_stmt"))
+
+
 def upgrade() -> None:
     # ---- Extension pgvector ----
-    # CREATE EXTENSION fonctionne dans une transaction en PostgreSQL standard.
-    # Sur Supabase, pgvector est pré-installé mais doit être activé.
-    # IF NOT EXISTS évite l'erreur si déjà présent.
-    try:
-        op.execute("CREATE EXTENSION IF NOT EXISTS vector;")
-    except Exception:
-        pass  # Non disponible dans l'environnement CI — on continue sans
+    # Optionnelle : présente dans l'image CI pgvector/pgvector:pg16 et sur Supabase.
+    # SAVEPOINT protège la transaction si l'extension est absente.
+    _run_optional("CREATE EXTENSION IF NOT EXISTS vector")
 
     # ---- Table: users ----
     op.create_table(
@@ -155,21 +168,16 @@ def upgrade() -> None:
         sa.Column("created_at", sa.DateTime(timezone=True),
                   server_default=sa.func.now()),
     )
-    # Ajouter la colonne vecteur pgvector (1024 dims = Claude)
-    # Non-bloquant : si pgvector n'est pas disponible (CI sans extension),
-    # on continue — la colonne est ajoutée manuellement en production via Supabase.
-    try:
-        op.execute(
-            "ALTER TABLE knowledge_documents ADD COLUMN embedding vector(1024);"
-        )
-        op.execute(
-            "CREATE INDEX idx_knowledge_embedding "
-            "ON knowledge_documents "
-            "USING hnsw (embedding vector_cosine_ops) "
-            "WITH (m = 16, ef_construction = 64);"
-        )
-    except Exception:
-        pass  # pgvector absent (CI) — la colonne sera créée sur Supabase
+    # Colonne vecteur pgvector + index HNSW — optionnels, même protection SAVEPOINT
+    _run_optional(
+        "ALTER TABLE knowledge_documents ADD COLUMN embedding vector(1024)"
+    )
+    _run_optional(
+        "CREATE INDEX idx_knowledge_embedding "
+        "ON knowledge_documents "
+        "USING hnsw (embedding vector_cosine_ops) "
+        "WITH (m = 16, ef_construction = 64)"
+    )
     op.create_index("idx_knowledge_country", "knowledge_documents",
                     ["country_id"])
     op.create_index("idx_knowledge_type", "knowledge_documents", ["doc_type"])

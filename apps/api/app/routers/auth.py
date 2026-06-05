@@ -1,314 +1,135 @@
 """
 MANSA Terminal — Router Auth
-Inscription, connexion, refresh token — cookies httpOnly
+Supabase Auth gère login / register / refresh / logout côté frontend.
+Ce router expose uniquement :
+  POST /sync  — synchronise un utilisateur Supabase dans notre table users
+               (appelé par le frontend après signup ou premier login)
+  GET  /me    — retourne les infos de l'utilisateur connecté
 """
 from typing import Annotated
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request, Response, status
-from fastapi.responses import JSONResponse
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel
 
-import uuid
 from datetime import datetime, timezone, timedelta
 
-from app.core.config import settings
 from app.core.database import get_db
-from app.core.dependencies import get_current_active_user
+from app.core.dependencies import get_current_active_user, _decode_supabase_token, _extract_token
 from app.core.limiter import limiter
-from app.core.security import (
-    hash_password, verify_password,
-    create_access_token, create_refresh_token,
-    create_email_verify_token, decode_token,
-)
 from app.models.models import User, Subscription
-from app.services.email import send_verification_email
 
 router = APIRouter()
 
 
-# --- Schémas Pydantic ---
-class RegisterRequest(BaseModel):
-    email: EmailStr
-    password: str
-    full_name: str
+# ── Schémas ────────────────────────────────────────────────────────────────
+
+class SyncRequest(BaseModel):
+    """Métadonnées optionnelles envoyées au moment de l'inscription."""
+    full_name: str | None = None
     organization: str | None = None
 
 
-class LoginRequest(BaseModel):
-    email: EmailStr
-    password: str
-
-
-class TokenResponse(BaseModel):
-    token_type: str = "bearer"
+class UserResponse(BaseModel):
     user_id: str
     email: str
     full_name: str | None
+    organization: str | None
+    is_verified: bool
 
 
-class RefreshRequest(BaseModel):
-    refresh_token: str | None = None  # facultatif : lu depuis le cookie si absent
+# ── Endpoints ──────────────────────────────────────────────────────────────
 
-
-# --- Helper cookies ---
-def _set_auth_cookies(response: Response, access_token: str, refresh_token: str) -> None:
-    """
-    Pose les cookies httpOnly sur la réponse.
-
-    En production (Vercel ↔ Railway = domaines différents) :
-      - SameSite=None obligatoire pour les requêtes cross-site
-      - Secure=True obligatoire quand SameSite=None
-    En dev (même domaine localhost) :
-      - SameSite=Lax suffit, Secure=False pour HTTP
-    """
-    is_prod = settings.APP_ENV == "production"
-    samesite: str = "none" if is_prod else "lax"
-
-    response.set_cookie(
-        "access_token", access_token,
-        httponly=True,
-        secure=is_prod,
-        samesite=samesite,
-        max_age=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
-    )
-    response.set_cookie(
-        "refresh_token", refresh_token,
-        httponly=True,
-        secure=is_prod,
-        samesite=samesite,
-        max_age=settings.REFRESH_TOKEN_EXPIRE_DAYS * 24 * 3600,
-        path="/api/auth/refresh",
-    )
-    # Cookie lisible par JS/middleware uniquement pour savoir si connecté
-    # Dure aussi longtemps que le refresh token (pas l'access token) pour
-    # que le middleware laisse passer l'utilisateur même après expiration de l'access token.
-    response.set_cookie(
-        "mansa_auth", "1",
-        httponly=False,
-        secure=is_prod,
-        samesite=samesite,
-        max_age=settings.REFRESH_TOKEN_EXPIRE_DAYS * 24 * 3600,
-    )
-
-
-# --- Endpoints ---
-@router.post("/register", response_model=TokenResponse,
-             status_code=status.HTTP_201_CREATED)
-@limiter.limit("5/minute")
-async def register(
-    request: Request,
-    data: RegisterRequest,
-    background_tasks: BackgroundTasks,
-    db: AsyncSession = Depends(get_db),
-):
-    """Créer un nouveau compte MANSA"""
-    existing = await db.execute(select(User).where(User.email == data.email))
-    if existing.scalar_one_or_none():
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="Un compte existe déjà avec cet email",
-        )
-
-    user = User(
-        email=data.email,
-        hashed_password=hash_password(data.password),
-        full_name=data.full_name,
-        organization=data.organization,
-    )
-    db.add(user)
-    await db.flush()
-    await db.refresh(user)
-
-    # Auto-créer un trial 30 jours (plan Professional) pour chaque inscription
-    # → Remplace l'ancien bypass APP_ENV == "development" dans dependencies.py
-    trial_sub = Subscription(
-        user_id=user.id,
-        plan="professional",
-        status="trialing",
-        seats=1,
-        trial_ends_at=datetime.now(timezone.utc) + timedelta(days=30),
-    )
-    db.add(trial_sub)
-
-    access_token = create_access_token({"sub": str(user.id)})
-    refresh_token = create_refresh_token(
-        {"sub": str(user.id)}, token_version=user.token_version
-    )
-
-    verify_token = create_email_verify_token(str(user.id))
-    # BackgroundTask → la réponse 201 est immédiate, l'email s'envoie après
-    background_tasks.add_task(send_verification_email, user.email, verify_token)
-
-    response = JSONResponse(
-        status_code=status.HTTP_201_CREATED,
-        content=TokenResponse(
-            user_id=str(user.id),
-            email=user.email,
-            full_name=user.full_name,
-        ).model_dump(),
-    )
-    _set_auth_cookies(response, access_token, refresh_token)
-    return response
-
-
-@router.post("/login", response_model=TokenResponse)
+@router.post("/sync", response_model=UserResponse)
 @limiter.limit("10/minute")
-async def login(
+async def sync_user(
     request: Request,
-    data: LoginRequest,
+    body: SyncRequest = SyncRequest(),
     db: AsyncSession = Depends(get_db),
 ):
-    """Connexion avec email + mot de passe"""
-    result = await db.execute(
-        select(User).where(User.email == data.email, User.is_active == True)
-    )
+    """
+    Synchronise un utilisateur Supabase dans notre table `users`.
+
+    Appelé par le frontend après :
+    - Une inscription (signUp) → crée l'utilisateur + abonnement trial
+    - Un premier login OAuth → idem
+    - Un login existant → retourne les infos sans rien créer
+
+    Le JWT Supabase dans le header Authorization identifie l'utilisateur.
+    Son `sub` (UUID Supabase) devient la clé primaire dans notre table.
+    """
+    token = _extract_token(request)
+    if not token:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token manquant")
+
+    payload = _decode_supabase_token(token)
+    if not payload:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token invalide")
+
+    supabase_user_id = payload.get("sub")
+    email = payload.get("email") or payload.get("user_metadata", {}).get("email", "")
+
+    if not supabase_user_id or not email:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Token incomplet")
+
+    import uuid
+    user_uuid = uuid.UUID(supabase_user_id)
+
+    # Chercher l'utilisateur existant
+    result = await db.execute(select(User).where(User.id == user_uuid))
     user = result.scalar_one_or_none()
 
-    if not user or not verify_password(data.password, user.hashed_password):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Email ou mot de passe incorrect",
+    if not user:
+        # 1ère connexion — créer l'utilisateur dans notre table
+        user_meta = payload.get("user_metadata") or {}
+        user = User(
+            id=user_uuid,
+            email=email,
+            hashed_password="supabase_managed",  # Auth déléguée à Supabase
+            full_name=body.full_name or user_meta.get("full_name"),
+            organization=body.organization or user_meta.get("organization"),
+            is_active=True,
+            is_verified=True,  # Supabase gère la vérification email
         )
+        db.add(user)
+        await db.flush()
+        await db.refresh(user)
 
-    access_token = create_access_token({"sub": str(user.id)})
-    refresh_token = create_refresh_token(
-        {"sub": str(user.id)}, token_version=user.token_version
+        # Créer un abonnement trial 30j automatiquement
+        trial_sub = Subscription(
+            user_id=user.id,
+            plan="professional",
+            status="trialing",
+            seats=1,
+            trial_ends_at=datetime.now(timezone.utc) + timedelta(days=30),
+        )
+        db.add(trial_sub)
+        await db.commit()
+        await db.refresh(user)
+    elif body.full_name and not user.full_name:
+        # Mettre à jour les métadonnées si manquantes
+        user.full_name = body.full_name
+        user.organization = body.organization or user.organization
+        await db.commit()
+
+    return UserResponse(
+        user_id=str(user.id),
+        email=user.email,
+        full_name=user.full_name,
+        organization=user.organization,
+        is_verified=user.is_verified,
     )
 
-    response = JSONResponse(
-        content=TokenResponse(
-            user_id=str(user.id),
-            email=user.email,
-            full_name=user.full_name,
-        ).model_dump(),
-    )
-    _set_auth_cookies(response, access_token, refresh_token)
-    return response
 
-
-@router.get("/me")
+@router.get("/me", response_model=UserResponse)
 async def get_me(
     current_user: Annotated[User, Depends(get_current_active_user)],
 ):
-    """Retourne les informations de l'utilisateur connecté"""
-    return {
-        "user_id": str(current_user.id),
-        "email": current_user.email,
-        "full_name": current_user.full_name,
-        "organization": current_user.organization,
-        "is_verified": current_user.is_verified,
-    }
-
-
-@router.post("/logout")
-async def logout(
-    request: Request,
-    db: AsyncSession = Depends(get_db),
-):
-    """
-    Déconnexion — supprime les cookies ET invalide tous les refresh tokens
-    existants en incrémentant token_version en base.
-    Tout ancien refresh token capturé devient immédiatement inutilisable.
-    """
-    # Récupérer l'utilisateur à partir du refresh token (si présent)
-    raw_token = request.cookies.get("refresh_token")
-    if raw_token:
-        payload = decode_token(raw_token)
-        user_id = payload.get("sub") if payload else None
-        if user_id:
-            result = await db.execute(
-                select(User).where(User.id == user_id, User.is_active == True)
-            )
-            user = result.scalar_one_or_none()
-            if user:
-                user.token_version = (user.token_version or 1) + 1
-                await db.commit()
-
-    response = JSONResponse(content={"message": "Déconnecté"})
-    for cookie in ("access_token", "refresh_token", "mansa_auth"):
-        response.delete_cookie(cookie, path="/")
-    response.delete_cookie("refresh_token", path="/api/auth/refresh")
-    return response
-
-
-@router.get("/verify-email")
-async def verify_email(token: str, db: AsyncSession = Depends(get_db)):
-    """Valide le token de vérification email et active le compte"""
-    payload = decode_token(token)
-    if not payload or payload.get("type") != "email_verify":
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Lien de vérification invalide ou expiré",
-        )
-
-    result = await db.execute(select(User).where(User.id == payload.get("sub")))
-    user = result.scalar_one_or_none()
-    if not user:
-        raise HTTPException(status_code=404, detail="Utilisateur introuvable")
-
-    if not user.is_verified:
-        user.is_verified = True
-        await db.commit()
-
-    return {"message": "Email vérifié avec succès", "email": user.email}
-
-
-@router.post("/refresh", response_model=TokenResponse)
-async def refresh_token(
-    request: Request,
-    data: RefreshRequest = RefreshRequest(),
-    db: AsyncSession = Depends(get_db),
-):
-    """Renouveler les tokens — lit le refresh_token depuis le cookie ou le corps"""
-    raw_token = (
-        request.cookies.get("refresh_token")
-        or (data.refresh_token if data else None)
+    """Retourne les informations de l'utilisateur connecté."""
+    return UserResponse(
+        user_id=str(current_user.id),
+        email=current_user.email,
+        full_name=current_user.full_name,
+        organization=current_user.organization,
+        is_verified=current_user.is_verified,
     )
-    if not raw_token:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Refresh token manquant",
-        )
-
-    payload = decode_token(raw_token)
-    if not payload or payload.get("type") != "refresh":
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Refresh token invalide ou expiré",
-        )
-
-    result = await db.execute(
-        select(User).where(User.id == payload.get("sub"), User.is_active == True)
-    )
-    user = result.scalar_one_or_none()
-    if not user:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Utilisateur introuvable",
-        )
-
-    # SECURITY: vérifier que la version du token correspond à la version en base.
-    # Si l'utilisateur s'est déconnecté ou a changé son mot de passe depuis,
-    # token_version a été incrémenté et ce token est révoqué.
-    token_ver = payload.get("ver", 1)
-    if token_ver != (user.token_version or 1):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Refresh token révoqué — veuillez vous reconnecter",
-        )
-
-    access_token = create_access_token({"sub": str(user.id)})
-    new_refresh = create_refresh_token(
-        {"sub": str(user.id)}, token_version=user.token_version
-    )
-
-    response = JSONResponse(
-        content=TokenResponse(
-            user_id=str(user.id),
-            email=user.email,
-            full_name=user.full_name,
-        ).model_dump(),
-    )
-    _set_auth_cookies(response, access_token, new_refresh)
-    return response

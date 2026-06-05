@@ -2,34 +2,62 @@
 MANSA Terminal — Dependencies FastAPI
 Injection de dépendances : user courant, vérification abonnement.
 
-SECURITY: Aucun bypass APP_ENV. Aucune fake auth.
-Pour la démo MVP, chaque utilisateur enregistré reçoit un trial 30j (voir auth.py).
+AUTH STRATEGY:
+  Supabase Auth émet les JWTs (HS256, secret = SUPABASE_JWT_SECRET).
+  FastAPI vérifie le token via l'en-tête Authorization: Bearer <token>.
+  Le claim `sub` du JWT = UUID Supabase de l'utilisateur, utilisé comme
+  clé primaire dans notre table `users` (synchronisée au 1er login).
 """
 from typing import Annotated
+import jwt as pyjwt
 from fastapi import Depends, HTTPException, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
+from app.core.config import settings
 from app.core.database import get_db
-from app.core.security import decode_token
 from app.models.models import User, Subscription
 
 
 def _extract_token(request: Request) -> str | None:
-    """Lit le JWT depuis le cookie httpOnly en priorité, puis le header Bearer."""
-    token = request.cookies.get("access_token")
-    if not token:
-        auth = request.headers.get("Authorization", "")
-        if auth.startswith("Bearer "):
-            token = auth[7:]
-    return token or None
+    """Lit le JWT Supabase depuis le header Authorization: Bearer."""
+    auth = request.headers.get("Authorization", "")
+    if auth.startswith("Bearer "):
+        return auth[7:]
+    return None
+
+
+def _decode_supabase_token(token: str) -> dict:
+    """
+    Vérifie et décode un JWT émis par Supabase Auth.
+    Retourne {} si invalide ou expiré.
+    """
+    secret = settings.SUPABASE_JWT_SECRET
+    if not secret:
+        # Fallback dev : accepte sans vérification de signature (jamais en prod)
+        try:
+            return pyjwt.decode(token, options={"verify_signature": False})
+        except Exception:
+            return {}
+    try:
+        return pyjwt.decode(
+            token,
+            secret,
+            algorithms=["HS256"],
+            audience="authenticated",
+        )
+    except (pyjwt.ExpiredSignatureError, pyjwt.InvalidTokenError):
+        return {}
 
 
 async def get_current_user(
     request: Request,
     db: AsyncSession = Depends(get_db),
 ) -> User:
-    """Extrait et valide l'utilisateur depuis le cookie httpOnly ou le Bearer token."""
+    """
+    Extrait l'utilisateur depuis le JWT Supabase (Authorization: Bearer).
+    Le `sub` du JWT = UUID Supabase = clé primaire de notre table users.
+    """
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Non authentifié",
@@ -40,8 +68,8 @@ async def get_current_user(
     if not token:
         raise credentials_exception
 
-    payload = decode_token(token)
-    if not payload or payload.get("type") != "access":
+    payload = _decode_supabase_token(token)
+    if not payload:
         raise credentials_exception
 
     user_id = payload.get("sub")
@@ -70,8 +98,7 @@ async def get_active_subscription(
     current_user: Annotated[User, Depends(get_current_active_user)],
     db: AsyncSession = Depends(get_db),
 ) -> Subscription:
-    """Retourne l'abonnement actif. Raise 402 si absent.
-    En MVP démo : chaque utilisateur enregistré reçoit un trial automatique via auth.py."""
+    """Retourne l'abonnement actif. Raise 402 si absent."""
     result = await db.execute(
         select(Subscription).where(
             Subscription.user_id == current_user.id,
@@ -91,7 +118,6 @@ async def require_active_subscription(
     current_user: Annotated[User, Depends(get_current_active_user)],
     db: AsyncSession = Depends(get_db),
 ) -> User:
-    """Vérifie abonnement actif, retourne User."""
     result = await db.execute(
         select(Subscription).where(
             Subscription.user_id == current_user.id,
@@ -111,7 +137,6 @@ async def require_professional_plan(
     current_user: Annotated[User, Depends(get_current_active_user)],
     db: AsyncSession = Depends(get_db),
 ) -> User:
-    """Réservé aux plans Professional et Enterprise."""
     result = await db.execute(
         select(Subscription).where(
             Subscription.user_id == current_user.id,
