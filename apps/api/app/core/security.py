@@ -56,12 +56,19 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -
     return pyjwt.encode(to_encode, _signing_key(), algorithm=_algorithm())
 
 
-def create_refresh_token(data: dict) -> str:
+def create_refresh_token(data: dict, token_version: int = 1) -> str:
+    """
+    Crée un refresh token JWT.
+    `token_version` est inclus dans le payload ("ver") pour permettre la
+    révocation stateless : si l'utilisateur se déconnecte ou change de mot de
+    passe, `token_version` est incrémenté en base et les anciens tokens sont
+    immédiatement invalides.
+    """
     to_encode = data.copy()
     expire = datetime.now(timezone.utc) + timedelta(
         days=settings.REFRESH_TOKEN_EXPIRE_DAYS
     )
-    to_encode.update({"exp": expire, "type": "refresh"})
+    to_encode.update({"exp": expire, "type": "refresh", "ver": token_version})
     return pyjwt.encode(to_encode, _signing_key(), algorithm=_algorithm())
 
 

@@ -11,8 +11,11 @@ export function Providers({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     // Initialisation synchrone depuis cookie "mansa_auth"
     hydrate();
-    // Puis récupère les détails utilisateur depuis /api/auth/me
-    fetchUserDetails();
+    // Ne pas appeler /auth/me sur les pages d'auth (évite la boucle de redirection)
+    const isAuthPage = window.location.pathname.startsWith("/auth");
+    if (!isAuthPage) {
+      fetchUserDetails();
+    }
   }, [hydrate, fetchUserDetails]);
 
   const [queryClient] = useState(

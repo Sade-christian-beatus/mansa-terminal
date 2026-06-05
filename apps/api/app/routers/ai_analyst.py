@@ -116,6 +116,13 @@ class QueryRequest(BaseModel):
         v = re.sub(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]", "", v)
         # 3. Normaliser les espaces excessifs
         v = re.sub(r"\n{4,}", "\n\n\n", v)
+        # 4. SECURITY: neutraliser les balises XML utilisées comme délimiteurs
+        #    dans le prompt pour empêcher une injection de type tag break-out.
+        #    Un utilisateur pourrait fermer </question> prématurément et ouvrir
+        #    une fausse section <context> pour tromper le modèle.
+        #    Même traitement que </document> déjà appliqué dans le RAG.
+        for tag in ("<question>", "</question>", "<context>", "</context>"):
+            v = v.replace(tag, "")
         if not v.strip():
             raise ValueError("La question ne peut pas être vide")
         return v.strip()

@@ -1,0 +1,39 @@
+# ============================================================
+# MANSA Terminal — Keepalive Railway
+#
+# Railway ne s'endort pas (contrairement à Render Free).
+# Ce workflow ping /health toutes les 14 min pour s'assurer
+# que le service répond et éviter les cold starts éventuels.
+# ============================================================
+
+name: Railway Keepalive
+
+on:
+  schedule:
+    - cron: "*/14 * * * *"   # Toutes les 14 minutes
+  workflow_dispatch:
+
+concurrency:
+  group: keepalive
+  cancel-in-progress: true
+
+jobs:
+  ping:
+    name: Ping Railway /health
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+
+    steps:
+      - name: Ping /health
+        run: |
+          API_URL="${{ vars.RAILWAY_API_URL || 'https://mansa-api-production-e2b2.up.railway.app' }}"
+          echo "Pinging ${API_URL}/health ..."
+          HTTP_CODE=$(curl --silent --max-time 30 --retry 2 --retry-delay 3 \
+            -o /dev/null -w "%{http_code}" \
+            "${API_URL}/health")
+          echo "HTTP ${HTTP_CODE}"
+          if [ "$HTTP_CODE" != "200" ]; then
+            echo "Warning: health check returned HTTP ${HTTP_CODE}"
+            exit 0
+          fi
+          echo "✅ Railway API is alive"
