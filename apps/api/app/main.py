@@ -20,7 +20,6 @@ from app.core.config import settings
 from app.core.limiter import limiter
 from app.routers import auth, health, macro, countries, ai_analyst, billing, markets, climate
 
-
 # ---- Logging structuré (JSON en prod, standard en dev) ----
 class _JSONFormatter(logging.Formatter):
     def format(self, record: logging.LogRecord) -> str:
