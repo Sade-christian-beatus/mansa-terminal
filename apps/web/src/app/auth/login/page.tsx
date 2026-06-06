@@ -103,9 +103,14 @@ export default function LoginPage() {
           </div>
 
           <div>
-            <label className="block text-sm mb-1.5" style={{ color: "var(--text-secondary)" }}>
-              Mot de passe
-            </label>
+            <div className="flex items-center justify-between mb-1.5">
+              <label className="block text-sm" style={{ color: "var(--text-secondary)" }}>
+                Mot de passe
+              </label>
+              <Link href="/auth/reset-password" className="text-xs hover:underline" style={{ color: "var(--mansa-green)" }}>
+                Mot de passe oublié ?
+              </Link>
+            </div>
             <input
               type="password"
               value={password}
