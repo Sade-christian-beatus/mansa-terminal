@@ -37,9 +37,16 @@ export default function LoginPage() {
         return;
       }
 
-      // 2. Synchroniser l'utilisateur dans notre DB (crée si absent)
-      const user = await authApi.sync();
-      setUser({ userId: user.user_id, email: user.email, fullName: user.full_name });
+      // 2. Synchroniser l'utilisateur dans notre DB (non-bloquant)
+      // Si le backend est temporairement inaccessible, on navigue quand même —
+      // la session Supabase est valide et hydrate() la restaurera au montage.
+      try {
+        const user = await authApi.sync();
+        setUser({ userId: user.user_id, email: user.email, fullName: user.full_name });
+      } catch {
+        // Sync échouée : on continue — le store sera hydraté par onAuthStateChange
+        console.warn("[MANSA] authApi.sync() failed — continuing with Supabase session");
+      }
 
       router.push("/");
     } catch {

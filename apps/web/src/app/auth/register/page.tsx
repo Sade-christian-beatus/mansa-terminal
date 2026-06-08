@@ -46,11 +46,16 @@ export default function RegisterPage() {
 
       // 2. Si session disponible (email confirm désactivé), synchroniser
       if (data.session) {
-        const user = await authApi.sync({
-          full_name: form.full_name,
-          organization: form.organization || undefined,
-        });
-        setUser({ userId: user.user_id, email: user.email, fullName: user.full_name });
+        // Sync non-bloquant — si le backend est down, on navigue quand même
+        try {
+          const user = await authApi.sync({
+            full_name: form.full_name,
+            organization: form.organization || undefined,
+          });
+          setUser({ userId: user.user_id, email: user.email, fullName: user.full_name });
+        } catch {
+          console.warn("[MANSA] authApi.sync() failed — continuing with Supabase session");
+        }
         router.push("/");
       } else {
         // Email de confirmation envoyé par Supabase
