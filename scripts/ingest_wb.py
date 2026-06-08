@@ -47,7 +47,13 @@ AFRICAN_ISO2 = [
     "ER", "DJ", "SS", "SL", "LR", "GM", "CV", "MR", "LS", "SZ",
     "KM", "ST", "BI",
 ]
-COUNTRIES_PARAM = ";".join(AFRICAN_ISO2)
+
+# WB API v2 limite la longueur d'URL — on découpe en batches de 20 pays
+WB_BATCH_SIZE = 20
+COUNTRY_BATCHES = [
+    AFRICAN_ISO2[i:i + WB_BATCH_SIZE]
+    for i in range(0, len(AFRICAN_ISO2), WB_BATCH_SIZE)
+]
 
 WB_INDICATORS = {
     "NY.GDP.MKTP.CD":    ("GDP Nominal USD", "USD"),
@@ -96,9 +102,12 @@ LOG_SQL = """
 
 # ── HTTP avec retry ───────────────────────────────────────────────────────
 @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=2, max=30))
-async def fetch_wb_indicator(client: httpx.AsyncClient, indicator: str) -> list[dict]:
-    """Récupère un indicateur WB pour tous les pays africains (avec pagination)."""
-    url = f"{WB_BASE}/country/{COUNTRIES_PARAM}/indicator/{indicator}"
+async def fetch_wb_indicator_batch(
+    client: httpx.AsyncClient, indicator: str, country_batch: list[str]
+) -> list[dict]:
+    """Récupère un indicateur WB pour un batch de pays (avec pagination)."""
+    countries_param = ";".join(country_batch)
+    url = f"{WB_BASE}/country/{countries_param}/indicator/{indicator}"
     all_records: list[dict] = []
     page = 1
 
@@ -116,13 +125,24 @@ async def fetch_wb_indicator(client: httpx.AsyncClient, indicator: str) -> list[
             break
 
         meta, records = data[0], data[1]
-        all_records.extend(r for r in records if r.get("value") is not None)
+        all_records.extend(rec for rec in records if rec.get("value") is not None)
 
         if page >= meta.get("pages", 1):
             break
         page += 1
         await asyncio.sleep(0.3)
 
+    return all_records
+
+
+async def fetch_wb_indicator(client: httpx.AsyncClient, indicator: str) -> list[dict]:
+    """Récupère un indicateur WB pour tous les pays africains en batches de 20."""
+    all_records: list[dict] = []
+    for i, batch in enumerate(COUNTRY_BATCHES):
+        batch_records = await fetch_wb_indicator_batch(client, indicator, batch)
+        all_records.extend(batch_records)
+        if i < len(COUNTRY_BATCHES) - 1:
+            await asyncio.sleep(0.5)  # Respecter le rate limit entre batches
     return all_records
 
 
