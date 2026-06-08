@@ -89,4 +89,30 @@
   .animate-fade-in {
     animation: fadeIn 0.3s ease-out;
   }
+
+  /* ── Auth / Forms ── */
+  .mansa-input {
+    @apply w-full bg-[#0A0E1A] border border-[#1E2A42] rounded-lg
+           px-4 py-2.5 text-sm text-gray-200 placeholder-gray-600
+           focus:outline-none focus:border-[#00D4AA]/60 focus:ring-1
+           focus:ring-[#00D4AA]/20 transition-colors;
+  }
+
+  .mansa-btn-primary {
+    @apply inline-flex items-center gap-2 px-4 py-2 rounded-lg
+           text-sm font-semibold text-white
+           bg-gradient-to-r from-[#00D4AA] to-[#00A882]
+           hover:from-[#00E8BB] hover:to-[#00C49A]
+           focus:outline-none focus:ring-2 focus:ring-[#00D4AA]/40
+           transition-all duration-200;
+  }
+
+  .mansa-btn-ghost {
+    @apply inline-flex items-center gap-2 px-4 py-2 rounded-lg
+           text-sm font-medium text-gray-400
+           border border-[#1E2A42]
+           hover:border-[#2A3A58] hover:text-gray-200 hover:bg-[#141B2E]
+           focus:outline-none focus:ring-2 focus:ring-[#00D4AA]/20
+           transition-all duration-200;
+  }
 }

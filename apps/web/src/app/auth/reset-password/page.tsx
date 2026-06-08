@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { Loader2, AlertCircle, CheckCircle2, ArrowLeft } from "lucide-react";
 import { supabase } from "@/lib/supabase/client";
 
@@ -36,24 +37,16 @@ export default function ResetPasswordPage() {
 
   return (
     <div className="w-full max-w-md px-4">
-      <div className="flex items-center gap-3 mb-8 justify-center">
-        <div
-          className="w-10 h-10 rounded-xl flex items-center justify-center"
-          style={{ background: "linear-gradient(135deg, #00D4AA, #3B82F6)" }}
-        >
-          <span className="text-white font-bold text-sm">M</span>
+      <div className="flex flex-col items-center gap-4 mb-8">
+        <div className="relative w-14 h-14">
+          <Image src="/logo.png" alt="MANSA Terminal" fill className="object-contain drop-shadow-[0_0_20px_rgba(0,212,170,0.3)]" />
         </div>
-        <div>
-          <div className="font-bold tracking-wide" style={{ color: "var(--text-primary)" }}>
-            MANSA Terminal
-          </div>
-          <div className="text-xs" style={{ color: "var(--text-muted)" }}>
-            Africa Intelligence Platform
-          </div>
-        </div>
+        <span className="text-lg font-bold tracking-wide" style={{ color: "var(--text-primary)" }} translate="no">
+          MANSA Terminal
+        </span>
       </div>
 
-      <div className="mansa-card rounded-2xl p-8">
+      <div className="mansa-card rounded-2xl p-8" style={{ boxShadow: "0 0 40px rgba(0,0,0,0.4), 0 0 0 1px rgba(0,212,170,0.05)" }}>
         {success ? (
           <div className="text-center">
             <CheckCircle2 size={40} className="mx-auto mb-4" style={{ color: "var(--mansa-green)" }} />

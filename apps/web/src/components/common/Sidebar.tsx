@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 import {
   BarChart3, Brain, Globe, Database, TrendingUp, Leaf,
@@ -33,11 +34,15 @@ export function Sidebar() {
     <aside className="w-64 bg-[#0F1629] border-r border-[#1E2A42] flex flex-col
                       flex-shrink-0">
       {/* Logo */}
-      <div className="px-6 py-5 border-b border-[#1E2A42]">
+      <div className="px-5 py-4 border-b border-[#1E2A42]">
         <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-[#00D4AA]
-                          to-[#3B82F6] flex items-center justify-center">
-            <span className="text-white font-bold text-xs">M</span>
+          <div className="relative w-8 h-8 flex-shrink-0">
+            <Image
+              src="/logo.png"
+              alt="MANSA"
+              fill
+              className="object-contain"
+            />
           </div>
           <div>
             <div className="text-white font-bold text-sm tracking-wide" translate="no">

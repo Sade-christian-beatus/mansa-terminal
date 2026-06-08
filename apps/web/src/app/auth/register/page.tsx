@@ -3,7 +3,8 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Loader2, AlertCircle, CheckCircle2 } from "lucide-react";
+import Image from "next/image";
+import { Loader2, AlertCircle, CheckCircle2, Eye, EyeOff } from "lucide-react";
 import { supabase } from "@/lib/supabase/client";
 import { authApi } from "@/lib/api";
 import { useAuthStore } from "@/lib/auth-store";
@@ -14,9 +15,10 @@ export default function RegisterPage() {
   const [form, setForm] = useState({
     full_name: "", email: "", organization: "", password: "",
   });
-  const [error,   setError]   = useState<string | null>(null);
-  const [success, setSuccess] = useState(false);
-  const [loading, setLoading] = useState(false);
+  const [showPwd, setShowPwd]     = useState(false);
+  const [error,   setError]       = useState<string | null>(null);
+  const [success, setSuccess]     = useState(false);
+  const [loading, setLoading]     = useState(false);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) =>
     setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
@@ -27,7 +29,6 @@ export default function RegisterPage() {
     setLoading(true);
 
     try {
-      // 1. Inscription via Supabase Auth
       const { data, error: authError } = await supabase.auth.signUp({
         email: form.email,
         password: form.password,
@@ -39,14 +40,9 @@ export default function RegisterPage() {
         },
       });
 
-      if (authError) {
-        setError(authError.message);
-        return;
-      }
+      if (authError) { setError(authError.message); return; }
 
-      // 2. Si session disponible (email confirm désactivé), synchroniser
       if (data.session) {
-        // Sync non-bloquant — si le backend est down, on navigue quand même
         try {
           const user = await authApi.sync({
             full_name: form.full_name,
@@ -58,7 +54,6 @@ export default function RegisterPage() {
         }
         router.push("/");
       } else {
-        // Email de confirmation envoyé par Supabase
         setSuccess(true);
       }
     } catch {
@@ -71,17 +66,30 @@ export default function RegisterPage() {
   if (success) {
     return (
       <div className="w-full max-w-md px-4">
-        <div className="mansa-card rounded-2xl p-8 text-center">
-          <CheckCircle2 size={48} className="mx-auto mb-4" style={{ color: "var(--mansa-green)" }} />
-          <h2 className="text-xl font-bold mb-2" style={{ color: "var(--text-primary)" }}>
+        <div
+          className="mansa-card rounded-2xl p-10 text-center"
+          style={{ boxShadow: "0 0 40px rgba(0,0,0,0.4), 0 0 0 1px rgba(0,212,170,0.05)" }}
+        >
+          <div
+            className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-5"
+            style={{ background: "rgba(0,212,170,0.1)", border: "1px solid rgba(0,212,170,0.2)" }}
+          >
+            <CheckCircle2 size={32} style={{ color: "var(--mansa-green)" }} />
+          </div>
+          <h2 className="text-xl font-bold mb-3" style={{ color: "var(--text-primary)" }}>
             Vérifiez votre email
           </h2>
-          <p className="text-sm" style={{ color: "var(--text-secondary)" }}>
+          <p className="text-sm leading-relaxed" style={{ color: "var(--text-secondary)" }}>
             Un lien de confirmation a été envoyé à{" "}
-            <span style={{ color: "var(--mansa-green)" }}>{form.email}</span>.
-            Cliquez dessus pour activer votre compte.
+            <span className="font-medium" style={{ color: "var(--mansa-green)" }}>
+              {form.email}
+            </span>
+            .{" "}Cliquez dessus pour activer votre compte.
           </p>
-          <Link href="/auth/login" className="inline-block mt-6 mansa-btn-ghost text-sm">
+          <Link
+            href="/auth/login"
+            className="mansa-btn-ghost inline-flex mt-8"
+          >
             Retour à la connexion
           </Link>
         </div>
@@ -91,36 +99,52 @@ export default function RegisterPage() {
 
   return (
     <div className="w-full max-w-md px-4">
-      {/* Logo */}
-      <div className="flex items-center gap-3 mb-8 justify-center">
-        <div
-          className="w-10 h-10 rounded-xl flex items-center justify-center"
-          style={{ background: "linear-gradient(135deg, #00D4AA, #3B82F6)" }}
-        >
-          <span className="text-white font-bold text-sm">M</span>
+      {/* Logo + Marque */}
+      <div className="flex flex-col items-center gap-4 mb-8">
+        <div className="relative w-14 h-14">
+          <Image
+            src="/logo.png"
+            alt="MANSA Terminal"
+            fill
+            className="object-contain drop-shadow-[0_0_20px_rgba(0,212,170,0.3)]"
+          />
         </div>
-        <div>
-          <div className="font-bold tracking-wide" style={{ color: "var(--text-primary)" }}>
+        <div className="text-center">
+          <h1
+            className="text-xl font-bold tracking-wide"
+            style={{ color: "var(--text-primary)" }}
+            translate="no"
+          >
             MANSA Terminal
-          </div>
-          <div className="text-xs" style={{ color: "var(--text-muted)" }}>
-            Africa Intelligence Platform
-          </div>
+          </h1>
+          <p className="text-xs mt-0.5 font-mono" style={{ color: "var(--mansa-green)" }}>
+            Africa&apos;s Macro-Fiscal Intelligence Platform
+          </p>
         </div>
       </div>
 
-      <div className="mansa-card rounded-2xl p-8">
-        <h1 className="text-xl font-bold mb-1" style={{ color: "var(--text-primary)" }}>
-          Créer un compte
-        </h1>
-        <p className="text-sm mb-6" style={{ color: "var(--text-secondary)" }}>
-          Accès gratuit aux données macro de 54 économies africaines
-        </p>
+      {/* Carte inscription */}
+      <div
+        className="mansa-card rounded-2xl p-8"
+        style={{ boxShadow: "0 0 40px rgba(0,0,0,0.4), 0 0 0 1px rgba(0,212,170,0.05)" }}
+      >
+        <div className="mb-6">
+          <h2 className="text-lg font-bold" style={{ color: "var(--text-primary)" }}>
+            Créer un compte
+          </h2>
+          <p className="text-sm mt-1" style={{ color: "var(--text-secondary)" }}>
+            Accès gratuit · 54 économies africaines
+          </p>
+        </div>
 
         {error && (
           <div
-            className="flex items-center gap-2 rounded-lg px-4 py-3 mb-4 text-sm"
-            style={{ color: "#F87171", background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.2)" }}
+            className="flex items-center gap-2 rounded-lg px-4 py-3 mb-5 text-sm"
+            style={{
+              color: "#F87171",
+              background: "rgba(239,68,68,0.08)",
+              border: "1px solid rgba(239,68,68,0.2)",
+            }}
           >
             <AlertCircle size={14} className="flex-shrink-0" />
             {error}
@@ -129,7 +153,7 @@ export default function RegisterPage() {
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-sm mb-1.5" style={{ color: "var(--text-secondary)" }}>
+            <label className="block text-xs font-medium mb-1.5" style={{ color: "var(--text-secondary)" }}>
               Nom complet
             </label>
             <input
@@ -140,7 +164,7 @@ export default function RegisterPage() {
           </div>
 
           <div>
-            <label className="block text-sm mb-1.5" style={{ color: "var(--text-secondary)" }}>
+            <label className="block text-xs font-medium mb-1.5" style={{ color: "var(--text-secondary)" }}>
               Email professionnel
             </label>
             <input
@@ -151,8 +175,9 @@ export default function RegisterPage() {
           </div>
 
           <div>
-            <label className="block text-sm mb-1.5" style={{ color: "var(--text-secondary)" }}>
-              Organisation <span style={{ color: "var(--text-muted)" }}>(optionnel)</span>
+            <label className="block text-xs font-medium mb-1.5" style={{ color: "var(--text-secondary)" }}>
+              Organisation{" "}
+              <span style={{ color: "var(--text-muted)" }}>(optionnel)</span>
             </label>
             <input
               type="text" name="organization" value={form.organization}
@@ -162,32 +187,56 @@ export default function RegisterPage() {
           </div>
 
           <div>
-            <label className="block text-sm mb-1.5" style={{ color: "var(--text-secondary)" }}>
+            <label className="block text-xs font-medium mb-1.5" style={{ color: "var(--text-secondary)" }}>
               Mot de passe
             </label>
-            <input
-              type="password" name="password" value={form.password}
-              onChange={handleChange} required minLength={8}
-              placeholder="Minimum 8 caractères"
-              className="mansa-input"
-            />
+            <div className="relative">
+              <input
+                type={showPwd ? "text" : "password"}
+                name="password" value={form.password}
+                onChange={handleChange} required minLength={8}
+                placeholder="Minimum 8 caractères"
+                className="mansa-input pr-10"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPwd((v) => !v)}
+                className="absolute right-3 top-1/2 -translate-y-1/2"
+                style={{ color: "var(--text-muted)" }}
+                tabIndex={-1}
+              >
+                {showPwd ? <EyeOff size={14} /> : <Eye size={14} />}
+              </button>
+            </div>
           </div>
 
           <button
             type="submit" disabled={loading}
-            className="w-full mansa-btn-primary justify-center py-2.5 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="mansa-btn-primary w-full justify-center py-2.5 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {loading && <Loader2 size={14} className="animate-spin" />}
-            {loading ? "Création du compte..." : "Créer mon compte"}
+            {loading ? "Création du compte…" : "Créer mon compte"}
           </button>
         </form>
 
-        <p className="text-center text-sm mt-6" style={{ color: "var(--text-muted)" }}>
-          Déjà un compte ?{" "}
-          <Link href="/auth/login" style={{ color: "var(--mansa-green)" }} className="hover:underline">
-            Se connecter
-          </Link>
-        </p>
+        {/* Divider */}
+        <div className="relative my-6">
+          <div className="absolute inset-0 flex items-center">
+            <div className="w-full border-t" style={{ borderColor: "var(--bg-border)" }} />
+          </div>
+          <div className="relative flex justify-center">
+            <span className="px-3 text-xs" style={{ background: "var(--bg-card)", color: "var(--text-muted)" }}>
+              Déjà un compte ?
+            </span>
+          </div>
+        </div>
+
+        <Link
+          href="/auth/login"
+          className="mansa-btn-ghost w-full justify-center"
+        >
+          Se connecter
+        </Link>
       </div>
     </div>
   );

@@ -3,7 +3,8 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { CheckCircle, XCircle, Loader2 } from "lucide-react";
+import Image from "next/image";
+import { CheckCircle2, XCircle, Loader2 } from "lucide-react";
 import { supabase } from "@/lib/supabase/client";
 
 type Status = "loading" | "success" | "error";
@@ -14,18 +15,14 @@ export default function VerifyEmailPage() {
   const [email, setEmail]   = useState<string | null>(null);
 
   useEffect(() => {
-    // Supabase place le token dans le hash de l'URL (#access_token=...&type=signup)
-    // Le SDK le consomme automatiquement et émet l'événement SIGNED_IN.
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === "SIGNED_IN" && session?.user) {
         setEmail(session.user.email ?? null);
         setStatus("success");
-        // Sync l'utilisateur dans notre base puis redirige
         setTimeout(() => router.push("/auth/login"), 4000);
       }
     });
 
-    // Timeout de sécurité : si aucun événement après 8s → lien invalide ou expiré
     const timeout = setTimeout(() => {
       setStatus((prev) => (prev === "loading" ? "error" : prev));
     }, 8000);
@@ -37,62 +34,78 @@ export default function VerifyEmailPage() {
   }, [router]);
 
   return (
-    <div className="min-h-screen bg-[#080E1C] flex items-center justify-center p-4">
-      <div className="w-full max-w-md">
-        {/* Logo */}
-        <div className="flex items-center gap-3 mb-8 justify-center">
-          <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-[#00D4AA] to-[#3B82F6] flex items-center justify-center">
-            <span className="text-white font-bold text-sm">M</span>
-          </div>
-          <span className="text-white font-bold text-lg tracking-wide">MANSA Terminal</span>
+    <div className="w-full max-w-md px-4">
+      {/* Logo */}
+      <div className="flex flex-col items-center gap-4 mb-8">
+        <div className="relative w-14 h-14">
+          <Image src="/logo.png" alt="MANSA Terminal" fill className="object-contain drop-shadow-[0_0_20px_rgba(0,212,170,0.3)]" />
         </div>
+        <span className="text-lg font-bold tracking-wide" style={{ color: "var(--text-primary)" }} translate="no">
+          MANSA Terminal
+        </span>
+      </div>
 
-        <div className="bg-[#0F1629] border border-[#1E2A42] rounded-2xl p-8 text-center space-y-5">
-          {status === "loading" && (
-            <>
-              <Loader2 size={48} className="text-[#00D4AA] mx-auto animate-spin" />
-              <h1 className="text-xl font-semibold text-white">Vérification en cours…</h1>
-              <p className="text-sm text-gray-400">Validation de votre adresse email.</p>
-            </>
-          )}
+      <div
+        className="mansa-card rounded-2xl p-10 text-center space-y-5"
+        style={{ boxShadow: "0 0 40px rgba(0,0,0,0.4), 0 0 0 1px rgba(0,212,170,0.05)" }}
+      >
+        {status === "loading" && (
+          <>
+            <Loader2 size={48} className="mx-auto animate-spin" style={{ color: "var(--mansa-green)" }} />
+            <h1 className="text-xl font-semibold" style={{ color: "var(--text-primary)" }}>
+              Vérification en cours…
+            </h1>
+            <p className="text-sm" style={{ color: "var(--text-secondary)" }}>
+              Validation de votre adresse email.
+            </p>
+          </>
+        )}
 
-          {status === "success" && (
-            <>
-              <CheckCircle size={48} className="text-[#00D4AA] mx-auto" />
-              <h1 className="text-xl font-semibold text-white">Email vérifié !</h1>
-              {email && (
-                <p className="text-sm text-gray-400">
-                  <span className="text-gray-200 font-medium">{email}</span> est maintenant activé.
-                </p>
-              )}
-              <p className="text-xs text-gray-500">Redirection vers la connexion dans 4 secondes…</p>
-              <Link
-                href="/auth/login"
-                className="inline-block mt-2 px-5 py-2.5 bg-[#00D4AA] hover:bg-[#00A882] text-gray-900 font-semibold text-sm rounded-lg transition-colors"
-              >
-                Se connecter maintenant
-              </Link>
-            </>
-          )}
-
-          {status === "error" && (
-            <>
-              <XCircle size={48} className="text-red-400 mx-auto" />
-              <h1 className="text-xl font-semibold text-white">Vérification échouée</h1>
-              <p className="text-sm text-gray-400">
-                Lien invalide ou expiré. Reconnectez-vous pour en recevoir un nouveau.
+        {status === "success" && (
+          <>
+            <div
+              className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto"
+              style={{ background: "rgba(0,212,170,0.1)", border: "1px solid rgba(0,212,170,0.2)" }}
+            >
+              <CheckCircle2 size={32} style={{ color: "var(--mansa-green)" }} />
+            </div>
+            <h1 className="text-xl font-semibold" style={{ color: "var(--text-primary)" }}>
+              Email vérifié !
+            </h1>
+            {email && (
+              <p className="text-sm" style={{ color: "var(--text-secondary)" }}>
+                <span className="font-medium" style={{ color: "var(--text-primary)" }}>{email}</span>{" "}
+                est maintenant activé.
               </p>
-              <div className="flex flex-col gap-2 pt-2">
-                <Link
-                  href="/auth/login"
-                  className="inline-block px-5 py-2.5 bg-[#00D4AA] hover:bg-[#00A882] text-gray-900 font-semibold text-sm rounded-lg transition-colors"
-                >
-                  Retour à la connexion
-                </Link>
-              </div>
-            </>
-          )}
-        </div>
+            )}
+            <p className="text-xs" style={{ color: "var(--text-muted)" }}>
+              Redirection dans 4 secondes…
+            </p>
+            <Link href="/auth/login" className="mansa-btn-primary inline-flex justify-center">
+              Se connecter maintenant
+            </Link>
+          </>
+        )}
+
+        {status === "error" && (
+          <>
+            <div
+              className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto"
+              style={{ background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.2)" }}
+            >
+              <XCircle size={32} className="text-red-400" />
+            </div>
+            <h1 className="text-xl font-semibold" style={{ color: "var(--text-primary)" }}>
+              Vérification échouée
+            </h1>
+            <p className="text-sm" style={{ color: "var(--text-secondary)" }}>
+              Lien invalide ou expiré. Reconnectez-vous pour en recevoir un nouveau.
+            </p>
+            <Link href="/auth/login" className="mansa-btn-ghost inline-flex justify-center">
+              Retour à la connexion
+            </Link>
+          </>
+        )}
       </div>
     </div>
   );
