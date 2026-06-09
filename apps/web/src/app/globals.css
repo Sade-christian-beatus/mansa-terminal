@@ -4,115 +4,186 @@
 
 /* ============================================================
    MANSA Terminal — Design System
-   Palette sombre inspirée Bloomberg/Refinitiv
+   Dark mode (default) + Light mode via data-theme="light"
    ============================================================ */
 
-:root {
-  /* Couleurs primaires MANSA */
-  --mansa-green: #00D4AA;
+/* ── DARK MODE (défaut) ────────────────────────────────────── */
+:root,
+[data-theme="dark"] {
+  --mansa-green:      #00D4AA;
   --mansa-green-dark: #00A882;
-  --mansa-gold: #FFB800;
-  --mansa-blue: #3B82F6;
+  --mansa-gold:       #FFB800;
+  --mansa-blue:       #3B82F6;
 
-  /* Backgrounds */
-  --bg-primary: #0A0E1A;
-  --bg-secondary: #0F1629;
-  --bg-card: #141B2E;
-  --bg-card-hover: #1A2236;
-  --bg-border: #1E2A42;
+  --bg-primary:       #0A0E1A;
+  --bg-secondary:     #0F1629;
+  --bg-card:          #141B2E;
+  --bg-card-hover:    #1A2236;
+  --bg-border:        #1E2A42;
 
-  /* Textes */
-  --text-primary: #F1F5F9;
-  --text-secondary: #94A3B8;
-  --text-muted: #64748B;
+  --text-primary:     #F1F5F9;
+  --text-secondary:   #94A3B8;
+  --text-muted:       #64748B;
 
-  /* États */
-  --positive: #10B981;
-  --negative: #EF4444;
-  --warning: #F59E0B;
-  --neutral: #6B7280;
+  --positive:  #10B981;
+  --negative:  #EF4444;
+  --warning:   #F59E0B;
+  --neutral:   #6B7280;
+
+  /* Sidebar / TopBar */
+  --sidebar-bg:        #0F1629;
+  --sidebar-border:    #1E2A42;
+  --sidebar-item-bg:   #141B2E;
+  --topbar-bg:         #0F1629;
+  --topbar-border:     #1E2A42;
+  --input-bg:          #141B2E;
+  --input-border:      #1E2A42;
+  --dropdown-bg:       #0F1629;
+  --card-bg:           #141B2E;
+  --card-border:       #1E2A42;
+}
+
+/* ── LIGHT MODE ────────────────────────────────────────────── */
+[data-theme="light"] {
+  --mansa-green:      #00A882;
+  --mansa-green-dark: #007A60;
+  --mansa-gold:       #D97706;
+  --mansa-blue:       #2563EB;
+
+  --bg-primary:       #F0F4F8;
+  --bg-secondary:     #FFFFFF;
+  --bg-card:          #FFFFFF;
+  --bg-card-hover:    #F8FAFC;
+  --bg-border:        #E2E8F0;
+
+  --text-primary:     #0F172A;
+  --text-secondary:   #475569;
+  --text-muted:       #94A3B8;
+
+  --positive:  #059669;
+  --negative:  #DC2626;
+  --warning:   #D97706;
+  --neutral:   #6B7280;
+
+  --sidebar-bg:        #FFFFFF;
+  --sidebar-border:    #E2E8F0;
+  --sidebar-item-bg:   #F1F5F9;
+  --topbar-bg:         #FFFFFF;
+  --topbar-border:     #E2E8F0;
+  --input-bg:          #F8FAFC;
+  --input-border:      #E2E8F0;
+  --dropdown-bg:       #FFFFFF;
+  --card-bg:           #FFFFFF;
+  --card-border:       #E2E8F0;
 }
 
 /* Scrollbar stylisée */
 ::-webkit-scrollbar { width: 6px; height: 6px; }
 ::-webkit-scrollbar-track { background: var(--bg-secondary); }
-::-webkit-scrollbar-thumb {
-  background: var(--bg-border);
-  border-radius: 3px;
-}
-::-webkit-scrollbar-thumb:hover { background: #2A3A58; }
+::-webkit-scrollbar-thumb { background: var(--bg-border); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--text-muted); opacity: 0.5; }
 
 /* Animations */
 @keyframes shimmer {
-  0% { background-position: -200% 0; }
+  0%   { background-position: -200% 0; }
   100% { background-position: 200% 0; }
 }
-
 @keyframes fadeIn {
   from { opacity: 0; transform: translateY(4px); }
-  to { opacity: 1; transform: translateY(0); }
+  to   { opacity: 1; transform: translateY(0); }
 }
-
 @keyframes ticker {
   0%   { transform: translateX(0); }
   100% { transform: translateX(-50%); }
+}
+@keyframes pulse-ring {
+  0%   { transform: scale(1); opacity: 1; }
+  100% { transform: scale(1.6); opacity: 0; }
 }
 
 /* Classes utilitaires MANSA */
 @layer components {
   .mansa-card {
-    @apply bg-[#141B2E] border border-[#1E2A42] rounded-xl;
+    background: var(--card-bg);
+    border: 1px solid var(--card-border);
+    @apply rounded-xl;
   }
-
   .mansa-card-hover {
-    @apply hover:bg-[#1A2236] hover:border-[#2A3A58] transition-colors duration-200;
+    transition: background 0.2s, border-color 0.2s;
+  }
+  .mansa-card-hover:hover {
+    background: var(--bg-card-hover);
+    border-color: var(--text-muted);
   }
 
-  .mansa-metric-positive {
-    @apply text-emerald-400 font-medium;
-  }
-
-  .mansa-metric-negative {
-    @apply text-red-400 font-medium;
-  }
+  .mansa-metric-positive { @apply font-medium; color: var(--positive); }
+  .mansa-metric-negative { @apply font-medium; color: var(--negative); }
 
   .mansa-badge {
-    @apply inline-flex items-center gap-1 px-2 py-0.5 rounded-full
-           text-xs font-medium bg-[#1E2A42] text-gray-300;
+    @apply inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium;
+    background: var(--bg-border);
+    color: var(--text-secondary);
   }
 
   .skeleton {
-    @apply bg-gradient-to-r from-[#141B2E] via-[#1E2A42] to-[#141B2E]
-           bg-[length:200%_100%] animate-[shimmer_1.5s_infinite];
+    background: linear-gradient(
+      90deg,
+      var(--bg-card) 25%,
+      var(--bg-border) 50%,
+      var(--bg-card) 75%
+    );
+    background-size: 200% 100%;
+    animation: shimmer 1.5s infinite;
   }
 
-  .animate-fade-in {
-    animation: fadeIn 0.3s ease-out;
-  }
+  .animate-fade-in { animation: fadeIn 0.3s ease-out; }
 
-  /* ── Auth / Forms ── */
   .mansa-input {
-    @apply w-full bg-[#0A0E1A] border border-[#1E2A42] rounded-lg
-           px-4 py-2.5 text-sm text-gray-200 placeholder-gray-600
-           focus:outline-none focus:border-[#00D4AA]/60 focus:ring-1
-           focus:ring-[#00D4AA]/20 transition-colors;
+    @apply w-full rounded-lg px-4 py-2.5 text-sm transition-colors focus:outline-none;
+    background: var(--input-bg);
+    border: 1px solid var(--input-border);
+    color: var(--text-primary);
+  }
+  .mansa-input::placeholder { color: var(--text-muted); }
+  .mansa-input:focus {
+    border-color: var(--mansa-green);
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--mansa-green) 20%, transparent);
   }
 
   .mansa-btn-primary {
     @apply inline-flex items-center gap-2 px-4 py-2 rounded-lg
            text-sm font-semibold text-white
-           bg-gradient-to-r from-[#00D4AA] to-[#00A882]
-           hover:from-[#00E8BB] hover:to-[#00C49A]
-           focus:outline-none focus:ring-2 focus:ring-[#00D4AA]/40
-           transition-all duration-200;
+           focus:outline-none transition-all duration-200;
+    background: linear-gradient(135deg, var(--mansa-green), var(--mansa-green-dark));
+  }
+  .mansa-btn-primary:hover {
+    filter: brightness(1.1);
+  }
+  .mansa-btn-primary:focus {
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--mansa-green) 30%, transparent);
   }
 
   .mansa-btn-ghost {
     @apply inline-flex items-center gap-2 px-4 py-2 rounded-lg
-           text-sm font-medium text-gray-400
-           border border-[#1E2A42]
-           hover:border-[#2A3A58] hover:text-gray-200 hover:bg-[#141B2E]
-           focus:outline-none focus:ring-2 focus:ring-[#00D4AA]/20
-           transition-all duration-200;
+           text-sm font-medium focus:outline-none transition-all duration-200;
+    color: var(--text-secondary);
+    border: 1px solid var(--bg-border);
   }
+  .mansa-btn-ghost:hover {
+    background: var(--sidebar-item-bg);
+    color: var(--text-primary);
+    border-color: var(--text-muted);
+  }
+
+  /* Source badges */
+  .source-badge-imf    { @apply text-[10px] px-1.5 py-0.5 rounded font-mono bg-blue-500/10 text-blue-400; }
+  .source-badge-wb     { @apply text-[10px] px-1.5 py-0.5 rounded font-mono bg-emerald-500/10 text-emerald-400; }
+  .source-badge-who    { @apply text-[10px] px-1.5 py-0.5 rounded font-mono bg-purple-500/10 text-purple-400; }
+  .source-badge-ilo    { @apply text-[10px] px-1.5 py-0.5 rounded font-mono bg-orange-500/10 text-orange-400; }
+  .source-badge-fao    { @apply text-[10px] px-1.5 py-0.5 rounded font-mono bg-green-500/10 text-green-400; }
+  .source-badge-eia    { @apply text-[10px] px-1.5 py-0.5 rounded font-mono bg-amber-500/10 text-amber-400; }
+  .source-badge-nasa   { @apply text-[10px] px-1.5 py-0.5 rounded font-mono bg-sky-500/10 text-sky-400; }
+  .source-badge-emdat  { @apply text-[10px] px-1.5 py-0.5 rounded font-mono bg-red-500/10 text-red-400; }
+  .source-badge-mansa  { @apply text-[10px] px-1.5 py-0.5 rounded font-mono bg-teal-500/10 text-teal-400; }
+  .source-badge-comtrade { @apply text-[10px] px-1.5 py-0.5 rounded font-mono bg-violet-500/10 text-violet-400; }
 }

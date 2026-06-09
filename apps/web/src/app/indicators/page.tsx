@@ -1,7 +1,9 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { Database, Search, Filter, CheckCircle2, Clock, Lock } from "lucide-react";
+import { Database, Search, Filter, CheckCircle2, Clock, Lock, Download } from "lucide-react";
+import { ExportModal } from "@/components/common/ExportModal";
+import type { ExportRow } from "@/lib/export-utils";
 import {
   INDICATOR_CATALOG,
   THEMES,
@@ -71,9 +73,10 @@ function IndicatorRow({ ind }: { ind: IndicatorDef }) {
 }
 
 export default function IndicatorsPage() {
-  const [search, setSearch]           = useState("");
+  const [search, setSearch]               = useState("");
   const [selectedTheme, setSelectedTheme] = useState<ThemeId | "all">("all");
   const [selectedPhase, setSelectedPhase] = useState<1 | 2 | 3 | 0>(0);
+  const [exportOpen,    setExportOpen]    = useState(false);
 
   const themes = Object.entries(THEMES) as [ThemeId, (typeof THEMES)[ThemeId]][];
 
@@ -109,17 +112,24 @@ export default function IndicatorsPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-white flex items-center gap-3">
-            <Database size={22} className="text-[#00D4AA]" />
+          <h1 className="text-2xl font-bold flex items-center gap-3" style={{ color: "var(--text-primary)" }}>
+            <Database size={22} style={{ color: "var(--mansa-green)" }} />
             Catalogue des indicateurs
           </h1>
-          <p className="text-gray-400 text-sm mt-1">
+          <p className="text-sm mt-1" style={{ color: "var(--text-muted)" }}>
             {INDICATOR_CATALOG.length} indicateurs · 9 domaines thématiques · 54 pays africains
+            · IMF · World Bank · WHO · ILO · FAO · EIA · NASA · EM-DAT · UN Comtrade
           </p>
         </div>
 
-        {/* Stats phases */}
+        {/* Stats phases + export */}
         <div className="flex items-center gap-3">
+          <button
+            onClick={() => setExportOpen(true)}
+            className="mansa-btn-ghost text-xs px-3 py-1.5 flex items-center gap-1.5"
+          >
+            <Download size={12} /> Exporter
+          </button>
           {([1, 2, 3] as const).map((ph) => {
             const cnt = INDICATOR_CATALOG.filter((i) => i.phase === ph).length;
             const cfg = PHASE_CONFIG[ph];
@@ -268,9 +278,33 @@ export default function IndicatorsPage() {
         </div>
       )}
 
-      <p className="text-xs text-gray-700 pb-4">
-        Sources : FMI WEO · Banque Mondiale WDI · BCEAO · BEAC · EITI · NASA VIIRS · MANSA Terminal
+      <p className="text-xs pb-4" style={{ color: "var(--text-muted)" }}>
+        Sources : FMI WEO/IFS/GFS · Banque Mondiale WDI/PIP · WHO GHO · ILO ILOSTAT · FAO FAOSTAT ·
+        EIA International · NASA VIIRS · EM-DAT CRED · UN Comtrade · IMF PortWatch ·
+        OECD DAC · IPC/CH · BCEAO · BEAC · MANSA Terminal Research
       </p>
+
+      <ExportModal
+        isOpen={exportOpen}
+        onClose={() => setExportOpen(false)}
+        getData={async (_sources, _yFrom, _yTo): Promise<ExportRow[]> =>
+          filtered.map((ind) => ({
+            id: ind.id,
+            nom_fr: ind.name_fr,
+            name_en: ind.name_en,
+            theme: ind.theme,
+            source_primaire: ind.source_primary,
+            frequence: ind.frequency,
+            decalage: ind.lag,
+            api: ind.api,
+            phase: ind.phase,
+            cas_usage: ind.use_case,
+          }))
+        }
+        defaultFilename="mansa-indicators-catalog"
+        title="Exporter le catalogue"
+        subtitle={`${filtered.length} indicateurs sélectionnés`}
+      />
     </div>
   );
 }
