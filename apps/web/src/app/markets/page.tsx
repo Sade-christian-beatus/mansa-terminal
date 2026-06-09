@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
   TrendingUp, TrendingDown, DollarSign, BarChart2, RefreshCw,
-  Download, Zap, Ship, Globe2, Package,
+  Download, Zap, Ship, Globe2, Package, Landmark, ArrowUpDown,
 } from "lucide-react";
 import { marketsApi } from "@/lib/api";
 import { ExportModal } from "@/components/common/ExportModal";
@@ -59,6 +59,34 @@ const COMTRADE_FLOWS = [
   { country: "Éthiopie",     flag: "🇪🇹", exports: 4.2,   imports: 10.3, balance: -6.1,  main_exp: "Café, sésame, peaux" },
   { country: "Ghana",        flag: "🇬🇭", exports: 14.9,  imports: 13.1, balance: +1.8,  main_exp: "Or, pétrole, cacao" },
 ];
+
+/* ── Données Eurobonds (prototype macro-data.js) ─────────────── */
+const EUROBONDS = [
+  { iso: "MAR", name: "Maroc",          flag: "🇲🇦", maturity: 2032, ytm: 5.4,  spread: 120,  chg: -1,  rating: "BB+", amount: 2.5 },
+  { iso: "ZAF", name: "Afrique du Sud", flag: "🇿🇦", maturity: 2032, ytm: 7.1,  spread: 270,  chg: -2,  rating: "BB-", amount: 5.0 },
+  { iso: "CIV", name: "Côte d'Ivoire",  flag: "🇨🇮", maturity: 2033, ytm: 7.6,  spread: 330,  chg: -3,  rating: "BB-", amount: 2.6 },
+  { iso: "BEN", name: "Bénin",          flag: "🇧🇯", maturity: 2032, ytm: 8.0,  spread: 380,  chg: -2,  rating: "B+",  amount: 0.5 },
+  { iso: "SEN", name: "Sénégal",        flag: "🇸🇳", maturity: 2031, ytm: 8.4,  spread: 410,  chg: +4,  rating: "B+",  amount: 2.2 },
+  { iso: "RWA", name: "Rwanda",         flag: "🇷🇼", maturity: 2031, ytm: 8.7,  spread: 450,  chg: +3,  rating: "B+",  amount: 0.6 },
+  { iso: "NGA", name: "Nigeria",        flag: "🇳🇬", maturity: 2032, ytm: 10.3, spread: 600,  chg: -8,  rating: "B",   amount: 4.2 },
+  { iso: "CMR", name: "Cameroun",       flag: "🇨🇲", maturity: 2032, ytm: 9.2,  spread: 500,  chg: +2,  rating: "B-",  amount: 0.7 },
+  { iso: "AGO", name: "Angola",         flag: "🇦🇴", maturity: 2032, ytm: 11.2, spread: 690,  chg: +15, rating: "B-",  amount: 3.0 },
+  { iso: "KEN", name: "Kenya",          flag: "🇰🇪", maturity: 2031, ytm: 9.9,  spread: 560,  chg: -5,  rating: "B",   amount: 2.0 },
+  { iso: "EGY", name: "Égypte",         flag: "🇪🇬", maturity: 2033, ytm: 11.8, spread: 760,  chg: +12, rating: "B-",  amount: 3.8 },
+  { iso: "TUN", name: "Tunisie",        flag: "🇹🇳", maturity: 2027, ytm: 12.9, spread: 870,  chg: +20, rating: "CCC+",amount: 1.0 },
+  { iso: "GAB", name: "Gabon",          flag: "🇬🇦", maturity: 2031, ytm: 11.0, spread: 680,  chg: +11, rating: "CCC", amount: 0.7 },
+  { iso: "GHA", name: "Ghana",          flag: "🇬🇭", maturity: 2030, ytm: 18.5, spread: 1320, chg: +24, rating: "CCC", amount: 3.3 },
+  { iso: "ZMB", name: "Zambie",         flag: "🇿🇲", maturity: 2033, ytm: 13.4, spread: 905,  chg: -18, rating: "CCC", amount: 3.0 },
+  { iso: "ETH", name: "Éthiopie",       flag: "🇪🇹", maturity: 2031, ytm: 16.2, spread: 1180, chg: +9,  rating: "CCC-",amount: 1.0 },
+];
+
+function ratingColor(r: string) {
+  if (/^BB|^BBB/.test(r)) return "#10B981";
+  if (/^B\+/.test(r)) return "#22D39A";
+  if (/^B(-|$)/.test(r)) return "#FBBF24";
+  return "#EF4444"; // CCC / distressed
+}
+function spreadColor(bps: number) { return bps >= 900 ? "#EF4444" : bps >= 500 ? "#F59E0B" : "#10B981"; }
 
 const WB_COMMODITIES = [
   { name: "Cacao",      unit: "$/t",   price: 9_420, change: +22.3, flag: "🍫" },
@@ -176,7 +204,8 @@ function IndexCard({ idx }: { idx: MarketIndex }) {
 
 /* ── Page principale ───────────────────────────────────── */
 export default function MarketsPage() {
-  const [activeTab,  setActiveTab]  = useState<"fx" | "indices" | "energy" | "trade" | "commodities">("fx");
+  const [activeTab,  setActiveTab]  = useState<"fx" | "indices" | "eurobonds" | "energy" | "trade" | "commodities">("fx");
+  const [bondSort,   setBondSort]   = useState<"spread" | "ytm" | "maturity">("spread");
   const [exportOpen, setExportOpen] = useState(false);
 
   const { data: fxData, isLoading: fxLoading, refetch: refetchFx, isFetching: fetchingFx } = useQuery({
@@ -231,8 +260,9 @@ export default function MarketsPage() {
         {([
           { id: "fx",          label: "Devises",      icon: DollarSign },
           { id: "indices",     label: "Bourses",      icon: BarChart2  },
+          { id: "eurobonds",   label: "Eurobonds",    icon: Landmark   },
           { id: "energy",      label: "Énergie (EIA)",icon: Zap        },
-          { id: "trade",       label: "Commerce (Comtrade)", icon: Ship },
+          { id: "trade",       label: "Commerce",     icon: Ship       },
           { id: "commodities", label: "Matières premières", icon: Package },
         ] as const).map(({ id, label, icon: Icon }) => (
           <button
@@ -275,6 +305,94 @@ export default function MarketsPage() {
             {indices.map((idx) => <IndexCard key={idx.name} idx={idx} />)}
           </div>
         )
+      )}
+
+      {/* ── Tab Eurobonds ── */}
+      {activeTab === "eurobonds" && (
+        <div className="space-y-5">
+          {/* KPIs */}
+          <div className="grid grid-cols-4 gap-4">
+            {[
+              { label: "Spread médian (bps)",  value: Math.round(EUROBONDS.reduce((s,b)=>s+b.spread,0)/EUROBONDS.length), color: "#F59E0B" },
+              { label: "Spread max",            value: Math.max(...EUROBONDS.map(b=>b.spread)) + " bps", color: "#EF4444" },
+              { label: "En écartement (7j)",   value: EUROBONDS.filter(b=>b.chg>0).length + "/" + EUROBONDS.length, color: "#EF4444" },
+              { label: "Encours total ($Bn)",  value: EUROBONDS.reduce((s,b)=>s+b.amount,0).toFixed(1), color: "#3B82F6" },
+            ].map((k) => (
+              <div key={k.label} className="mansa-card rounded-xl p-4">
+                <p className="text-xs mb-1" style={{ color: "var(--text-muted)" }}>{k.label}</p>
+                <p className="text-2xl font-bold font-mono" style={{ color: k.color }}>{k.value}</p>
+              </div>
+            ))}
+          </div>
+
+          {/* Tableau */}
+          <div className="mansa-card rounded-xl overflow-hidden">
+            {/* En-tête avec tri */}
+            <div className="grid gap-4 px-4 py-2 border-b text-[10px] font-semibold uppercase tracking-wider"
+                 style={{ gridTemplateColumns: "2fr 60px 70px 1fr 60px 60px", background: "var(--sidebar-bg)", borderColor: "var(--bg-border)", color: "var(--text-muted)" }}>
+              <span>Pays</span>
+              <button className="flex items-center gap-1 text-left" onClick={() => setBondSort("maturity")} style={{ color: bondSort === "maturity" ? "var(--mansa-green)" : "var(--text-muted)" }}>Mat <ArrowUpDown size={8} /></button>
+              <button className="flex items-center gap-1 text-right justify-end" onClick={() => setBondSort("ytm")} style={{ color: bondSort === "ytm" ? "var(--mansa-green)" : "var(--text-muted)" }}>Rdt % <ArrowUpDown size={8} /></button>
+              <button className="flex items-center gap-1" onClick={() => setBondSort("spread")} style={{ color: bondSort === "spread" ? "var(--mansa-green)" : "var(--text-muted)" }}>Spread vs UST <ArrowUpDown size={8} /></button>
+              <span className="text-right">Δ7j</span>
+              <span className="text-right">Note</span>
+            </div>
+
+            {[...EUROBONDS]
+              .sort((a,b) => bondSort === "spread" ? b.spread - a.spread : bondSort === "ytm" ? b.ytm - a.ytm : a.maturity - b.maturity)
+              .map((bond) => {
+                const maxSpread = Math.max(...EUROBONDS.map(b=>b.spread));
+                return (
+                  <div
+                    key={bond.iso}
+                    className="grid gap-4 px-4 py-3 border-b items-center transition-colors hover:opacity-90"
+                    style={{ gridTemplateColumns: "2fr 60px 70px 1fr 60px 60px", borderColor: "var(--bg-border)" }}
+                  >
+                    <div className="flex items-center gap-2">
+                      <span className="text-base">{bond.flag}</span>
+                      <div>
+                        <p className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>{bond.name}</p>
+                        <p className="text-xs font-mono" style={{ color: "var(--text-muted)" }}>${bond.amount}Bn</p>
+                      </div>
+                    </div>
+                    <span className="text-xs font-mono" style={{ color: "var(--text-muted)" }}>&lsquo;{String(bond.maturity).slice(2)}</span>
+                    <span className="text-sm font-bold font-mono text-right" style={{ color: "var(--text-primary)" }}>{bond.ytm.toFixed(1)}%</span>
+                    <div className="flex items-center gap-2">
+                      <div className="flex-1 h-1.5 rounded-full overflow-hidden" style={{ background: "var(--bg-border)" }}>
+                        <div className="h-full rounded-full" style={{ width: `${(bond.spread/maxSpread)*100}%`, background: spreadColor(bond.spread) }} />
+                      </div>
+                      <span className="text-xs font-mono font-bold w-12 text-right" style={{ color: spreadColor(bond.spread) }}>{bond.spread}</span>
+                    </div>
+                    <span className="text-xs font-mono text-right" style={{ color: bond.chg > 0 ? "#EF4444" : bond.chg < 0 ? "#10B981" : "var(--text-muted)" }}>
+                      {bond.chg > 0 ? "+" : ""}{bond.chg}
+                    </span>
+                    <div className="text-right">
+                      <span className="text-[10px] font-bold font-mono px-1.5 py-0.5 rounded border"
+                            style={{ color: ratingColor(bond.rating), borderColor: ratingColor(bond.rating) + "44" }}>
+                        {bond.rating}
+                      </span>
+                    </div>
+                  </div>
+                );
+              })}
+          </div>
+
+          <div className="grid grid-cols-3 gap-3 mt-2">
+            {[
+              { label: "Investment grade (BB et +)", count: EUROBONDS.filter(b=>/^BB|^BBB/.test(b.rating)).length, color: "#10B981" },
+              { label: "High yield (B)",             count: EUROBONDS.filter(b=>/^B[^B]|^B$/.test(b.rating)).length, color: "#F59E0B" },
+              { label: "Distressed (CCC et -)",      count: EUROBONDS.filter(b=>/^CCC/.test(b.rating)).length,       color: "#EF4444" },
+            ].map((g) => (
+              <div key={g.label} className="mansa-card rounded-xl p-3 flex items-center gap-3">
+                <span className="text-2xl font-bold font-mono" style={{ color: g.color }}>{g.count}</span>
+                <p className="text-xs" style={{ color: "var(--text-muted)" }}>{g.label}</p>
+              </div>
+            ))}
+          </div>
+          <p className="text-xs" style={{ color: "var(--text-muted)" }}>
+            Source : Bloomberg · MANSA Terminal · Spread = prime risque vs US Treasuries · Δ7j en points de base
+          </p>
+        </div>
       )}
 
       {/* ── Tab Énergie EIA ── */}
