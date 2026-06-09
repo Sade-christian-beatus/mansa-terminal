@@ -8,7 +8,7 @@ import {
   Sparkles,
   Globe2,
   BarChart2,
-  Candlestick,
+  TrendingUp,
   CloudRain,
   Zap,
   Receipt,
@@ -35,7 +35,7 @@ export function Sidebar() {
     { labelKey: "nav_ai"         as const, href: "/ai",          icon: Sparkles,        badge: "AI"       },
     { labelKey: "nav_countries"  as const, href: "/countries",   icon: Globe2,          badge: null       },
     { labelKey: "nav_indicators" as const, href: "/indicators",  icon: BarChart2,       badge: null       },
-    { labelKey: "nav_markets"    as const, href: "/markets",     icon: Candlestick,     badge: null       },
+    { labelKey: "nav_markets"    as const, href: "/markets",     icon: TrendingUp,     badge: null       },
     { labelKey: "nav_signals"    as const, href: "/signals",     icon: Zap,             badge: "HF"       },
     { labelKey: "nav_climate"    as const, href: "/climate",     icon: CloudRain,       badge: null       },
   ];
