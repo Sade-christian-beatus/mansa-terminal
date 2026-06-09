@@ -91,7 +91,7 @@ function SparklineCard({ country }: { country: typeof SPARKLINE_COUNTRIES[0] }) 
             <Line
               type="monotone"
               dataKey="value"
-              stroke={isPositive ? "#00D4AA" : "#EF4444"}
+              stroke={isPositive ? "var(--mansa-green)" : "#EF4444"}
               strokeWidth={1.5}
               dot={false}
             />

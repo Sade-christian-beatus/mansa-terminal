@@ -45,11 +45,11 @@ interface AfricaHeatmapProps {
 }
 
 function getColor(value: number | null, min: number, max: number): string {
-  if (value === null) return "#1E2A42";
+  if (value === null) return "#1A1300";
   if (value >= 0) {
     const t = max > 0 ? Math.min(value / max, 1) : 0;
     const a = Math.round((0.25 + t * 0.75) * 255).toString(16).padStart(2, "0");
-    return `#00D4AA${a}`;
+    return `#e2ac38${a}`;
   }
   const t = min < 0 ? Math.min(Math.abs(value) / Math.abs(min), 1) : 0;
   const a = Math.round((0.25 + t * 0.75) * 255).toString(16).padStart(2, "0");
@@ -90,19 +90,17 @@ export function AfricaHeatmap({ data, indicator, year, isLoading }: AfricaHeatma
   return (
     <div className="mansa-card rounded-xl p-4 relative">
       <div className="flex items-center justify-between mb-2">
-        <h3 className="text-sm font-semibold text-white">
+        <h3 className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>
           Afrique — {indicator} · {year}
         </h3>
-        <span className="text-xs text-gray-500">{data.length} pays</span>
+        <span className="text-xs" style={{ color: "var(--text-muted)" }}>{data.length} pays</span>
       </div>
 
       {/* Tooltip flottant */}
       {tooltip && (
         <div
-          className="pointer-events-none absolute z-50 bg-[#141B2E] border
-                     border-[#1E2A42] rounded-lg px-3 py-2 text-xs text-gray-200
-                     shadow-xl whitespace-nowrap"
-          style={{ left: tooltip.x + 12, top: tooltip.y - 8 }}
+          className="pointer-events-none absolute z-50 rounded-lg px-3 py-2 text-xs shadow-xl whitespace-nowrap"
+          style={{ left: tooltip.x + 12, top: tooltip.y - 8, background: "var(--dropdown-bg)", border: "1px solid var(--card-border)", color: "var(--text-primary)" }}
         >
           {tooltip.content}
         </div>
@@ -136,7 +134,7 @@ export function AfricaHeatmap({ data, indicator, year, isLoading }: AfricaHeatma
                         strokeWidth={0.5}
                         style={{
                           default: { outline: "none", cursor: iso3 ? "pointer" : "default" },
-                          hover:   { outline: "none", fill: "#00D4AA99" },
+                          hover:   { outline: "none", fill: "#e2ac3899" },
                           pressed: { outline: "none" },
                         }}
                         onMouseMove={(evt: React.MouseEvent) => {
@@ -179,7 +177,7 @@ export function AfricaHeatmap({ data, indicator, year, isLoading }: AfricaHeatma
         <span className="text-xs text-gray-700">Cliquer sur un pays</span>
         <div className="flex items-center gap-2">
           <span className="text-xs text-gray-600">Positif</span>
-          <div className="w-16 h-2 rounded bg-gradient-to-r from-[#00D4AA]/20 to-[#00D4AA]" />
+          <div className="w-16 h-2 rounded bg-gradient-to-r from-[#e2ac38]/20 to-[#e2ac38]" />
         </div>
       </div>
     </div>
@@ -217,7 +215,7 @@ export function TopCountriesTable({ data, indicator, isLoading }: TopCountriesTa
 
   return (
     <div className="mansa-card rounded-xl p-4 h-full flex flex-col">
-      <h3 className="text-sm font-semibold text-white mb-4">
+      <h3 className="text-sm font-semibold mb-4" style={{ color: "var(--text-primary)" }}>
         Classement — {indicator}
       </h3>
       <div className="space-y-1 overflow-y-auto flex-1">
@@ -229,23 +227,21 @@ export function TopCountriesTable({ data, indicator, isLoading }: TopCountriesTa
             <div
               key={d.country_id}
               onClick={() => router.push(`/countries/${d.country_id}`)}
-              className="flex items-center gap-3 py-1.5 px-2 rounded-lg
-                         hover:bg-[#141B2E] transition-colors cursor-pointer group"
+              className="flex items-center gap-3 py-1.5 px-2 rounded-lg mansa-card-hover transition-colors cursor-pointer group"
             >
-              <span className="text-xs text-gray-600 w-5 text-right font-mono">
+              <span className="text-xs w-5 text-right font-mono" style={{ color: "var(--text-muted)" }}>
                 {i + 1}
               </span>
               <span className="text-sm">{d.flag}</span>
-              <span className="text-xs text-gray-300 w-20 truncate
-                               group-hover:text-white transition-colors">
+              <span className="text-xs w-20 truncate transition-colors" style={{ color: "var(--text-secondary)" }}>
                 {d.country_name}
               </span>
-              <div className="flex-1 h-1.5 bg-[#1E2A42] rounded-full overflow-hidden">
+              <div className="flex-1 h-1.5 rounded-full overflow-hidden" style={{ background: "var(--bg-border)" }}>
                 <div
                   className="h-full rounded-full transition-all duration-300"
                   style={{
                     width: `${barWidth}%`,
-                    backgroundColor: isPositive ? "#00D4AA" : "#EF4444",
+                    backgroundColor: isPositive ? "var(--mansa-green)" : "#EF4444",
                   }}
                 />
               </div>
