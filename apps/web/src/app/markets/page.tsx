@@ -386,6 +386,29 @@ function FxCard({ rate }: { rate: FxRate }) {
   );
 }
 
+// ── Badges visuels pour chaque bourse ────────────────────────────────────────
+const EXCHANGE_STYLES: Record<string, { abbr: string; color: string; bg: string }> = {
+  "Bourse Régionale UEMOA":    { abbr: "BRVM", color: "#F59E0B", bg: "rgba(245,158,11,0.12)" },
+  "Nigerian Exchange Group":   { abbr: "NGX",  color: "#22C55E", bg: "rgba(34,197,94,0.12)"  },
+  "Johannesburg Stock Exch.":  { abbr: "JSE",  color: "#3B82F6", bg: "rgba(59,130,246,0.12)" },
+  "Nairobi Securities Exch.":  { abbr: "NSE",  color: "#EF4444", bg: "rgba(239,68,68,0.12)"  },
+  "Egyptian Exchange":         { abbr: "EGX",  color: "#8B5CF6", bg: "rgba(139,92,246,0.12)" },
+  "Bourse de Casablanca":      { abbr: "BVC",  color: "#0ea5a0", bg: "rgba(14,165,160,0.12)" },
+  "Ghana Stock Exchange":      { abbr: "GSE",  color: "#F97316", bg: "rgba(249,115,22,0.12)" },
+  "Dar es Salaam Stk Exch.":   { abbr: "DSE",  color: "#06B6D4", bg: "rgba(6,182,212,0.12)"  },
+};
+
+function ExchangeBadge({ exchange }: { exchange: string }) {
+  const style = EXCHANGE_STYLES[exchange];
+  if (!style) return null;
+  return (
+    <span className="inline-flex items-center px-2 py-0.5 rounded font-bold text-[11px] font-mono"
+          style={{ color: style.color, background: style.bg, border: `1px solid ${style.color}30` }}>
+      {style.abbr}
+    </span>
+  );
+}
+
 function IndexCard({ idx }: { idx: MarketIndex }) {
   return (
     <div className="mansa-card rounded-xl p-5 mansa-card-hover">
@@ -393,7 +416,10 @@ function IndexCard({ idx }: { idx: MarketIndex }) {
         <div className="flex items-center gap-3">
           <span className="text-3xl">{idx.flag}</span>
           <div>
-            <p className="text-sm font-bold" style={{ color: "var(--text-primary)" }}>{idx.name}</p>
+            <div className="flex items-center gap-2 mb-0.5">
+              <p className="text-sm font-bold" style={{ color: "var(--text-primary)" }}>{idx.name}</p>
+              <ExchangeBadge exchange={idx.exchange} />
+            </div>
             <p className="text-xs truncate max-w-[160px]" style={{ color: "var(--text-muted)" }}>{idx.exchange}</p>
           </div>
         </div>

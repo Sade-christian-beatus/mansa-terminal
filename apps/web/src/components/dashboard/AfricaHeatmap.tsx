@@ -49,7 +49,7 @@ function getColor(value: number | null, min: number, max: number): string {
   if (value >= 0) {
     const t = max > 0 ? Math.min(value / max, 1) : 0;
     const a = Math.round((0.25 + t * 0.75) * 255).toString(16).padStart(2, "0");
-    return `#e2ac38${a}`;
+    return `#0ea5a0${a}`;
   }
   const t = min < 0 ? Math.min(Math.abs(value) / Math.abs(min), 1) : 0;
   const a = Math.round((0.25 + t * 0.75) * 255).toString(16).padStart(2, "0");
@@ -134,7 +134,7 @@ export function AfricaHeatmap({ data, indicator, year, isLoading }: AfricaHeatma
                         strokeWidth={0.5}
                         style={{
                           default: { outline: "none", cursor: iso3 ? "pointer" : "default" },
-                          hover:   { outline: "none", fill: "#e2ac3899" },
+                          hover:   { outline: "none", fill: "#0ea5a099" },
                           pressed: { outline: "none" },
                         }}
                         onMouseMove={(evt: React.MouseEvent) => {
@@ -177,7 +177,7 @@ export function AfricaHeatmap({ data, indicator, year, isLoading }: AfricaHeatma
         <span className="text-xs text-gray-700">Cliquer sur un pays</span>
         <div className="flex items-center gap-2">
           <span className="text-xs text-gray-600">Positif</span>
-          <div className="w-16 h-2 rounded bg-gradient-to-r from-[#e2ac38]/20 to-[#e2ac38]" />
+          <div className="w-16 h-2 rounded bg-gradient-to-r from-[#0ea5a0]/20 to-[#0ea5a0]" />
         </div>
       </div>
     </div>

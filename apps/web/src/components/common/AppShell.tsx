@@ -1,14 +1,17 @@
 "use client";
 
 import { useEffect } from "react";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { Sidebar } from "./Sidebar";
 import { TopBar } from "./TopBar";
 import { useAuthStore } from "@/lib/auth-store";
 import { useThemeStore } from "@/lib/theme-store";
 
+const ONBOARDING_KEY = "mansa_onboarding_done";
+
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname   = usePathname();
+  const router     = useRouter();
   const hydrate    = useAuthStore((s) => s.hydrate);
   const theme      = useThemeStore((s) => s.theme);
   const isAuthPage       = pathname?.startsWith("/auth");
@@ -16,6 +19,16 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   // Initialise le store auth depuis la session Supabase au montage
   useEffect(() => { hydrate(); }, [hydrate]);
+
+  // Rediriger les nouveaux utilisateurs vers l'onboarding au premier visit
+  useEffect(() => {
+    if (isAuthPage || isOnboardingPage) return;
+    if (typeof window === "undefined") return;
+    const done = localStorage.getItem(ONBOARDING_KEY);
+    if (!done) {
+      router.push("/onboarding");
+    }
+  }, [isAuthPage, isOnboardingPage, router]);
 
   // Applique le thème au <html> au montage + à chaque changement
   useEffect(() => {
