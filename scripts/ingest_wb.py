@@ -48,8 +48,8 @@ AFRICAN_ISO2 = [
     "KM", "ST", "BI",
 ]
 
-# WB API v2 limite la longueur d'URL — on découpe en batches de 20 pays
-WB_BATCH_SIZE = 20
+# WB API v2 : batches de 10 pays (certains pays "fragiles" déclenchent 403 en gros batch)
+WB_BATCH_SIZE = 10
 COUNTRY_BATCHES = [
     AFRICAN_ISO2[i:i + WB_BATCH_SIZE]
     for i in range(0, len(AFRICAN_ISO2), WB_BATCH_SIZE)
@@ -135,14 +135,44 @@ async def fetch_wb_indicator_batch(
     return all_records
 
 
+async def fetch_wb_indicator_single(
+    client: httpx.AsyncClient, indicator: str, iso2: str
+) -> list[dict]:
+    """Fallback : récupère un indicateur WB pour un seul pays."""
+    try:
+        r = await client.get(
+            f"{WB_BASE}/country/{iso2}/indicator/{indicator}",
+            params={"format": "json", "per_page": 100, "mrv": 12},
+            timeout=20.0,
+        )
+        if r.status_code == 403:
+            return []
+        r.raise_for_status()
+        data = r.json()
+        if not data or len(data) < 2 or not data[1]:
+            return []
+        return [rec for rec in data[1] if rec.get("value") is not None]
+    except Exception:
+        return []
+
+
 async def fetch_wb_indicator(client: httpx.AsyncClient, indicator: str) -> list[dict]:
-    """Récupère un indicateur WB pour tous les pays africains en batches de 20."""
+    """Récupère un indicateur WB pour tous les pays africains.
+    Stratégie : batch de 10 pays. Si 403, repli pays par pays (fallback)."""
     all_records: list[dict] = []
     for i, batch in enumerate(COUNTRY_BATCHES):
-        batch_records = await fetch_wb_indicator_batch(client, indicator, batch)
-        all_records.extend(batch_records)
+        try:
+            batch_records = await fetch_wb_indicator_batch(client, indicator, batch)
+            all_records.extend(batch_records)
+        except Exception as exc:
+            # 403 ou autre erreur → fallback pays par pays pour ce batch
+            log.warning("  Batch %d échoué (%s) → fallback individuel", i + 1, exc)
+            for iso2 in batch:
+                single = await fetch_wb_indicator_single(client, indicator, iso2)
+                all_records.extend(single)
+                await asyncio.sleep(0.2)
         if i < len(COUNTRY_BATCHES) - 1:
-            await asyncio.sleep(0.5)  # Respecter le rate limit entre batches
+            await asyncio.sleep(0.5)
     return all_records
 
 

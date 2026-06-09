@@ -1,36 +1,34 @@
 # ============================================================
 # MANSA Terminal — Pipeline d'ingestion des données macro
-# Remplace Dagster (incompatible Render Free) par GitHub Actions cron
 #
 # Schedules :
 #   • Lundi 06:00 UTC  → IMF WEO + World Bank WDI (hebdo)
-#   • 1er du mois 07:00 UTC → IMF + WB complet (mensuel, même job)
-#   • workflow_dispatch → manuel (avec choix IMF / WB / both)
+#   • 1er du mois 07:30 UTC → IMF + WB + sources extra (mensuel)
+#   • workflow_dispatch → manuel (choix : imf / worldbank / extra / all)
 #
-# Secrets requis (GitHub → Settings → Secrets → Actions) :
-#   DATABASE_URL_SYNC : postgresql://postgres.xxx:[PASS]@pooler.supabase.com:5432/postgres
+# Secrets requis :
+#   DATABASE_URL_SYNC : postgresql://...
 # ============================================================
 
 name: MANSA Data Ingestion
 
 on:
   schedule:
-    # Hebdo — lundi 06:00 UTC
-    - cron: "0 6 * * 1"
-    # Mensuel — 1er du mois 07:30 UTC (décalé pour éviter collision avec hebdo)
-    - cron: "30 7 1 * *"
+    - cron: "0 6 * * 1"      # Hebdo — lundi 06:00 UTC
+    - cron: "30 7 1 * *"     # Mensuel — 1er du mois 07:30 UTC
 
   workflow_dispatch:
     inputs:
       source:
         description: "Source à ingérer"
         required: true
-        default: "both"
+        default: "all"
         type: choice
         options:
-          - both
+          - all
           - imf
           - worldbank
+          - extra
       dry_run:
         description: "Dry-run (aucune écriture DB)"
         required: false
@@ -39,13 +37,17 @@ on:
 
 concurrency:
   group: data-ingest
-  cancel-in-progress: false   # Ne jamais annuler une ingestion en cours
+  cancel-in-progress: false
+
+# Force Node.js 24 pour toutes les actions (deadline GitHub : 16 juin 2026)
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
   ingest:
     name: Ingest macro data
     runs-on: ubuntu-latest
-    timeout-minutes: 45       # IMF + WB complet < 30min en général
+    timeout-minutes: 60
 
     env:
       DATABASE_URL_SYNC: ${{ secrets.DATABASE_URL_SYNC }}
@@ -64,93 +66,74 @@ jobs:
       - name: Install script dependencies
         run: pip install -r scripts/requirements.txt
 
-      # ── Seed countries (idempotent — upsert) ────────────────────────────
+      # ── Seed pays (idempotent) ───────────────────────────────────────────
       - name: Seed countries table
         run: python scripts/seed_countries.py
-        env:
-          DATABASE_URL_SYNC: ${{ secrets.DATABASE_URL_SYNC }}
 
-      # ── Seed knowledge base AI (idempotent — ON CONFLICT DO NOTHING) ────
       - name: Seed AI knowledge base
         run: python scripts/seed_knowledge.py
-        env:
-          DATABASE_URL_SYNC: ${{ secrets.DATABASE_URL_SYNC }}
 
-      # ── Déterminer quelle(s) source(s) ingérer ──────────────────────────
-      # Pour les crons, on lance toujours les deux.
-      # Pour workflow_dispatch, on respecte le choix de l'utilisateur.
+      # ── Déterminer quelles sources ingérer ──────────────────────────────
       - name: Resolve sources to run
         id: sources
         run: |
-          SOURCE="${{ github.event.inputs.source || 'both' }}"
+          SOURCE="${{ github.event.inputs.source || 'all' }}"
           DRY_RUN="${{ github.event.inputs.dry_run || 'false' }}"
-          RUN_IMF="false"
-          RUN_WB="false"
-          if [[ "$SOURCE" == "both" || "$SOURCE" == "imf" ]]; then
-            RUN_IMF="true"
-          fi
-          if [[ "$SOURCE" == "both" || "$SOURCE" == "worldbank" ]]; then
-            RUN_WB="true"
-          fi
-          echo "run_imf=$RUN_IMF"   >> "$GITHUB_OUTPUT"
-          echo "run_wb=$RUN_WB"     >> "$GITHUB_OUTPUT"
-          echo "dry_run=$DRY_RUN"   >> "$GITHUB_OUTPUT"
-          echo "Source: $SOURCE | dry-run: $DRY_RUN | IMF: $RUN_IMF | WB: $RUN_WB"
+          RUN_IMF="false"; RUN_WB="false"; RUN_EXTRA="false"
+          if [[ "$SOURCE" == "all" || "$SOURCE" == "imf" ]];       then RUN_IMF="true";   fi
+          if [[ "$SOURCE" == "all" || "$SOURCE" == "worldbank" ]];  then RUN_WB="true";    fi
+          if [[ "$SOURCE" == "all" || "$SOURCE" == "extra" ]];      then RUN_EXTRA="true"; fi
+          # Le mensuel (1er du mois) lance tout ; l'hebdo (lundi) lance IMF+WB seulement
+          echo "run_imf=$RUN_IMF"     >> "$GITHUB_OUTPUT"
+          echo "run_wb=$RUN_WB"       >> "$GITHUB_OUTPUT"
+          echo "run_extra=$RUN_EXTRA" >> "$GITHUB_OUTPUT"
+          echo "dry_run=$DRY_RUN"     >> "$GITHUB_OUTPUT"
+          echo "Source: $SOURCE | dry-run: $DRY_RUN | IMF: $RUN_IMF | WB: $RUN_WB | Extra: $RUN_EXTRA"
 
       # ── IMF WEO ──────────────────────────────────────────────────────────
       - name: Ingest IMF WEO
         if: steps.sources.outputs.run_imf == 'true'
         run: |
-          ARGS=""
-          if [[ "${{ steps.sources.outputs.dry_run }}" == "true" ]]; then
-            ARGS="--dry-run"
-          fi
+          ARGS="${{ steps.sources.outputs.dry_run == 'true' && '--dry-run' || '' }}"
           python scripts/ingest_imf.py $ARGS
-        env:
-          DATABASE_URL_SYNC: ${{ secrets.DATABASE_URL_SYNC }}
 
       # ── World Bank WDI ───────────────────────────────────────────────────
       - name: Ingest World Bank WDI
         if: steps.sources.outputs.run_wb == 'true'
         run: |
-          ARGS=""
-          if [[ "${{ steps.sources.outputs.dry_run }}" == "true" ]]; then
-            ARGS="--dry-run"
-          fi
+          ARGS="${{ steps.sources.outputs.dry_run == 'true' && '--dry-run' || '' }}"
           python scripts/ingest_wb.py $ARGS
-        env:
-          DATABASE_URL_SYNC: ${{ secrets.DATABASE_URL_SYNC }}
 
-      # ── Keepalive Render (cold start prevention) ─────────────────────────
+      # ── Sources supplémentaires (ILO · FAO · Climate Watch) ─────────────
+      - name: Ingest extra sources (ILO · FAO · Climate Watch)
+        if: steps.sources.outputs.run_extra == 'true'
+        run: |
+          ARGS="${{ steps.sources.outputs.dry_run == 'true' && '--dry-run' || '' }}"
+          python scripts/ingest_extra.py $ARGS
+
+      # ── Keepalive backend ────────────────────────────────────────────────
       - name: Ping Render API (keepalive)
-        if: always()   # même si une ingestion échoue
+        if: always()
         run: |
           API_URL="${{ vars.RENDER_API_URL || 'https://mansa-terminal.onrender.com' }}"
-          echo "Pinging $API_URL/health ..."
           curl --silent --max-time 10 --retry 2 \
             -o /dev/null -w "HTTP %{http_code}\n" \
             "$API_URL/health" || echo "Ping failed (non-fatal)"
 
-      # ── Résumé ─────────────────────────────────────────────────────────
+      # ── Résumé ───────────────────────────────────────────────────────────
       - name: Ingestion summary
         if: always()
         run: |
-          echo "## Ingestion complete" >> "$GITHUB_STEP_SUMMARY"
+          echo "## MANSA Ingestion Report" >> "$GITHUB_STEP_SUMMARY"
           echo "- **Date**: $(date -u '+%Y-%m-%d %H:%M UTC')" >> "$GITHUB_STEP_SUMMARY"
-          echo "- **Sources**: ${{ github.event.inputs.source || 'both (scheduled)' }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **Source**: ${{ github.event.inputs.source || 'all (scheduled)' }}" >> "$GITHUB_STEP_SUMMARY"
           echo "- **Dry-run**: ${{ steps.sources.outputs.dry_run }}" >> "$GITHUB_STEP_SUMMARY"
           echo "- **Trigger**: ${{ github.event_name }}" >> "$GITHUB_STEP_SUMMARY"
 
-
-# ============================================================
-# Job séparé : Keepalive quotidien (indépendant de l'ingestion)
-# Render Free s'endort après 15min d'inactivité → ping toutes les 10min
-# via cron-job.org (externe) ou ce job toutes les 12h comme filet de sécurité.
-# ============================================================
+  # ── Keepalive quotidien (indépendant de l'ingestion) ─────────────────────
   keepalive:
     name: Render keepalive ping
     runs-on: ubuntu-latest
-    # Ce job tourne sur son propre schedule, indépendamment des ingestions
     if: github.event_name == 'schedule'
 
     steps:

@@ -13,6 +13,9 @@ on:
     - cron: "*/14 * * * *"   # Toutes les 14 minutes
   workflow_dispatch:
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 concurrency:
   group: keepalive
   cancel-in-progress: true
