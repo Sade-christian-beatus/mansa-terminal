@@ -11,6 +11,7 @@ import { streamAIQuery, aiApi, type AIHistoryItem } from "@/lib/api";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { exportData } from "@/lib/export-utils";
+import { getErrorMessage } from "@/lib/ai-utils";
 
 interface Message {
   id: string;
@@ -22,20 +23,7 @@ interface Message {
   errorCode?: number;
 }
 
-/* ── Diagnostic d'erreur précis ── */
-function getErrorMessage(err: unknown): { message: string; code?: number } {
-  const msg = err instanceof Error ? err.message : String(err);
-  if (msg.includes("401")) return { message: "Session expirée. Veuillez vous reconnecter.", code: 401 };
-  if (msg.includes("403")) return { message: "Abonnement requis pour accéder à MANSA AI.", code: 403 };
-  if (msg.includes("429")) return { message: "Quota journalier atteint. Réessayez demain ou passez au plan supérieur.", code: 429 };
-  if (msg.includes("422")) return { message: "Question invalide ou trop courte. Reformulez votre question.", code: 422 };
-  if (msg.includes("500")) return { message: "Erreur serveur. L'équipe MANSA a été notifiée.", code: 500 };
-  if (msg.includes("Failed to fetch") || msg.includes("NetworkError") || msg.includes("ECONNREFUSED"))
-    return { message: "Impossible de joindre le serveur MANSA. Vérifiez votre connexion.", code: 0 };
-  return { message: "Une erreur inattendue est survenue. Réessayez dans quelques instants." };
-}
 
-/* ── Suggested queries enrichies avec nouvelles sources ── */
 const SUGGESTED_QUERIES = [
   { q: "Compare la dynamique de la dette publique au Nigeria et au Ghana sur 5 ans", tags: ["IMF", "WB"] },
   { q: "Analyse les risques macro pour investir en Côte d'Ivoire en 2024", tags: ["IMF", "WB", "Comtrade"] },
@@ -135,7 +123,6 @@ export default function MansaAIPage() {
       setIsLoading(false);
       setMessages((prev) =>
         prev.map((m) => m.id === assistantId ? { ...m, isStreaming: false } : m)
-        prev.map((m) => m.id === assistantMsg.id ? { ...m, isStreaming: false } : m)
       );
     }
   };
@@ -152,25 +139,13 @@ export default function MansaAIPage() {
 
   const exportConversation = () => {
     if (messages.length === 0) return;
-    const rows = messages.map((m, i) => ({ index: i + 1, role: m.role, content: m.content, timestamp: new Date().toISOString() }));
-    exportData(rows, "json", "mansa-ai-conversation");
-  };
-
-  const copyMessage = (id: string, text: string) => {
-    navigator.clipboard.writeText(text);
-    setCopied(id);
-    setTimeout(() => setCopied(null), 2000);
-  };
-
-  const exportConversation = () => {
-    if (messages.length === 0) return;
     const rows = messages.map((m, i) => ({
       index: i + 1,
       role: m.role,
       content: m.content,
       timestamp: new Date().toISOString(),
     }));
-    exportData(rows, "json", "mansa-conversation");
+    exportData(rows, "json", "mansa-ai-conversation");
   };
 
   return (
