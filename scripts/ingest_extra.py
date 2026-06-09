@@ -1,15 +1,17 @@
 #!/usr/bin/env python3
 """
 MANSA Terminal — Script d'ingestion sources supplémentaires
-Sources : ILO ILOSTAT · FAO FAOSTAT · Climate Watch (WRI) · ND-GAIN · ACLED · IPC
+Sources : ILO ILOSTAT · FAO FAOSTAT · Climate Watch (WRI) · WHO GHO · WB PIP
+          OECD DAC CRS · IMF PortWatch · IPC/CH (food security) · Google Trends
 
 Usage :
     DATABASE_URL_SYNC=postgresql://... python scripts/ingest_extra.py [--dry-run] [--source SOURCE]
 
-Sources disponibles : ilo, fao, climate_watch, nd_gain, acled, ipc
-Par défaut : toutes les sources gratuites sauf ACLED (nécessite une clé API optionnelle)
+Sources disponibles : ilo, fao, climate_watch, who_gho, wb_pip, oecd_dac,
+                      imf_portwatch, ipc_food, google_trends
+Par défaut : toutes les sources gratuites sans clé API requise
 
-Requis : httpx tenacity psycopg2-binary
+Requis : httpx tenacity psycopg2-binary pytrends
 """
 import argparse
 import asyncio
@@ -362,12 +364,582 @@ async def ingest_climate_watch(dry_run: bool) -> tuple[int, list[str]]:
 
 
 # ────────────────────────────────────────────────────────────────────────────
+# WHO GHO — Santé mondiale (API publique, sans clé)
+# https://www.who.int/data/gho/info/gho-odata-api
+# ────────────────────────────────────────────────────────────────────────────
+WHO_BASE = "https://ghoapi.azureedge.net/api"
+
+# Indicateurs WHO GHO disponibles pour l'Afrique (code indicateur → (nom, unité))
+WHO_INDICATORS = {
+    "WHOSIS_000002":              ("HIV Prevalence % Adults 15-49", "%"),
+    "MALARIA_EST_MORTALITY_RATE": ("Malaria Mortality Rate per 100k", "per 100k"),
+    "MDG_0000000026":             ("TB Incidence per 100k", "per 100k"),
+    "NCD_BMI_30A":                ("Obesity Prevalence Adults %", "%"),
+    "SA_0000001688":              ("Alcohol Consumption Litres/Capita", "litres"),
+}
+
+# Correspondance ISO3 → WHO country code (WHO utilise ISO-3 standard)
+@retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=2, max=20))
+async def fetch_who_indicator(client: httpx.AsyncClient, indicator: str, iso3: str) -> list[dict]:
+    try:
+        r = await client.get(
+            f"{WHO_BASE}/{indicator}",
+            params={"$filter": f"SpatialDim eq '{iso3}'", "$select": "TimeDim,NumericValue,SpatialDim"},
+            timeout=20.0,
+        )
+        if r.status_code != 200:
+            return []
+        data = r.json()
+        records = []
+        for item in data.get("value", []):
+            value = item.get("NumericValue")
+            period = str(item.get("TimeDim", ""))
+            if value is not None and period:
+                records.append({"country": iso3, "period": period, "value": float(value)})
+        return records
+    except Exception:
+        return []
+
+
+async def ingest_who_gho(dry_run: bool) -> tuple[int, list[str]]:
+    errors = []
+    rows: list[dict] = []
+
+    async with httpx.AsyncClient(
+        headers={"User-Agent": "MANSA-Terminal/2.0 (data@mansa.ai)"},
+        timeout=30.0,
+    ) as http:
+        for code, (name, unit) in WHO_INDICATORS.items():
+            log.info("  WHO GHO → %s: %s", code, name)
+            for iso3 in AFRICAN_ISO3:
+                records = await fetch_who_indicator(http, code, iso3)
+                for rec in records:
+                    rows.append({
+                        "country_id": rec["country"],
+                        "indicator_code": f"WHO_{code}",
+                        "indicator_name": name,
+                        "value": rec["value"],
+                        "unit": unit,
+                        "period": rec["period"],
+                        "period_type": "annual",
+                        "source": "WHO_GHO",
+                        "source_url": "https://ghoapi.azureedge.net/api",
+                    })
+                await asyncio.sleep(0.15)
+            log.info("  ✅ WHO %s: %d records", code, sum(1 for r in rows if r["indicator_code"] == f"WHO_{code}"))
+
+    if dry_run:
+        log.info("🔍 DRY-RUN WHO GHO — %d records seraient insérés", len(rows))
+        return len(rows), errors
+
+    if rows:
+        import psycopg2
+        conn = psycopg2.connect(os.environ["DATABASE_URL_SYNC"])
+        conn.autocommit = False
+        cur = conn.cursor()
+        try:
+            cur.executemany(UPSERT_SQL, rows)
+            conn.commit()
+        except Exception as exc:
+            conn.rollback()
+            errors.append(f"WHO DB: {exc}")
+        finally:
+            cur.close()
+            conn.close()
+
+    return len(rows), errors
+
+
+# ────────────────────────────────────────────────────────────────────────────
+# World Bank PIP — Pauvreté & inégalités (API publique)
+# https://pip.worldbank.org/api
+# ────────────────────────────────────────────────────────────────────────────
+WB_PIP_BASE = "https://api.worldbank.org/pip/v1/pip"
+
+# Correspondance ISO3 → ISO2 pour PIP
+ISO3_TO_ISO2 = {
+    "NGA": "NG", "ZAF": "ZA", "KEN": "KE", "GHA": "GH", "EGY": "EG",
+    "MAR": "MA", "TUN": "TN", "SEN": "SN", "CIV": "CI", "CMR": "CM",
+    "TZA": "TZ", "UGA": "UG", "ETH": "ET", "RWA": "RW", "COD": "CD",
+    "MOZ": "MZ", "ZMB": "ZM", "AGO": "AO", "BWA": "BW", "MUS": "MU",
+    "BEN": "BJ", "BFA": "BF", "GNB": "GW", "MLI": "ML", "NER": "NE",
+    "TGO": "TG", "CAF": "CF", "TCD": "TD", "COG": "CG", "GNQ": "GQ",
+    "GAB": "GA", "MDG": "MG", "MWI": "MW", "ZWE": "ZW", "NAM": "NA",
+    "GIN": "GN", "DZA": "DZ", "LBY": "LY", "SDN": "SD", "SOM": "SO",
+    "ERI": "ER", "DJI": "DJ", "SSD": "SS", "SLE": "SL", "LBR": "LR",
+    "GMB": "GM", "CPV": "CV", "MRT": "MR", "LSO": "LS", "SWZ": "SZ",
+    "COM": "KM", "STP": "ST", "BDI": "BI",
+}
+
+@retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=2, max=20))
+async def fetch_pip(client: httpx.AsyncClient, iso2: str) -> list[dict]:
+    try:
+        r = await client.get(
+            WB_PIP_BASE,
+            params={
+                "country": iso2,
+                "year": "all",
+                "povline": 2.15,
+                "fill_gaps": False,
+                "welfare_type": "all",
+                "reporting_level": "national",
+                "format": "json",
+            },
+            timeout=20.0,
+        )
+        if r.status_code != 200:
+            return []
+        data = r.json()
+        records = []
+        for item in data:
+            year = str(item.get("reporting_year", ""))
+            headcount = item.get("headcount")
+            gini = item.get("gini")
+            if headcount is not None:
+                records.append({"period": year, "indicator": "WB_PIP_HEADCOUNT_215", "name": "Poverty Headcount $2.15/day (PIP)", "value": headcount * 100, "unit": "%"})
+            if gini is not None:
+                records.append({"period": year, "indicator": "WB_PIP_GINI", "name": "GINI Coefficient (PIP)", "value": gini, "unit": "index"})
+        return records
+    except Exception:
+        return []
+
+
+async def ingest_wb_pip(dry_run: bool) -> tuple[int, list[str]]:
+    errors = []
+    rows: list[dict] = []
+
+    async with httpx.AsyncClient(
+        headers={"User-Agent": "MANSA-Terminal/2.0 (data@mansa.ai)"},
+        timeout=30.0,
+    ) as http:
+        log.info("  WB PIP → Pauvreté & GINI (54 pays)")
+        for iso3 in AFRICAN_ISO3:
+            iso2 = ISO3_TO_ISO2.get(iso3)
+            if not iso2:
+                continue
+            records = await fetch_pip(http, iso2)
+            for rec in records:
+                rows.append({
+                    "country_id": iso3,
+                    "indicator_code": rec["indicator"],
+                    "indicator_name": rec["name"],
+                    "value": rec["value"],
+                    "unit": rec["unit"],
+                    "period": rec["period"],
+                    "period_type": "annual",
+                    "source": "WorldBank_PIP",
+                    "source_url": "https://pip.worldbank.org",
+                })
+            await asyncio.sleep(0.2)
+        log.info("  ✅ WB PIP: %d records collectés", len(rows))
+
+    if dry_run:
+        log.info("🔍 DRY-RUN WB PIP — %d records seraient insérés", len(rows))
+        return len(rows), errors
+
+    if rows:
+        import psycopg2
+        conn = psycopg2.connect(os.environ["DATABASE_URL_SYNC"])
+        conn.autocommit = False
+        cur = conn.cursor()
+        try:
+            cur.executemany(UPSERT_SQL, rows)
+            conn.commit()
+        except Exception as exc:
+            conn.rollback()
+            errors.append(f"WB PIP DB: {exc}")
+        finally:
+            cur.close()
+            conn.close()
+
+    return len(rows), errors
+
+
+# ────────────────────────────────────────────────────────────────────────────
+# OECD DAC CRS — Aide publique au développement (API SDMX gratuite)
+# https://stats.oecd.org/SDMX-JSON/data/DAC1
+# ────────────────────────────────────────────────────────────────────────────
+OECD_BASE = "https://stats.oecd.org/SDMX-JSON/data"
+
+# Codes pays OECD DAC pour les pays africains (recipient codes)
+OECD_AFRICA_RECIPIENTS = {
+    "615": "NGA", "627": "ZAF", "614": "KEN", "611": "GHA", "651": "EGY",
+    "612": "MAR", "616": "TUN", "636": "SEN", "613": "CIV", "622": "CMR",
+    "738": "TZA", "741": "UGA", "632": "ETH", "646": "RWA", "621": "COD",
+    "637": "MOZ", "754": "ZMB", "610": "AGO", "619": "BWA", "733": "MUS",
+    "616": "BEN", "617": "BFA", "652": "GNB", "618": "MLI", "639": "NER",
+    "640": "TGO", "620": "CAF", "623": "TCD", "626": "COG", "628": "GNQ",
+    "629": "GAB", "634": "MDG", "635": "MWI", "742": "ZWE", "638": "NAM",
+    "630": "GIN", "612": "DZA", "618": "LBY", "650": "SDN", "649": "SOM",
+}
+
+@retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=2, max=30))
+async def fetch_oecd_oda(client: httpx.AsyncClient, recipient_code: str) -> list[dict]:
+    """Récupère l'ODA nette reçue par un pays bénéficiaire (DAC1)."""
+    try:
+        url = f"{OECD_BASE}/DAC1/all+{recipient_code}.206.1140.D.2010:2023"
+        r = await client.get(url, params={"contentType": "json"}, timeout=30.0)
+        if r.status_code != 200:
+            return []
+        data = r.json()
+        obs = (data.get("dataSets", [{}])[0].get("series", {})
+               .get("0:0:0:0:0", {}).get("observations", {}))
+        time_periods = [
+            t.get("id", "")
+            for t in (data.get("structure", {}).get("dimensions", {})
+                      .get("observation", [{}])[0].get("values", []))
+        ]
+        records = []
+        for idx_str, vals in obs.items():
+            idx = int(idx_str)
+            value = vals[0] if vals else None
+            if value is not None and idx < len(time_periods):
+                records.append({"period": time_periods[idx], "value": float(value)})
+        return records
+    except Exception:
+        return []
+
+
+async def ingest_oecd_dac(dry_run: bool) -> tuple[int, list[str]]:
+    errors = []
+    rows: list[dict] = []
+
+    async with httpx.AsyncClient(
+        headers={"User-Agent": "MANSA-Terminal/2.0 (data@mansa.ai)"},
+        timeout=40.0,
+    ) as http:
+        log.info("  OECD DAC → ODA nette par pays africain")
+        seen = set()
+        for rec_code, iso3 in OECD_AFRICA_RECIPIENTS.items():
+            if iso3 in seen:
+                continue
+            seen.add(iso3)
+            records = await fetch_oecd_oda(http, rec_code)
+            for rec in records:
+                rows.append({
+                    "country_id": iso3,
+                    "indicator_code": "OECD_ODA_NET_USD",
+                    "indicator_name": "Net ODA Received USD millions (OECD DAC)",
+                    "value": rec["value"],
+                    "unit": "USD_MM",
+                    "period": rec["period"],
+                    "period_type": "annual",
+                    "source": "OECD_DAC",
+                    "source_url": "https://stats.oecd.org/SDMX-JSON/data/DAC1",
+                })
+            await asyncio.sleep(0.3)
+        log.info("  ✅ OECD DAC: %d records collectés", len(rows))
+
+    if dry_run:
+        log.info("🔍 DRY-RUN OECD DAC — %d records seraient insérés", len(rows))
+        return len(rows), errors
+
+    if rows:
+        import psycopg2
+        conn = psycopg2.connect(os.environ["DATABASE_URL_SYNC"])
+        conn.autocommit = False
+        cur = conn.cursor()
+        try:
+            cur.executemany(UPSERT_SQL, rows)
+            conn.commit()
+        except Exception as exc:
+            conn.rollback()
+            errors.append(f"OECD DAC DB: {exc}")
+        finally:
+            cur.close()
+            conn.close()
+
+    return len(rows), errors
+
+
+# ────────────────────────────────────────────────────────────────────────────
+# IMF PortWatch — Trafic maritime & commerce portuaire (API gratuite)
+# https://portwatch.imf.org
+# ────────────────────────────────────────────────────────────────────────────
+PORTWATCH_BASE = "https://portwatch.imf.org/api/v1"
+
+# Ports africains majeurs (UNLOCODE → ISO3)
+AFRICAN_PORTS = {
+    "NGAPP": "NGA",  # Apapa (Lagos)
+    "ZADUR": "ZAF",  # Durban
+    "ZACPT": "ZAF",  # Cape Town
+    "EGPSD": "EGY",  # Port Said
+    "EGALY": "EGY",  # Alexandria
+    "MAPTM": "MAR",  # Tanger Med
+    "KEMIA": "KEN",  # Mombasa
+    "TZDARES": "TZA", # Dar es Salaam
+    "GHACC": "GHA",  # Tema (Accra)
+    "SNDKR": "SEN",  # Dakar
+    "CIABD": "CIV",  # Abidjan
+    "TZDAR": "TZA",  # Zanzibar
+    "MZMPUTO": "MOZ", # Maputo
+    "AOLAD": "AGO",  # Luanda
+    "DZDZA": "DZA",  # Algiers
+}
+
+@retry(stop=stop_after_attempt(2), wait=wait_exponential(multiplier=1, min=2, max=20))
+async def fetch_portwatch(client: httpx.AsyncClient, port_code: str) -> list[dict]:
+    try:
+        r = await client.get(
+            f"{PORTWATCH_BASE}/portcalls",
+            params={"portcode": port_code, "frequency": "monthly", "format": "json"},
+            timeout=20.0,
+        )
+        if r.status_code != 200:
+            return []
+        data = r.json()
+        records = []
+        for item in data if isinstance(data, list) else data.get("data", []):
+            date = item.get("date") or item.get("period", "")
+            calls = item.get("portcalls") or item.get("vessel_calls")
+            if date and calls is not None:
+                records.append({"period": str(date)[:7], "value": float(calls)})
+        return records
+    except Exception:
+        return []
+
+
+async def ingest_imf_portwatch(dry_run: bool) -> tuple[int, list[str]]:
+    errors = []
+    rows: list[dict] = []
+
+    async with httpx.AsyncClient(
+        headers={"User-Agent": "MANSA-Terminal/2.0 (data@mansa.ai)"},
+        timeout=30.0,
+    ) as http:
+        log.info("  IMF PortWatch → Appels de navires (15 ports africains)")
+        for port_code, iso3 in AFRICAN_PORTS.items():
+            records = await fetch_portwatch(http, port_code)
+            for rec in records:
+                rows.append({
+                    "country_id": iso3,
+                    "indicator_code": f"PORTWATCH_CALLS_{port_code}",
+                    "indicator_name": f"Port Vessel Calls — {port_code} (IMF PortWatch)",
+                    "value": rec["value"],
+                    "unit": "vessel calls",
+                    "period": rec["period"],
+                    "period_type": "monthly",
+                    "source": "IMF_PortWatch",
+                    "source_url": "https://portwatch.imf.org",
+                })
+            await asyncio.sleep(0.3)
+        log.info("  ✅ IMF PortWatch: %d records collectés", len(rows))
+
+    if dry_run:
+        log.info("🔍 DRY-RUN PortWatch — %d records seraient insérés", len(rows))
+        return len(rows), errors
+
+    if rows:
+        import psycopg2
+        conn = psycopg2.connect(os.environ["DATABASE_URL_SYNC"])
+        conn.autocommit = False
+        cur = conn.cursor()
+        try:
+            cur.executemany(UPSERT_SQL, rows)
+            conn.commit()
+        except Exception as exc:
+            conn.rollback()
+            errors.append(f"PortWatch DB: {exc}")
+        finally:
+            cur.close()
+            conn.close()
+
+    return len(rows), errors
+
+
+# ────────────────────────────────────────────────────────────────────────────
+# IPC/CH — Sécurité alimentaire (Cadre Intégré de Classification)
+# https://www.ipcinfo.org/ipcinfo-website/ipc-dashboard-and-resources/ipc-api
+# ────────────────────────────────────────────────────────────────────────────
+IPC_BASE = "https://api.ipcinfo.org"
+
+@retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=2, max=20))
+async def fetch_ipc(client: httpx.AsyncClient, iso3: str) -> list[dict]:
+    try:
+        r = await client.get(
+            f"{IPC_BASE}/country",
+            params={"country": iso3, "format": "json"},
+            timeout=20.0,
+        )
+        if r.status_code != 200:
+            return []
+        data = r.json()
+        records = []
+        for entry in data if isinstance(data, list) else [data]:
+            period = str(entry.get("year", entry.get("reference_year", "")))
+            phase3plus = entry.get("phase3plus_pop") or entry.get("p3plus")
+            if period and phase3plus is not None:
+                records.append({
+                    "period": period,
+                    "indicator": "IPC_PHASE3PLUS_POP",
+                    "name": "IPC Phase 3+ Population (Acute Food Insecurity)",
+                    "value": float(phase3plus),
+                    "unit": "persons",
+                })
+        return records
+    except Exception:
+        return []
+
+
+async def ingest_ipc_food(dry_run: bool) -> tuple[int, list[str]]:
+    errors = []
+    rows: list[dict] = []
+
+    # Pays africains ayant des évaluations IPC régulières
+    IPC_COUNTRIES = [
+        "ETH", "SOM", "SSD", "SDN", "NGA", "NER", "MLI", "BFA", "CMR",
+        "CAF", "COD", "ZMB", "ZWE", "MOZ", "MDG", "KEN", "UGA", "TZA",
+        "SEN", "MRT", "DJI", "ERI", "BDI", "RWA", "SLE", "LBR", "GIN",
+        "GMB", "TGO", "BEN", "GNB",
+    ]
+
+    async with httpx.AsyncClient(
+        headers={"User-Agent": "MANSA-Terminal/2.0 (data@mansa.ai)"},
+        timeout=30.0,
+    ) as http:
+        log.info("  IPC/CH → Insécurité alimentaire aiguë")
+        for iso3 in IPC_COUNTRIES:
+            records = await fetch_ipc(http, iso3)
+            for rec in records:
+                rows.append({
+                    "country_id": iso3,
+                    "indicator_code": rec["indicator"],
+                    "indicator_name": rec["name"],
+                    "value": rec["value"],
+                    "unit": rec["unit"],
+                    "period": rec["period"],
+                    "period_type": "annual",
+                    "source": "IPC_CH",
+                    "source_url": "https://www.ipcinfo.org",
+                })
+            await asyncio.sleep(0.2)
+        log.info("  ✅ IPC/CH: %d records collectés", len(rows))
+
+    if dry_run:
+        log.info("🔍 DRY-RUN IPC — %d records seraient insérés", len(rows))
+        return len(rows), errors
+
+    if rows:
+        import psycopg2
+        conn = psycopg2.connect(os.environ["DATABASE_URL_SYNC"])
+        conn.autocommit = False
+        cur = conn.cursor()
+        try:
+            cur.executemany(UPSERT_SQL, rows)
+            conn.commit()
+        except Exception as exc:
+            conn.rollback()
+            errors.append(f"IPC DB: {exc}")
+        finally:
+            cur.close()
+            conn.close()
+
+    return len(rows), errors
+
+
+# ────────────────────────────────────────────────────────────────────────────
+# Google Trends — Proxy d'activité économique (pytrends, sans clé)
+# ────────────────────────────────────────────────────────────────────────────
+GOOGLE_TRENDS_KEYWORDS = {
+    "unemployment": "Google Trends: Unemployment Search Index",
+    "inflation":    "Google Trends: Inflation Search Index",
+    "forex":        "Google Trends: Forex Search Index",
+    "recession":    "Google Trends: Recession Search Index",
+}
+
+# Correspondance ISO3 → code pays Google Trends (ISO-2)
+TRENDS_GEO = {
+    "NGA": "NG", "ZAF": "ZA", "KEN": "KE", "GHA": "GH", "EGY": "EG",
+    "MAR": "MA", "TUN": "TN", "SEN": "SN", "CIV": "CI", "CMR": "CM",
+    "TZA": "TZ", "UGA": "UG", "ETH": "ET", "RWA": "RW",
+}
+
+async def ingest_google_trends(dry_run: bool) -> tuple[int, list[str]]:
+    """Récupère les tendances de recherche pour des mots-clés économiques."""
+    errors = []
+    rows: list[dict] = []
+
+    try:
+        from pytrends.request import TrendReq
+    except ImportError:
+        log.warning("pytrends non installé — skip Google Trends (pip install pytrends)")
+        return 0, ["pytrends not installed"]
+
+    import asyncio
+    loop = asyncio.get_event_loop()
+
+    def _fetch_trends_sync(keyword: str, geo: str) -> list[dict]:
+        try:
+            pt = TrendReq(hl="en-US", tz=0, timeout=(10, 25), retries=2, backoff_factor=0.5)
+            pt.build_payload([keyword], cat=0, timeframe="today 5-y", geo=geo)
+            df = pt.interest_over_time()
+            if df.empty or keyword not in df.columns:
+                return []
+            records = []
+            for date, row in df.iterrows():
+                val = row[keyword]
+                if val > 0:
+                    records.append({"period": str(date)[:7], "value": float(val)})
+            return records
+        except Exception as exc:
+            log.debug("Google Trends %s/%s: %s", keyword, geo, exc)
+            return []
+
+    log.info("  Google Trends → %d mots-clés × %d pays", len(GOOGLE_TRENDS_KEYWORDS), len(TRENDS_GEO))
+    for keyword, name in GOOGLE_TRENDS_KEYWORDS.items():
+        for iso3, geo in TRENDS_GEO.items():
+            records = await loop.run_in_executor(None, _fetch_trends_sync, keyword, geo)
+            for rec in records:
+                rows.append({
+                    "country_id": iso3,
+                    "indicator_code": f"GTRENDS_{keyword.upper()}",
+                    "indicator_name": name,
+                    "value": rec["value"],
+                    "unit": "index (0-100)",
+                    "period": rec["period"],
+                    "period_type": "monthly",
+                    "source": "Google_Trends",
+                    "source_url": "https://trends.google.com",
+                })
+            await asyncio.sleep(1.5)  # Rate limit Google Trends
+
+    log.info("  ✅ Google Trends: %d records collectés", len(rows))
+
+    if dry_run:
+        log.info("🔍 DRY-RUN Google Trends — %d records seraient insérés", len(rows))
+        return len(rows), errors
+
+    if rows:
+        import psycopg2
+        conn = psycopg2.connect(os.environ["DATABASE_URL_SYNC"])
+        conn.autocommit = False
+        cur = conn.cursor()
+        try:
+            cur.executemany(UPSERT_SQL, rows)
+            conn.commit()
+        except Exception as exc:
+            conn.rollback()
+            errors.append(f"Google Trends DB: {exc}")
+        finally:
+            cur.close()
+            conn.close()
+
+    return len(rows), errors
+
+
+# ────────────────────────────────────────────────────────────────────────────
 # Pipeline principal
 # ────────────────────────────────────────────────────────────────────────────
 SOURCES = {
-    "ilo":           ("ILO ILOSTAT",    ingest_ilo),
-    "fao":           ("FAO FAOSTAT",    ingest_fao),
-    "climate_watch": ("Climate Watch",  ingest_climate_watch),
+    "ilo":            ("ILO ILOSTAT",         ingest_ilo),
+    "fao":            ("FAO FAOSTAT",          ingest_fao),
+    "climate_watch":  ("Climate Watch WRI",    ingest_climate_watch),
+    "who_gho":        ("WHO GHO",              ingest_who_gho),
+    "wb_pip":         ("World Bank PIP",       ingest_wb_pip),
+    "oecd_dac":       ("OECD DAC CRS",         ingest_oecd_dac),
+    "imf_portwatch":  ("IMF PortWatch",        ingest_imf_portwatch),
+    "ipc_food":       ("IPC/CH Food Security", ingest_ipc_food),
+    "google_trends":  ("Google Trends",        ingest_google_trends),
 }
 
 
@@ -427,6 +999,6 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="MANSA — Ingestion sources supplémentaires")
     parser.add_argument("--dry-run", action="store_true", help="Fetch only, no DB write")
     parser.add_argument("--source", nargs="+", choices=list(SOURCES.keys()),
-                        help="Sources à ingérer (défaut: toutes)")
+                        help=f"Sources à ingérer (défaut: toutes). Disponibles: {', '.join(SOURCES.keys())}")
     args = parser.parse_args()
     asyncio.run(run(dry_run=args.dry_run, sources=args.source))

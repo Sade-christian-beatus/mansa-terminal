@@ -56,23 +56,92 @@ COUNTRY_BATCHES = [
 ]
 
 WB_INDICATORS = {
+    # ── Macro / PIB ──────────────────────────────────────────────────────────
     "NY.GDP.MKTP.CD":    ("GDP Nominal USD", "USD"),
+    "NY.GDP.MKTP.KD.ZG": ("GDP Real Growth Rate WB", "%"),
+    "NY.GDP.PCAP.CD":    ("GDP per Capita USD", "USD"),
+    "NY.GDP.PCAP.PP.CD": ("GDP per Capita PPP", "USD"),
     "SP.POP.TOTL":       ("Population Total", "persons"),
-    "SH.DYN.MORT":       ("Under-5 Mortality Rate", "per 1000"),
-    "SE.ADT.LITR.ZS":    ("Adult Literacy Rate", "%"),
-    "EG.ELC.ACCS.ZS":    ("Access to Electricity", "%"),
-    "IT.NET.USER.ZS":    ("Internet Users % Population", "%"),
-    "NE.TRD.GNFS.ZS":    ("Trade % GDP", "%"),
-    "BX.KLT.DINV.CD.WD": ("FDI Inflows USD", "USD"),
-    "GC.DOD.TOTL.GD.ZS": ("Central Gov Debt % GDP", "%"),
+    "SP.URB.TOTL.IN.ZS": ("Urban Population %", "%"),
+    "SP.POP.GROW":       ("Population Growth Rate", "%"),
     "FP.CPI.TOTL.ZG":    ("CPI Inflation WB", "%"),
     "NY.GNP.PCAP.CD":    ("GNI per Capita Atlas", "USD"),
+
+    # ── Fiscal & dette ───────────────────────────────────────────────────────
+    "GC.DOD.TOTL.GD.ZS": ("Central Gov Debt % GDP", "%"),
+    "GC.REV.XGRT.GD.ZS": ("Gov Revenue excl Grants % GDP", "%"),
+    "GC.XPN.TOTL.GD.ZS": ("Gov Expenditure % GDP", "%"),
+    "DT.DOD.DECT.GD.ZS": ("External Debt Stocks % GNI", "%"),
+    "DT.TDS.DECT.EX.ZS": ("Debt Service % Exports", "%"),
+
+    # ── Secteur extérieur ────────────────────────────────────────────────────
+    "NE.TRD.GNFS.ZS":    ("Trade % GDP", "%"),
+    "NE.EXP.GNFS.ZS":    ("Exports % GDP", "%"),
+    "NE.IMP.GNFS.ZS":    ("Imports % GDP", "%"),
+    "BX.KLT.DINV.CD.WD": ("FDI Inflows USD", "USD"),
+    "BX.TRF.PWKR.DT.GD.ZS": ("Personal Remittances % GDP", "%"),
+
+    # ── Secteur financier ────────────────────────────────────────────────────
+    "FD.AST.PRVT.GD.ZS": ("Domestic Credit to Private Sector % GDP", "%"),
+    "FX.OWN.TOTL.ZS":    ("Account Ownership at Financial Institution %", "%"),
+    "FX.OWN.TOTL.MA.ZS": ("Account Ownership Male %", "%"),
+    "FX.OWN.TOTL.FE.ZS": ("Account Ownership Female %", "%"),
+
+    # ── Marché du travail ────────────────────────────────────────────────────
     "SL.UEM.TOTL.ZS":    ("Unemployment Total WB", "%"),
+    "SL.UEM.1524.ZS":    ("Youth Unemployment Rate %", "%"),
+    "SL.TLF.CACT.ZS":    ("Labour Force Participation Rate %", "%"),
+    "SL.TLF.CACT.FE.ZS": ("Labour Force Participation Female %", "%"),
+
+    # ── Energie & environnement ──────────────────────────────────────────────
+    "EG.ELC.ACCS.ZS":    ("Access to Electricity %", "%"),
     "EG.FEC.RNEW.ZS":    ("Renewable Energy % Mix", "%"),
+    "EG.ELC.RNEW.ZS":    ("Renewable Electricity Output %", "%"),
     "EN.ATM.CO2E.PC":    ("CO2 Emissions per Capita", "tons"),
-    "SI.POV.DDAY":       ("Poverty Rate $2.15/day", "%"),
+    "AG.LND.FRST.ZS":    ("Forest Area % Land", "%"),
+
+    # ── Santé ────────────────────────────────────────────────────────────────
     "SP.DYN.LE00.IN":    ("Life Expectancy at Birth", "years"),
+    "SP.DYN.LE00.FE.IN": ("Life Expectancy Female", "years"),
+    "SP.DYN.LE00.MA.IN": ("Life Expectancy Male", "years"),
+    "SH.DYN.MORT":       ("Under-5 Mortality Rate", "per 1000"),
+    "SP.DYN.IMRT.IN":    ("Infant Mortality Rate", "per 1000"),
+    "SH.STA.MMRT":       ("Maternal Mortality Ratio", "per 100k"),
+    "SH.XPD.CHEX.GD.ZS": ("Current Health Expenditure % GDP", "%"),
+    "SH.XPD.CHEX.PC.CD": ("Health Expenditure per Capita", "USD"),
+    "SH.HIV.INCD.ZS":    ("HIV Incidence per 1000 Adults", "per 1000"),
+    "SH.MLR.INCD.P3":    ("Malaria Incidence per 1000", "per 1000"),
+
+    # ── Éducation ────────────────────────────────────────────────────────────
+    "SE.ADT.LITR.ZS":    ("Adult Literacy Rate", "%"),
+    "SE.PRM.ENRR":       ("Primary Enrollment Gross %", "%"),
+    "SE.SEC.ENRR":       ("Secondary Enrollment Gross %", "%"),
+    "SE.TER.ENRR":       ("Tertiary Enrollment Gross %", "%"),
+    "SE.PRM.CMPT.ZS":    ("Primary Completion Rate %", "%"),
+
+    # ── Capital humain ───────────────────────────────────────────────────────
     "HD.HCI.OVRL":       ("Human Capital Index", "index"),
+
+    # ── Gouvernance (WGI) ────────────────────────────────────────────────────
+    "CC.EST":            ("WGI Control of Corruption Estimate", "score"),
+    "GE.EST":            ("WGI Government Effectiveness Estimate", "score"),
+    "PV.EST":            ("WGI Political Stability Estimate", "score"),
+    "RL.EST":            ("WGI Rule of Law Estimate", "score"),
+    "RQ.EST":            ("WGI Regulatory Quality Estimate", "score"),
+    "VA.EST":            ("WGI Voice and Accountability Estimate", "score"),
+
+    # ── Technologie & connectivité ───────────────────────────────────────────
+    "IT.NET.USER.ZS":    ("Internet Users % Population", "%"),
+    "IT.CEL.SETS.P2":    ("Mobile Subscriptions per 100", "per 100"),
+
+    # ── Logistique & commerce ────────────────────────────────────────────────
+    "LP.LPI.OVRL.XQ":    ("Logistics Performance Index Overall", "score"),
+    "IC.REG.DURS":       ("Business Registration Days", "days"),
+
+    # ── Pauvreté & inégalités ────────────────────────────────────────────────
+    "SI.POV.DDAY":       ("Poverty Rate $2.15/day", "%"),
+    "SI.POV.NAHC":       ("Poverty Rate National Headcount %", "%"),
+    "SI.POV.GINI":       ("GINI Coefficient", "index"),
 }
 
 UPSERT_SQL = """
