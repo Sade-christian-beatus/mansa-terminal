@@ -4,7 +4,7 @@ import { useState, useRef, useEffect } from "react";
 import {
   Send, Bot, User, Loader2, History, X, Clock, Coins,
   Download, Copy, Check, Sparkles, Database, AlertCircle,
-  Zap, MessageSquare, ChevronDown,
+  Zap, MessageSquare,
 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { streamAIQuery, aiApi, type AIHistoryItem } from "@/lib/api";
@@ -254,7 +254,7 @@ const SUGGESTED_QUERIES = [
   { q: "Compare les taux de pauvreté extrême au Sahel", tags: ["WB PIP", "WB"] },
 ];
 
-const SOURCES = ["IMF WEO", "World Bank", "WHO GHO", "EM-DAT", "EIA", "IPC/CH", "PortWatch", "Comtrade", "WB PIP", "MANSA Research"];
+const SOURCES = ["FMI WEO", "Banque Mondiale", "BCEAO", "BEAC", "ACLED", "EM-DAT", "NASA GLDAS", "EIA", "PortWatch", "Comtrade", "IPC/CH", "MANSA Research"];
 
 function SourceChip({ label }: { label: string }) {
   const colors: Record<string, string> = {
@@ -278,7 +278,6 @@ export default function MansaAIPage() {
   const [isLoading,    setIsLoading]    = useState(false);
   const [showHistory,  setShowHistory]  = useState(false);
   const [copied,       setCopied]       = useState<string | null>(null);
-  const [showSources,  setShowSources]  = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef    = useRef<HTMLTextAreaElement>(null);
 
@@ -399,7 +398,7 @@ export default function MansaAIPage() {
       {/* ── Header ── */}
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#00D4AA] to-[#3B82F6] flex items-center justify-center shadow-lg">
+          <div className="w-10 h-10 rounded-xl flex items-center justify-center shadow-lg" style={{ background: "linear-gradient(135deg, var(--mansa-green), var(--mansa-blue))" }}>
             <Bot size={20} className="text-white" />
           </div>
           <div>
@@ -440,27 +439,20 @@ export default function MansaAIPage() {
         </div>
       </div>
 
-      {/* ── Sources déroulantes ── */}
+      {/* ── Sources filtrables ── */}
       <div className="mb-3">
-        <button
-          onClick={() => setShowSources((v) => !v)}
-          className="flex items-center gap-2 text-xs rounded-lg px-3 py-1.5 border transition-colors"
-          style={{ background: "var(--card-bg)", borderColor: "var(--card-border)", color: "var(--text-muted)" }}
-        >
-          <Database size={11} />
-          <span>Sources de données actives</span>
-          <ChevronDown size={11} className={`transition-transform ${showSources ? "rotate-180" : ""}`} />
-        </button>
-        {showSources && (
-          <div className="mt-2 flex items-center gap-1.5 flex-wrap px-1 animate-fade-in">
-            {SOURCES.map((s) => (
-              <span key={s} className="text-[10px] px-2 py-0.5 rounded-full border"
-                    style={{ borderColor: "var(--bg-border)", color: "var(--text-muted)", background: "var(--sidebar-bg)" }}>
-                {s}
-              </span>
-            ))}
+        <div className="flex items-center gap-2 flex-wrap">
+          <div className="flex items-center gap-1.5 text-[10px]" style={{ color: "var(--text-muted)" }}>
+            <Database size={10} />
+            <span className="font-medium uppercase tracking-wider">Sources :</span>
           </div>
-        )}
+          {SOURCES.map((s) => (
+            <span key={s} className="text-[10px] px-2 py-0.5 rounded-full border cursor-default select-none"
+                  style={{ borderColor: "color-mix(in srgb, var(--mansa-green) 30%, transparent)", color: "var(--mansa-green)", background: "color-mix(in srgb, var(--mansa-green) 8%, transparent)" }}>
+              {s}
+            </span>
+          ))}
+        </div>
       </div>
 
       {/* ── Zone messages ── */}
@@ -470,7 +462,7 @@ export default function MansaAIPage() {
         {messages.length === 0 && (
           <div className="flex flex-col items-center justify-center h-full text-center py-8">
             <div className="w-20 h-20 rounded-2xl flex items-center justify-center mb-5 shadow-xl"
-                 style={{ background: "linear-gradient(135deg, rgba(0,212,170,0.15), rgba(59,130,246,0.15))", border: "1px solid color-mix(in srgb, var(--mansa-green) 20%, transparent)" }}>
+                 style={{ background: "linear-gradient(135deg, rgba(14,165,160,0.15), rgba(10,122,118,0.15))", border: "1px solid color-mix(in srgb, var(--mansa-green) 20%, transparent)" }}>
               <Zap size={36} style={{ color: "var(--mansa-green)" }} />
             </div>
             <h2 className="text-xl font-bold mb-2" style={{ color: "var(--text-primary)" }}>
@@ -515,7 +507,7 @@ export default function MansaAIPage() {
             className={`flex gap-3 animate-fade-in ${message.role === "user" ? "justify-end" : "justify-start"}`}
           >
             {message.role === "assistant" && (
-              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#00D4AA] to-[#3B82F6]
+              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#0ea5a0] to-[#0a7a76]
                               flex items-center justify-center flex-shrink-0 mt-1 shadow-md">
                 <Bot size={14} className="text-white" />
               </div>
@@ -553,7 +545,7 @@ export default function MansaAIPage() {
                     <>
                       <div className="prose prose-invert prose-sm max-w-none
                                       prose-headings:font-semibold
-                                      prose-code:text-[#00D4AA]
+                                      prose-code:text-[#0ea5a0]
                                       prose-table:text-sm
                                       prose-strong:text-white"
                            style={{ color: "var(--text-secondary)" }}>
@@ -605,7 +597,7 @@ export default function MansaAIPage() {
         {/* Indicateur de frappe */}
         {isLoading && messages[messages.length - 1]?.role === "assistant" && !messages[messages.length - 1]?.content && (
           <div className="flex gap-3 justify-start animate-fade-in">
-            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#00D4AA] to-[#3B82F6] flex items-center justify-center flex-shrink-0">
+            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#0ea5a0] to-[#0a7a76] flex items-center justify-center flex-shrink-0">
               <Bot size={14} className="text-white" />
             </div>
             <div className="mansa-card rounded-2xl px-4 py-3 flex items-center gap-1.5">

@@ -31,12 +31,6 @@ const REGION_LABELS: Record<string, string> = {
 };
 const REGIONS = Object.keys(REGION_LABELS);
 
-const TIER_LABEL: Record<number, { label: string; color: string }> = {
-  1: { label: "Complet", color: "text-emerald-400 bg-emerald-400/10" },
-  2: { label: "Modéré",  color: "text-amber-400 bg-amber-400/10"    },
-  3: { label: "Basique", color: "text-gray-400 bg-gray-400/10"      },
-};
-
 // ── Données macro complètes (Top 54 pays africains) ───────────────────────────
 interface MacroData {
   growth: number;
@@ -339,7 +333,6 @@ function CountryCard({ country, compareMode, isPicked, onToggle }: {
   isPicked?: boolean;
   onToggle?: () => void;
 }) {
-  const tier  = TIER_LABEL[country.coverage_tier];
   const macro = MACRO_DATA[country.id];
 
   if (compareMode) {
@@ -370,24 +363,29 @@ function CountryCard({ country, compareMode, isPicked, onToggle }: {
     );
   }
 
+  const growthColor = macro
+    ? macro.growth >= 5 ? "#10B981" : macro.growth >= 2.5 ? "#F59E0B" : "#EF4444"
+    : "var(--text-muted)";
+
   return (
     <Link href={`/countries/${country.id}`} className="mansa-card rounded-xl p-4 mansa-card-hover cursor-pointer block">
       <div className="flex items-start justify-between mb-2">
         <span className="text-2xl">{macro?.flag ?? country.flag_emoji ?? "🌍"}</span>
-        <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded ${tier.color}`}>T{country.coverage_tier}</span>
+        {macro && (
+          <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded font-mono"
+                style={{ color: growthColor, background: `${growthColor}18` }}>
+            {macro.growth >= 0 ? "+" : ""}{macro.growth.toFixed(1)}%
+          </span>
+        )}
       </div>
       <div className="font-semibold text-sm leading-tight mb-1" style={{ color: "var(--text-primary)" }}>
         {macro?.name ?? country.name_fr ?? country.name_en}
       </div>
-      {country.name_fr && country.name_fr !== country.name_en && (
-        <div className="text-xs mb-2" style={{ color: "var(--text-muted)" }}>{country.name_en}</div>
-      )}
       <div className="flex items-center justify-between mt-auto pt-1">
         <span className="text-xs font-mono" style={{ color: "var(--text-muted)" }}>{country.id}</span>
         {macro && (
-          <span className="text-xs font-mono font-bold"
-                style={{ color: macro.growth >= 4 ? "#10B981" : macro.growth >= 2 ? "#F59E0B" : "#EF4444" }}>
-            +{macro.growth.toFixed(1)}%
+          <span className="text-xs" style={{ color: "var(--text-muted)" }}>
+            ${macro.gdp_usd >= 10 ? `${macro.gdp_usd.toFixed(0)}Mds` : `${macro.gdp_usd.toFixed(1)}Mds`}
           </span>
         )}
       </div>
@@ -503,16 +501,12 @@ export default function CountriesPage() {
             </button>
           )}
 
-          {view === "grid" && [1, 2, 3].map((tier) => {
-            const count = countries.filter((c) => c.coverage_tier === tier).length;
-            const tl    = TIER_LABEL[tier];
-            return (
-              <div key={tier} className="mansa-card rounded-lg px-3 py-1.5 text-xs">
-                <span className={`font-semibold ${tl.color.split(" ")[0]}`}>Tier {tier}</span>
-                <span className="ml-1" style={{ color: "var(--text-muted)" }}>{count} pays</span>
-              </div>
-            );
-          })}
+          {view === "grid" && (
+            <div className="mansa-card rounded-lg px-3 py-1.5 text-xs flex items-center gap-1.5">
+              <span style={{ color: "var(--mansa-green)" }} className="font-semibold">{countries.length}</span>
+              <span style={{ color: "var(--text-muted)" }}>économies couvertes</span>
+            </div>
+          )}
         </div>
       </div>
 

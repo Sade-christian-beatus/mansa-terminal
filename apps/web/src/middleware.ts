@@ -5,7 +5,7 @@
 import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
-const PUBLIC_ROUTES = ["/auth/login", "/auth/register", "/auth/verify-email", "/auth/reset-password", "/auth/update-password"];
+const PUBLIC_ROUTES = ["/auth/login", "/auth/register", "/auth/verify-email", "/auth/reset-password", "/auth/update-password", "/onboarding"];
 const AUTH_ROUTES   = ["/auth/login", "/auth/register"];
 
 export async function middleware(request: NextRequest) {
