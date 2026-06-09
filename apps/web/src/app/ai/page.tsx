@@ -123,25 +123,12 @@ export default function MansaAIPage() {
       setIsLoading(false);
       setMessages((prev) =>
         prev.map((m) => m.id === assistantId ? { ...m, isStreaming: false } : m)
-        prev.map((m) => m.id === assistantMsg.id ? { ...m, isStreaming: false } : m)
       );
     }
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(input); }
-  };
-
-  const copyMessage = (id: string, text: string) => {
-    navigator.clipboard.writeText(text);
-    setCopied(id);
-    setTimeout(() => setCopied(null), 2000);
-  };
-
-  const exportConversation = () => {
-    if (messages.length === 0) return;
-    const rows = messages.map((m, i) => ({ index: i + 1, role: m.role, content: m.content, timestamp: new Date().toISOString() }));
-    exportData(rows, "json", "mansa-ai-conversation");
   };
 
   const copyMessage = (id: string, text: string) => {
