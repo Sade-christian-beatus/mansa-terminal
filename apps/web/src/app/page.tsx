@@ -44,7 +44,7 @@ const PLATFORM_STATS = [
   { label: "Économies africaines", value: "54",    icon: Globe2,    color: "#00D4AA" },
   { label: "Indicateurs disponibles", value: "141", icon: BarChart3, color: "#3B82F6" },
   { label: "Sources de données", value: "14",      icon: Activity,  color: "#8B5CF6" },
-  { label: "Mise à jour quotidienne", value: "IMF · WB", icon: RefreshCw, color: "#F59E0B" },
+  { label: "Mise à jour quotidienne", value: "FMI · BM", icon: RefreshCw, color: "#F59E0B" },
 ];
 
 function openCommandPalette() {
@@ -116,14 +116,14 @@ export default function DashboardPage() {
                 </span>
               </div>
               <h1 className="text-2xl font-bold tracking-tight" style={{ color: "var(--text-primary)" }}>
-                Africa&apos;s AI-Powered
+                Intelligence Macro-Fiscale
               </h1>
               <h1 className="text-2xl font-bold tracking-tight"
                   style={{ background: "linear-gradient(135deg, var(--mansa-green), var(--mansa-blue))", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>
-                Macro-Fiscal Intelligence
+                Afrique · Propulsée par l&apos;IA
               </h1>
               <p className="text-sm mt-1.5" style={{ color: "var(--text-muted)" }}>
-                54 économies · IMF WEO · World Bank · WHO · EM-DAT · NASA VIIRS · EIA
+                54 économies · FMI WEO · Banque Mondiale · OMS · EM-DAT · NASA VIIRS · EIA
               </p>
             </div>
 

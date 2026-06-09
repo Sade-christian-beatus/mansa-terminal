@@ -25,7 +25,53 @@ const INDICATORS = [
   { code: "LUR",         label: "Taux de chômage",            unit: "%",    description: "Part de la population active sans emploi. Source : FMI WEO / ILO." },
 ];
 
-const REGIONS = ["Toutes", "West Africa", "East Africa", "North Africa", "Central Africa", "Southern Africa"];
+const REGIONS: { value: string; label: string }[] = [
+  { value: "Toutes",         label: "Toutes les régions"   },
+  { value: "West Africa",    label: "Afrique de l'Ouest"   },
+  { value: "East Africa",    label: "Afrique de l'Est"     },
+  { value: "North Africa",   label: "Afrique du Nord"      },
+  { value: "Central Africa", label: "Afrique Centrale"     },
+  { value: "Southern Africa",label: "Afrique Australe"     },
+];
+
+/* ── Séries de démo (fallback quand l'API ne répond pas) ── */
+const DEMO_SERIES: Record<string, Record<string, number>> = {
+  NGDP_RPCH: { // Croissance PIB réel
+    NGA:3.2, ZAF:1.1, EGY:2.7, ETH:6.8, KEN:5.0, MAR:3.2, GHA:3.1, CIV:6.5, SEN:8.3, TZA:5.4,
+  },
+  PCPIPCH: { // Inflation IPC
+    NGA:32.5, ZAF:4.6, EGY:28.3, ETH:24.1, KEN:6.5, MAR:2.4, GHA:22.3, CIV:3.8, SEN:2.8, TZA:3.1,
+  },
+  GGXCNL_NGDP: { // Solde budgétaire
+    NGA:-4.6, ZAF:-5.0, EGY:-7.2, ETH:-2.6, KEN:-5.5, MAR:-4.1, GHA:-4.6, CIV:-4.0, SEN:-4.9, TZA:-3.0,
+  },
+  GGXWDG_NGDP: { // Dette publique
+    NGA:46, ZAF:75, EGY:90, ETH:38, KEN:70, MAR:69, GHA:83, CIV:57, SEN:73, TZA:42,
+  },
+  BCA_NGDPD: { // Compte courant
+    NGA:0.8, ZAF:-1.6, EGY:-5.4, ETH:-3.1, KEN:-4.0, MAR:-1.2, GHA:-2.0, CIV:-3.7, SEN:-12.1, TZA:-3.5,
+  },
+  NGDPDPC: { // PIB par habitant
+    NGA:2200, ZAF:6200, EGY:3400, ETH:1300, KEN:2100, MAR:3700, GHA:2400, CIV:2900, SEN:1800, TZA:1200,
+  },
+  LUR: { // Chômage
+    NGA:5.0, ZAF:33.0, EGY:7.2, ETH:3.5, KEN:5.7, MAR:12.9, GHA:4.5, CIV:3.8, SEN:20.1, TZA:2.7,
+  },
+};
+
+/** Génère une série temporelle simulée 2010–2024 à partir de la valeur 2024 */
+function generateDemoTimeSeries(code: string, countryId: string): Array<{ period: string; value: number; unit: string; source: string }> {
+  const val2024 = DEMO_SERIES[code]?.[countryId];
+  if (val2024 == null) return [];
+  const years = Array.from({ length: 15 }, (_, i) => 2010 + i);
+  return years.map((y) => {
+    // Légère variation pseudo-aléatoire déterministe basée sur l'année
+    const noise = Math.sin(y * 7 + countryId.charCodeAt(0)) * (Math.abs(val2024) * 0.15);
+    const trending = (val2024 / 15) * (y - 2010); // drift linéaire léger
+    const value = y === 2024 ? val2024 : Math.round((val2024 - trending + noise) * 100) / 100;
+    return { period: String(y), value, unit: INDICATORS.find((i) => i.code === code)?.unit ?? "%", source: "FMI WEO (démo)" };
+  });
+}
 
 interface CountrySummary {
   id: string;
@@ -114,8 +160,23 @@ export default function IndicatorsPage() {
     }), [countries, search, region]
   );
 
+  // Si aucun pays API, utiliser une liste statique pour le sélecteur
+  const DEMO_COUNTRIES: CountrySummary[] = [
+    { id:"NGA", iso2:"NG", name_en:"Nigeria",       name_fr:"Nigeria",        region:"West Africa",    flag_emoji:"🇳🇬", coverage_tier:1 },
+    { id:"ZAF", iso2:"ZA", name_en:"South Africa",  name_fr:"Afrique du Sud", region:"Southern Africa",flag_emoji:"🇿🇦", coverage_tier:1 },
+    { id:"EGY", iso2:"EG", name_en:"Egypt",          name_fr:"Égypte",         region:"North Africa",   flag_emoji:"🇪🇬", coverage_tier:1 },
+    { id:"ETH", iso2:"ET", name_en:"Ethiopia",       name_fr:"Éthiopie",       region:"East Africa",    flag_emoji:"🇪🇹", coverage_tier:1 },
+    { id:"KEN", iso2:"KE", name_en:"Kenya",          name_fr:"Kenya",          region:"East Africa",    flag_emoji:"🇰🇪", coverage_tier:1 },
+    { id:"MAR", iso2:"MA", name_en:"Morocco",        name_fr:"Maroc",          region:"North Africa",   flag_emoji:"🇲🇦", coverage_tier:1 },
+    { id:"GHA", iso2:"GH", name_en:"Ghana",          name_fr:"Ghana",          region:"West Africa",    flag_emoji:"🇬🇭", coverage_tier:1 },
+    { id:"CIV", iso2:"CI", name_en:"Côte d'Ivoire",  name_fr:"Côte d'Ivoire",  region:"West Africa",    flag_emoji:"🇨🇮", coverage_tier:2 },
+    { id:"SEN", iso2:"SN", name_en:"Senegal",        name_fr:"Sénégal",        region:"West Africa",    flag_emoji:"🇸🇳", coverage_tier:2 },
+    { id:"TZA", iso2:"TZ", name_en:"Tanzania",       name_fr:"Tanzanie",       region:"East Africa",    flag_emoji:"🇹🇿", coverage_tier:2 },
+  ];
+  const effectiveCountries = countries.length > 0 ? filteredCountries : DEMO_COUNTRIES;
+
   /* ── Données du pays sélectionné ── */
-  const activeCountry = selectedCountry ?? filteredCountries[0]?.id ?? null;
+  const activeCountry = selectedCountry ?? effectiveCountries[0]?.id ?? null;
 
   const { data: countryMacro, isLoading: macroLoading, refetch } = useQuery<CountryMacro>({
     queryKey: ["country-macro", activeCountry, selectedInd],
@@ -128,7 +189,13 @@ export default function IndicatorsPage() {
     staleTime: 1000 * 60 * 15,
   });
 
-  const series: IndicatorPoint[] = countryMacro?.indicators[selectedInd] ?? [];
+  // Utiliser les données API ou les données de démo si l'API ne répond pas
+  const apiSeries: IndicatorPoint[] = countryMacro?.indicators[selectedInd] ?? [];
+  const demoSeries: IndicatorPoint[] = apiSeries.length === 0 && activeCountry
+    ? generateDemoTimeSeries(selectedInd, activeCountry)
+    : [];
+  const series: IndicatorPoint[] = apiSeries.length > 0 ? apiSeries : demoSeries;
+  const isDemoData = apiSeries.length === 0 && demoSeries.length > 0;
   const chartData = series.map((p) => ({ year: p.period, value: p.value }));
 
   /* ── KPIs résumé ── */
@@ -139,7 +206,7 @@ export default function IndicatorsPage() {
   const maxValue    = series.length > 0 ? Math.max(...series.map((p) => p.value)) : null;
   const minValue    = series.length > 0 ? Math.min(...series.map((p) => p.value)) : null;
 
-  const activeCountryMeta = countries.find((c) => c.id === activeCountry);
+  const activeCountryMeta = effectiveCountries.find((c) => c.id === activeCountry);
 
   const handleExportData = async (): Promise<ExportRow[]> =>
     series.map((p) => ({
@@ -163,7 +230,7 @@ export default function IndicatorsPage() {
             Indicateurs macroéconomiques
           </h1>
           <p className="text-sm mt-1" style={{ color: "var(--text-muted)" }}>
-            {countries.length} pays · IMF WEO · World Bank WDI · Séries 2010–2025
+            {countries.length || 54} pays · FMI WEO · Banque Mondiale WDI · Séries 2010–2025
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -230,7 +297,7 @@ export default function IndicatorsPage() {
                 className="w-full text-xs rounded-lg px-2.5 py-1.5 border appearance-none focus:outline-none cursor-pointer"
                 style={{ background: "var(--input-bg)", borderColor: "var(--input-border)", color: "var(--text-secondary)" }}
               >
-                {REGIONS.map((r) => <option key={r} value={r}>{r}</option>)}
+                {REGIONS.map((r) => <option key={r.value} value={r.value}>{r.label}</option>)}
               </select>
               <ChevronDown size={10} className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: "var(--text-muted)" }} />
             </div>
@@ -245,7 +312,7 @@ export default function IndicatorsPage() {
                 ))}
               </div>
             ) : (
-              filteredCountries.map((c) => (
+              effectiveCountries.map((c) => (
                 <button
                   key={c.id}
                   onClick={() => setSelectedCountry(c.id)}
@@ -295,6 +362,17 @@ export default function IndicatorsPage() {
                 <KpiCard label="Maximum" value={maxValue} unit={indMeta.unit} />
                 <KpiCard label="Minimum" value={minValue} unit={indMeta.unit} />
               </div>
+            </div>
+          )}
+
+          {/* Bannière démo */}
+          {isDemoData && (
+            <div className="rounded-xl px-4 py-2.5 text-xs flex items-center gap-2 border"
+                 style={{ background: "color-mix(in srgb, #F59E0B 8%, var(--card-bg))", borderColor: "color-mix(in srgb, #F59E0B 30%, transparent)", color: "#F59E0B" }}>
+              <span>⚠️</span>
+              <span>
+                Données de démonstration affichées — Lancez le pipeline Dagster (<code>dagster job execute -j daily_data_refresh</code>) pour charger les données réelles FMI.
+              </span>
             </div>
           )}
 
