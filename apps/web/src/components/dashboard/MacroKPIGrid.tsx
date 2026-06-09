@@ -5,106 +5,142 @@ import { useQuery } from "@tanstack/react-query";
 import { TrendingUp, TrendingDown, Minus } from "lucide-react";
 import { macroApi } from "@/lib/api";
 
+// ── Données statiques de fallback (FMI WEO 2024e) ────────────────────────────
+const STATIC_MACRO: Record<string, { growth: number; inflation: number; fiscal: number; gdp: number }> = {
+  NGA: { growth:  3.1, inflation: 32.5, fiscal: -4.6, gdp: 477  },
+  ZAF: { growth:  1.1, inflation:  4.6, fiscal: -5.0, gdp: 381  },
+  KEN: { growth:  5.0, inflation:  6.5, fiscal: -5.5, gdp: 110  },
+  GHA: { growth:  3.1, inflation: 22.3, fiscal: -4.6, gdp:  77  },
+  SEN: { growth:  8.3, inflation:  2.8, fiscal: -4.9, gdp:  32  },
+};
+
 const KEY_COUNTRIES = [
-  { id: "NGA", name: "Nigeria",      flag: "🇳🇬" },
-  { id: "ZAF", name: "South Africa", flag: "🇿🇦" },
-  { id: "KEN", name: "Kenya",        flag: "🇰🇪" },
-  { id: "GHA", name: "Ghana",        flag: "🇬🇭" },
-  { id: "SEN", name: "Sénégal",      flag: "🇸🇳" },
+  { id: "NGA", name: "Nigeria",        flag: "🇳🇬", region: "Afrique de l'Ouest"  },
+  { id: "ZAF", name: "Afrique du Sud", flag: "🇿🇦", region: "Afrique Australe"    },
+  { id: "KEN", name: "Kenya",          flag: "🇰🇪", region: "Afrique de l'Est"    },
+  { id: "GHA", name: "Ghana",          flag: "🇬🇭", region: "Afrique de l'Ouest"  },
+  { id: "SEN", name: "Sénégal",        flag: "🇸🇳", region: "Afrique de l'Ouest"  },
 ];
 
 function TrendIcon({ value }: { value: number | null }) {
-  if (!value) return <Minus size={12} className="text-gray-500" />;
-  if (value > 0) return <TrendingUp size={12} className="text-emerald-400" />;
-  return <TrendingDown size={12} className="text-red-400" />;
+  if (value === null) return <Minus size={12} style={{ color: "var(--text-muted)" }} />;
+  if (value > 0)      return <TrendingUp size={12} className="text-emerald-400" />;
+  return                     <TrendingDown size={12} className="text-red-400" />;
 }
 
-function formatValue(value: number | null, unit: string): string {
-  if (value === null || value === undefined) return "N/A";
-  if (unit === "%") return `${value > 0 ? "+" : ""}${value.toFixed(1)}%`;
-  if (unit === "USD_BN") return `$${value.toFixed(0)}B`;
-  if (unit === "USD") return `$${value.toLocaleString()}`;
-  return `${value.toFixed(1)}`;
+function fmt(v: number | null, unit: string): string {
+  if (v === null || v === undefined) return "N/A";
+  const prefix = v > 0 ? "+" : "";
+  return unit === "%" ? `${prefix}${v.toFixed(1)}%` : `${v.toFixed(1)}`;
 }
 
 function CountryKPICard({ country }: { country: typeof KEY_COUNTRIES[0] }) {
   const router = useRouter();
 
-  const query = useQuery({
+  // Essayer de charger depuis l'API, utiliser les données statiques comme fallback
+  const { data, isLoading } = useQuery({
     queryKey: ["macro", country.id, "kpi"],
-    queryFn: () =>
-      macroApi.getCountryMacro(country.id, {
-        indicators: "NGDP_RPCH,PCPIPCH,GGXCNL_NGDP",
-        from_year: 2023,
-        to_year: 2024,
-      }),
+    queryFn: () => macroApi.getCountryMacro(country.id, {
+      indicators: "NGDP_RPCH,PCPIPCH,GGXCNL_NGDP",
+      from_year: 2023,
+      to_year: 2024,
+    }),
     staleTime: 1000 * 60 * 30,
+    retry: 1,
   });
 
-  const data = query.data?.indicators;
-  const gdpGrowth = data?.NGDP_RPCH?.[data?.NGDP_RPCH?.length - 1];
-  const inflation = data?.PCPIPCH?.[data?.PCPIPCH?.length - 1];
-  const fiscal    = data?.GGXCNL_NGDP?.[data?.GGXCNL_NGDP?.length - 1];
+  const apiData = data?.indicators;
+  const apiGrowth    = apiData?.NGDP_RPCH?.[apiData.NGDP_RPCH.length - 1]?.value;
+  const apiInflation = apiData?.PCPIPCH?.[apiData.PCPIPCH.length - 1]?.value;
+  const apiFiscal    = apiData?.GGXCNL_NGDP?.[apiData.GGXCNL_NGDP.length - 1]?.value;
+
+  // Fallback sur données statiques si l'API ne répond pas
+  const staticFallback = STATIC_MACRO[country.id];
+  const growth    = apiGrowth    ?? staticFallback?.growth    ?? null;
+  const inflation = apiInflation ?? staticFallback?.inflation ?? null;
+  const fiscal    = apiFiscal    ?? staticFallback?.fiscal    ?? null;
+  const gdp       = staticFallback?.gdp ?? null;
+
+  const isDemo = apiGrowth === undefined && staticFallback !== undefined;
 
   return (
     <div
       onClick={() => router.push(`/countries/${country.id}`)}
-      className="mansa-card mansa-card-hover rounded-xl p-4 cursor-pointer
-                 hover:border-[#00D4AA]/40 transition-all"
+      className="mansa-card mansa-card-hover rounded-xl p-4 cursor-pointer transition-all"
+      style={{ borderColor: "var(--card-border)" }}
     >
+      {/* Header */}
       <div className="flex items-center gap-2 mb-3">
-        <span className="text-xl">{country.flag}</span>
-        <div>
-          <div className="text-sm font-semibold text-white group-hover:text-[#00D4AA]">
+        <span className="text-2xl">{country.flag}</span>
+        <div className="min-w-0 flex-1">
+          <div className="text-sm font-semibold truncate" style={{ color: "var(--text-primary)" }}>
             {country.name}
           </div>
-          <div className="text-xs text-gray-500">{country.id}</div>
+          <div className="text-xs" style={{ color: "var(--text-muted)" }}>{country.id} · {country.region}</div>
         </div>
+        {isDemo && !isLoading && (
+          <span className="text-[9px] px-1.5 py-0.5 rounded-full font-bold flex-shrink-0"
+                style={{ background: "color-mix(in srgb, #F59E0B 15%, transparent)", color: "#F59E0B" }}>
+            DEMO
+          </span>
+        )}
       </div>
 
-      {query.isLoading ? (
+      {/* KPIs */}
+      {isLoading ? (
         <div className="space-y-2">
           {[1, 2, 3].map((k) => (
             <div key={k} className="h-4 skeleton rounded" />
           ))}
         </div>
       ) : (
-        <div className="space-y-2">
+        <div className="space-y-2.5">
+          {/* Croissance PIB */}
           <div className="flex items-center justify-between">
-            <span className="text-xs text-gray-500">Croissance PIB</span>
+            <span className="text-xs" style={{ color: "var(--text-muted)" }}>Croissance PIB</span>
             <div className="flex items-center gap-1">
-              <TrendIcon value={gdpGrowth?.value ?? null} />
-              <span className={`text-xs font-mono font-medium ${
-                (gdpGrowth?.value ?? 0) > 0 ? "text-emerald-400" : "text-red-400"
-              }`}>
-                {formatValue(gdpGrowth?.value ?? null, "%")}
+              <TrendIcon value={growth} />
+              <span className="text-xs font-mono font-bold"
+                    style={{ color: (growth ?? 0) >= 4 ? "#10B981" : (growth ?? 0) >= 2 ? "#F59E0B" : "#EF4444" }}>
+                {fmt(growth, "%")}
               </span>
             </div>
           </div>
+
+          {/* Inflation */}
           <div className="flex items-center justify-between">
-            <span className="text-xs text-gray-500">Inflation</span>
-            <span className={`text-xs font-mono font-medium ${
-              (inflation?.value ?? 0) > 10
-                ? "text-red-400"
-                : (inflation?.value ?? 0) > 5
-                ? "text-amber-400"
-                : "text-emerald-400"
-            }`}>
-              {formatValue(inflation?.value ?? null, "%")}
+            <span className="text-xs" style={{ color: "var(--text-muted)" }}>Inflation IPC</span>
+            <span className="text-xs font-mono font-bold"
+                  style={{ color: (inflation ?? 0) > 15 ? "#EF4444" : (inflation ?? 0) > 7 ? "#F59E0B" : "#10B981" }}>
+              {fmt(inflation, "%")}
             </span>
           </div>
+
+          {/* Solde budgétaire */}
           <div className="flex items-center justify-between">
-            <span className="text-xs text-gray-500">Solde budg.</span>
-            <span className={`text-xs font-mono font-medium ${
-              (fiscal?.value ?? 0) < -3 ? "text-red-400" : "text-gray-300"
-            }`}>
-              {formatValue(fiscal?.value ?? null, "%")}
+            <span className="text-xs" style={{ color: "var(--text-muted)" }}>Solde budgétaire</span>
+            <span className="text-xs font-mono font-bold"
+                  style={{ color: (fiscal ?? 0) < -5 ? "#EF4444" : (fiscal ?? 0) < -3 ? "#F59E0B" : "#10B981" }}>
+              {fmt(fiscal, "%")}
             </span>
           </div>
+
+          {/* Séparateur + PIB */}
+          {gdp !== null && (
+            <>
+              <div className="border-t" style={{ borderColor: "var(--bg-border)" }} />
+              <div className="flex items-center justify-between">
+                <span className="text-xs" style={{ color: "var(--text-muted)" }}>PIB nominal</span>
+                <span className="text-xs font-mono font-semibold" style={{ color: "var(--text-secondary)" }}>
+                  ${gdp.toFixed(0)} Mds
+                </span>
+              </div>
+            </>
+          )}
         </div>
       )}
 
-      <p className="text-[10px] text-[#00D4AA]/50 mt-3 text-right">
+      <p className="text-[10px] mt-3 text-right" style={{ color: "var(--mansa-green)", opacity: 0.7 }}>
         Voir le profil →
       </p>
     </div>
@@ -113,10 +149,20 @@ function CountryKPICard({ country }: { country: typeof KEY_COUNTRIES[0] }) {
 
 export function MacroKPIGrid() {
   return (
-    <div className="grid grid-cols-5 gap-4">
-      {KEY_COUNTRIES.map((country) => (
-        <CountryKPICard key={country.id} country={country} />
-      ))}
+    <div className="space-y-2">
+      <div className="flex items-center justify-between mb-1">
+        <h3 className="text-xs font-semibold uppercase tracking-wider" style={{ color: "var(--text-muted)" }}>
+          Économies clés · Indicateurs 2024e
+        </h3>
+        <span className="text-[10px]" style={{ color: "var(--text-muted)" }}>
+          Source : FMI WEO · Banque Mondiale
+        </span>
+      </div>
+      <div className="grid grid-cols-5 gap-3">
+        {KEY_COUNTRIES.map((country) => (
+          <CountryKPICard key={country.id} country={country} />
+        ))}
+      </div>
     </div>
   );
 }

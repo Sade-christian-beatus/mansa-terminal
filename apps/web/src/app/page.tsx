@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
   RefreshCw, Search, Calendar, Download, Zap,
@@ -29,6 +29,27 @@ const INDICATORS = [
   { code: "ASSDRESES",   label: "Réserves import."        },
   { code: "LUR",         label: "Chômage"                 },
 ];
+
+// ── Données heatmap statiques (fallback quand l'API est indisponible) ──────
+const STATIC_HEATMAP: Record<string, Record<string, number>> = {
+  NGDP_RPCH:    { NGA:3.1, ZAF:1.1, EGY:2.7, ETH:6.8, KEN:5.0, MAR:3.2, GHA:3.1, CIV:6.5, SEN:8.3, TZA:5.4, CMR:4.1, AGO:2.4, DZA:3.6, MOZ:5.5, ZMB:4.8, RWA:7.0, TUN:1.8, UGA:6.1, LBY:4.0, COD:6.3, NER:12.3, BEN:6.4, MLI:4.0, TGO:6.0, GIN:6.5, BWA:3.5, NAM:3.6 },
+  PCPIPCH:      { NGA:32.5, ZAF:4.6, EGY:28.3, ETH:24.1, KEN:6.5, MAR:2.4, GHA:22.3, CIV:3.8, SEN:2.8, TZA:3.1, CMR:7.4, AGO:28.2, DZA:9.2, MOZ:6.2, ZMB:13.0, RWA:5.8, TUN:9.3, UGA:3.8, LBY:2.8, COD:23.6, NER:3.9, BEN:2.7, MLI:2.5, TGO:4.0 },
+  GGXWDG_NGDP:  { NGA:46, ZAF:75, EGY:90, ETH:38, KEN:70, MAR:69, GHA:83, CIV:57, SEN:73, TZA:42, CMR:48, AGO:73, DZA:60, MOZ:100, ZMB:137, RWA:68, TUN:80, UGA:50, LBY:84, COD:15 },
+  GGXCNL_NGDP:  { NGA:-4.6, ZAF:-5.0, EGY:-7.2, ETH:-2.6, KEN:-5.5, MAR:-4.1, GHA:-4.6, CIV:-4.0, SEN:-4.9, TZA:-3.0, CMR:-2.5, AGO:-1.0, DZA:-5.8, MOZ:-5.0, ZMB:-7.6, RWA:-6.0 },
+  BCA_NGDPD:    { NGA:0.8, ZAF:-1.6, EGY:-5.4, ETH:-3.1, KEN:-4.0, MAR:-1.2, GHA:-2.0, CIV:-3.7, SEN:-12.1, TZA:-3.5, AGO:4.5, DZA:2.4, LBY:13.3 },
+};
+
+const STATIC_FLAGS: Record<string, { flag: string; name: string }> = {
+  NGA:{flag:"🇳🇬",name:"Nigeria"}, ZAF:{flag:"🇿🇦",name:"Afrique du Sud"}, EGY:{flag:"🇪🇬",name:"Égypte"},
+  ETH:{flag:"🇪🇹",name:"Éthiopie"}, KEN:{flag:"🇰🇪",name:"Kenya"}, MAR:{flag:"🇲🇦",name:"Maroc"},
+  GHA:{flag:"🇬🇭",name:"Ghana"}, CIV:{flag:"🇨🇮",name:"Côte d'Ivoire"}, SEN:{flag:"🇸🇳",name:"Sénégal"},
+  TZA:{flag:"🇹🇿",name:"Tanzanie"}, CMR:{flag:"🇨🇲",name:"Cameroun"}, AGO:{flag:"🇦🇴",name:"Angola"},
+  DZA:{flag:"🇩🇿",name:"Algérie"}, MOZ:{flag:"🇲🇿",name:"Mozambique"}, ZMB:{flag:"🇿🇲",name:"Zambie"},
+  RWA:{flag:"🇷🇼",name:"Rwanda"}, TUN:{flag:"🇹🇳",name:"Tunisie"}, UGA:{flag:"🇺🇬",name:"Ouganda"},
+  LBY:{flag:"🇱🇾",name:"Libye"}, COD:{flag:"🇨🇩",name:"Congo RDC"}, NER:{flag:"🇳🇪",name:"Niger"},
+  BEN:{flag:"🇧🇯",name:"Bénin"}, MLI:{flag:"🇲🇱",name:"Mali"}, TGO:{flag:"🇹🇬",name:"Togo"},
+  GIN:{flag:"🇬🇳",name:"Guinée"}, BWA:{flag:"🇧🇼",name:"Botswana"}, NAM:{flag:"🇳🇦",name:"Namibie"},
+};
 
 const HF_ALERTS = [
   { flag: "🇪🇹", country: "Éthiopie",   msg: "Conflit +34%",   color: "#EF4444", icon: Flame    },
@@ -61,6 +82,20 @@ export default function DashboardPage() {
     queryFn:  () => api.get(`/macro/heatmap/africa?indicator=${indicator}&year=${year}`),
     staleTime: 1000 * 60 * 30,
   });
+
+  // Données heatmap effectives (API ou fallback statique)
+  const effectiveHeatmapData = useMemo(() => {
+    const apiData = heatmap?.data ?? [];
+    if (apiData.length > 0) return apiData;
+    // Fallback statique
+    const staticVals = STATIC_HEATMAP[indicator] ?? {};
+    return Object.entries(staticVals).map(([id, value]) => ({
+      country_id:   id,
+      country_name: STATIC_FLAGS[id]?.name ?? id,
+      flag:         STATIC_FLAGS[id]?.flag ?? "🌍",
+      value,
+    }));
+  }, [heatmap, indicator]);
 
   const now = new Date().toLocaleString("fr-FR", {
     day: "2-digit", month: "short", year: "numeric",
@@ -244,7 +279,7 @@ export default function DashboardPage() {
         <div className="grid grid-cols-12 gap-4">
           <div className="col-span-5">
             <AfricaHeatmap
-              data={heatmap?.data ?? []}
+              data={effectiveHeatmapData}
               indicator={indicator}
               year={year}
               isLoading={heatmapLoading}
@@ -262,7 +297,7 @@ export default function DashboardPage() {
         <div className="grid grid-cols-12 gap-4">
           <div className="col-span-4">
             <TopCountriesTable
-              data={heatmap?.data ?? []}
+              data={effectiveHeatmapData}
               indicator={heatmap?.indicator_name ?? indicator}
               isLoading={heatmapLoading}
             />
@@ -280,20 +315,20 @@ export default function DashboardPage() {
               <span className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: "var(--text-muted)" }}>Sources intégrées</span>
             </div>
             {[
-              { label: "IMF WEO",        cls: "source-badge-imf"      },
-              { label: "World Bank",     cls: "source-badge-wb"       },
-              { label: "WHO GHO",        cls: "source-badge-who"      },
-              { label: "ILO",            cls: "source-badge-ilo"      },
-              { label: "FAO",            cls: "source-badge-fao"      },
-              { label: "EIA",            cls: "source-badge-eia"      },
-              { label: "NASA VIIRS",     cls: "source-badge-nasa"     },
-              { label: "EM-DAT",         cls: "source-badge-emdat"    },
-              { label: "UN Comtrade",    cls: "source-badge-comtrade" },
-              { label: "IMF PortWatch",  cls: "source-badge-imf"      },
-              { label: "IPC/CH",         cls: "source-badge-fao"      },
-              { label: "OECD DAC",       cls: "source-badge-comtrade" },
-              { label: "WB PIP",         cls: "source-badge-wb"       },
-              { label: "MANSA Research", cls: "source-badge-mansa"    },
+              { label: "FMI WEO",           cls: "source-badge-imf"      },
+              { label: "Banque Mondiale",    cls: "source-badge-wb"       },
+              { label: "OMS GHO",           cls: "source-badge-who"      },
+              { label: "OIT",               cls: "source-badge-ilo"      },
+              { label: "FAO",               cls: "source-badge-fao"      },
+              { label: "EIA",               cls: "source-badge-eia"      },
+              { label: "NASA VIIRS",        cls: "source-badge-nasa"     },
+              { label: "EM-DAT",            cls: "source-badge-emdat"    },
+              { label: "UN Comtrade",       cls: "source-badge-comtrade" },
+              { label: "FMI PortWatch",     cls: "source-badge-imf"      },
+              { label: "IPC/CH",            cls: "source-badge-fao"      },
+              { label: "OCDE DAC",          cls: "source-badge-comtrade" },
+              { label: "BM PIP",            cls: "source-badge-wb"       },
+              { label: "MANSA Research",    cls: "source-badge-mansa"    },
             ].map((s) => (
               <span key={s.label} className={s.cls}>{s.label}</span>
             ))}
