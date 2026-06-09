@@ -11,7 +11,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname   = usePathname();
   const hydrate    = useAuthStore((s) => s.hydrate);
   const theme      = useThemeStore((s) => s.theme);
-  const isAuthPage = pathname?.startsWith("/auth");
+  const isAuthPage       = pathname?.startsWith("/auth");
+  const isOnboardingPage = pathname?.startsWith("/onboarding");
 
   // Initialise le store auth depuis la session Supabase au montage
   useEffect(() => { hydrate(); }, [hydrate]);
@@ -21,7 +22,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     document.documentElement.setAttribute("data-theme", theme);
   }, [theme]);
 
-  if (isAuthPage) {
+  if (isAuthPage || isOnboardingPage) {
     return (
       <div className="min-h-screen flex items-center justify-center"
            style={{ background: "var(--bg-primary)" }}>

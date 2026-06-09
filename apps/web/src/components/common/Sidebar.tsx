@@ -137,20 +137,40 @@ export function Sidebar() {
         {/* ── Divider + MEAI Index ── */}
         <div className="my-3 mx-1 border-t" style={{ borderColor: "var(--sidebar-border)" }} />
 
-        <div
-          className="px-3 py-3 rounded-xl mx-0"
-          style={{ background: "var(--bg-border)", border: "1px solid var(--sidebar-border)" }}
+        <Link
+          href="/meai"
+          className="flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-150 group"
+          style={
+            isActive("/meai")
+              ? { background: `color-mix(in srgb, var(--mansa-green) 12%, transparent)`, color: "var(--mansa-green)" }
+              : { color: "var(--text-muted)" }
+          }
+          onMouseEnter={(e) => {
+            if (!isActive("/meai")) {
+              (e.currentTarget as HTMLElement).style.background = "var(--sidebar-item-bg)";
+              (e.currentTarget as HTMLElement).style.color = "var(--text-primary)";
+            }
+          }}
+          onMouseLeave={(e) => {
+            if (!isActive("/meai")) {
+              (e.currentTarget as HTMLElement).style.background = "";
+              (e.currentTarget as HTMLElement).style.color = "var(--text-muted)";
+            }
+          }}
         >
-          <div className="flex items-center gap-2 mb-1">
-            <Activity size={12} style={{ color: "var(--mansa-green)" }} />
-            <span className="text-xs font-semibold" style={{ color: "var(--mansa-green)" }}>
-              {t("meai_label", locale)}
-            </span>
-          </div>
-          <p className="text-[11px] leading-relaxed" style={{ color: "var(--text-muted)" }}>
-            {t("meai_desc", locale)}
-          </p>
-        </div>
+          <Activity size={17} strokeWidth={isActive("/meai") ? 2.2 : 1.8} />
+          <span className="text-sm font-medium flex-1">{t("meai_label", locale)}</span>
+          <span
+            className="text-[10px] px-1.5 py-0.5 rounded-md font-bold"
+            style={
+              isActive("/meai")
+                ? { background: `color-mix(in srgb, var(--mansa-green) 20%, transparent)`, color: "var(--mansa-green)" }
+                : { background: "var(--bg-border)", color: "var(--text-muted)" }
+            }
+          >
+            NEW
+          </span>
+        </Link>
       </nav>
 
       {/* ── Navigation secondaire + Theme toggle ── */}
