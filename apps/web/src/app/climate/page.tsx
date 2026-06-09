@@ -133,7 +133,7 @@ function ProgressBar({ value, max = 100, color }: { value: number; max?: number;
 /* ─── Page principale ───────────────────────────────────── */
 export default function ClimatePage() {
   const [exportOpen, setExportOpen] = useState(false);
-  const [activeTab,  setActiveTab]  = useState<"overview" | "weather" | "esg" | "disasters" | "water" | "energy">("overview");
+  const [activeTab,  setActiveTab]  = useState<"overview" | "weather" | "esg" | "disasters" | "water" | "energy" | "ecology">("overview");
 
   const { data: climateData, isLoading: climateLoading } = useQuery({
     queryKey: ["climate-indicators"],
@@ -317,6 +317,7 @@ export default function ClimatePage() {
           { id: "disasters", label: "Catastrophes EM-DAT", icon: AlertTriangle },
           { id: "water",     label: "Stress hydrique",     icon: Droplets },
           { id: "energy",    label: "Mix énergétique",     icon: Zap },
+          { id: "ecology",   label: "Écologie",             icon: TreePine },
         ] as const).map(({ id, label, icon: Icon }) => (
           <button
             key={id}
@@ -905,42 +906,147 @@ export default function ClimatePage() {
             </div>
           </div>
 
-          {/* GFW déforestation */}
+          <p className="text-xs" style={{ color: "var(--text-muted)" }}>
+            Sources : EIA International Energy Statistics · IRENA · Mise à jour : 2024
+          </p>
+        </div>
+      )}
+
+      {/* ── Tab: Écologie ── */}
+      {activeTab === "ecology" && (
+        <div className="space-y-5">
+          {/* KPIs forêts & biodiversité */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            {[
+              { label: "Couverture forestière Afrique", value: "22%",   sub: "6,7 M km² (FAO 2020)",    color: "#10B981", icon: TreePine },
+              { label: "Perte forêt tropicale 2023",    value: "4,1M ha",sub: "+12% vs 2022 · GFW",     color: "#EF4444", icon: AlertTriangle },
+              { label: "Aires protégées terrestres",    value: "15,4%",  sub: "Objectif Kunming 30%",    color: "#3B82F6", icon: Leaf },
+              { label: "Espèces menacées (UICN)",       value: "2 856",  sub: "Afrique (2024)",          color: "#F59E0B", icon: Wind },
+            ].map(({ label, value, sub, color, icon: Icon }) => (
+              <div key={label} className="mansa-card rounded-xl p-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: `${color}18` }}>
+                    <Icon size={14} style={{ color }} />
+                  </div>
+                  <p className="text-xs" style={{ color: "var(--text-muted)" }}>{label}</p>
+                </div>
+                <p className="text-2xl font-bold font-mono" style={{ color: "var(--text-primary)" }}>{value}</p>
+                <p className="text-xs mt-1" style={{ color: "var(--text-muted)" }}>{sub}</p>
+              </div>
+            ))}
+          </div>
+
+          {/* Déforestation + Biodiversité */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+            {/* GFW déforestation */}
+            <div className="mansa-card rounded-xl overflow-hidden">
+              <div className="px-4 py-3 border-b flex items-center gap-2" style={{ borderColor: "var(--bg-border)" }}>
+                <TreePine size={14} className="text-emerald-400" />
+                <h3 className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>
+                  Perte forestière annuelle (GFW · 2023)
+                </h3>
+              </div>
+              <div className="p-4 space-y-2.5">
+                {[
+                  { country: "Congo (RDC)",   flag: "🇨🇩", loss_ha: 1_490_000, trend: "↑", color: "#EF4444" },
+                  { country: "Angola",        flag: "🇦🇴", loss_ha: 620_000,   trend: "→", color: "#F59E0B" },
+                  { country: "Mozambique",    flag: "🇲🇿", loss_ha: 480_000,   trend: "↑", color: "#EF4444" },
+                  { country: "Cameroun",      flag: "🇨🇲", loss_ha: 290_000,   trend: "→", color: "#F59E0B" },
+                  { country: "Côte d'Ivoire", flag: "🇨🇮", loss_ha: 185_000,   trend: "↓", color: "#10B981" },
+                  { country: "Ghana",         flag: "🇬🇭", loss_ha: 132_000,   trend: "↓", color: "#10B981" },
+                  { country: "Madagascar",    flag: "🇲🇬", loss_ha: 102_000,   trend: "→", color: "#F59E0B" },
+                  { country: "Éthiopie",      flag: "🇪🇹", loss_ha: 87_000,    trend: "↑", color: "#EF4444" },
+                ].map((g) => (
+                  <div key={g.country} className="flex items-center gap-3">
+                    <span className="text-base w-6">{g.flag}</span>
+                    <span className="text-xs w-28 truncate" style={{ color: "var(--text-secondary)" }}>{g.country}</span>
+                    <div className="flex-1 h-1.5 rounded-full overflow-hidden" style={{ background: "var(--bg-border)" }}>
+                      <div className="h-full rounded-full" style={{ width: `${(g.loss_ha / 1_490_000) * 100}%`, background: g.color }} />
+                    </div>
+                    <span className="text-xs font-mono w-14 text-right" style={{ color: g.color }}>
+                      {(g.loss_ha / 1_000).toFixed(0)}K ha
+                    </span>
+                    <span className="text-sm w-4" style={{ color: g.color }}>{g.trend}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Aires protégées & objectifs Kunming */}
+            <div className="mansa-card rounded-xl overflow-hidden">
+              <div className="px-4 py-3 border-b flex items-center gap-2" style={{ borderColor: "var(--bg-border)" }}>
+                <Leaf size={14} className="text-blue-400" />
+                <h3 className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>
+                  Aires protégées — Objectif Kunming 30×30
+                </h3>
+              </div>
+              <div className="p-4 space-y-2.5">
+                {[
+                  { country: "Botswana",       flag: "🇧🇼", prot: 38.4, color: "#10B981" },
+                  { country: "Namibie",        flag: "🇳🇦", prot: 37.2, color: "#10B981" },
+                  { country: "Zambie",         flag: "🇿🇲", prot: 36.0, color: "#10B981" },
+                  { country: "Zimbabwe",       flag: "🇿🇼", prot: 27.6, color: "#3B82F6" },
+                  { country: "Kenya",          flag: "🇰🇪", prot: 12.4, color: "#F59E0B" },
+                  { country: "Tanzanie",       flag: "🇹🇿", prot: 28.7, color: "#10B981" },
+                  { country: "Congo (RDC)",    flag: "🇨🇩", prot: 15.3, color: "#F59E0B" },
+                  { country: "Madagascar",     flag: "🇲🇬", prot: 10.2, color: "#F59E0B" },
+                  { country: "Nigeria",        flag: "🇳🇬", prot: 4.1,  color: "#EF4444" },
+                  { country: "Côte d'Ivoire",  flag: "🇨🇮", prot: 21.8, color: "#3B82F6" },
+                ].map((p) => (
+                  <div key={p.country} className="flex items-center gap-3">
+                    <span className="text-base w-6">{p.flag}</span>
+                    <span className="text-xs w-28 truncate" style={{ color: "var(--text-secondary)" }}>{p.country}</span>
+                    <div className="flex-1 h-1.5 rounded-full overflow-hidden" style={{ background: "var(--bg-border)" }}>
+                      <div className="h-full rounded-full" style={{ width: `${Math.min(p.prot / 40 * 100, 100)}%`, background: p.color }} />
+                    </div>
+                    <span className="text-xs font-mono w-10 text-right" style={{ color: p.color }}>{p.prot}%</span>
+                    {p.prot >= 30
+                      ? <span className="text-[10px] px-1.5 py-0.5 rounded font-semibold" style={{ background: "rgba(16,185,129,0.15)", color: "#10B981" }}>✓</span>
+                      : <span className="text-[10px] w-4" />
+                    }
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* Biodiversité hotspots */}
           <div className="mansa-card rounded-xl p-4">
             <div className="flex items-center gap-2 mb-4">
-              <TreePine size={16} className="text-emerald-400" />
+              <Leaf size={15} className="text-emerald-400" />
               <h3 className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>
-                Déforestation — Global Forest Watch (GFW)
+                Points chauds de biodiversité — UICN / Conservation International (2024)
               </h3>
             </div>
-            <div className="grid grid-cols-4 gap-4">
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
               {[
-                { country: "Congo (RDC)",  flag: "🇨🇩", loss_ha: 1_490_000, trend: "↑", color: "#EF4444" },
-                { country: "Angola",       flag: "🇦🇴", loss_ha: 620_000,   trend: "→", color: "#F59E0B" },
-                { country: "Mozambique",   flag: "🇲🇿", loss_ha: 480_000,   trend: "↑", color: "#EF4444" },
-                { country: "Cameroun",     flag: "🇨🇲", loss_ha: 290_000,   trend: "→", color: "#F59E0B" },
-                { country: "Côte d'Ivoire",flag: "🇨🇮", loss_ha: 185_000,   trend: "↓", color: "#10B981" },
-                { country: "Ghana",        flag: "🇬🇭", loss_ha: 132_000,   trend: "↓", color: "#10B981" },
-                { country: "Madagascar",   flag: "🇲🇬", loss_ha: 102_000,   trend: "→", color: "#F59E0B" },
-                { country: "Éthiopie",     flag: "🇪🇹", loss_ha: 87_000,    trend: "↑", color: "#EF4444" },
-              ].map((g) => (
-                <div key={g.country} className="mansa-card rounded-xl p-3 border" style={{ borderColor: "var(--card-border)" }}>
-                  <div className="flex items-center gap-1.5 mb-2">
-                    <span>{g.flag}</span>
-                    <span className="text-xs font-medium" style={{ color: "var(--text-secondary)" }}>{g.country}</span>
+                { name: "Forêts du Bassin du Congo",     flag: "🇨🇩", species: 10_000, threat: "Élevée",    color: "#EF4444", note: "2ème forêt tropicale mondiale" },
+                { name: "Hotspot Madagascar",             flag: "🇲🇬", species: 12_000, threat: "Critique",  color: "#EF4444", note: "90% d'espèces endémiques" },
+                { name: "Forêts de Guinée",               flag: "🇬🇳", species: 9_000,  threat: "Élevée",   color: "#F97316", note: "8 pays d'Afrique de l'Ouest" },
+                { name: "Cap de Bonne Espérance",         flag: "🇿🇦", species: 8_200,  threat: "Modérée",  color: "#F59E0B", note: "Fynbos — flore unique" },
+                { name: "Rifts de l'Est africain",        flag: "🇹🇿", species: 7_400,  threat: "Modérée",  color: "#F59E0B", note: "Grands lacs + forêts rifts" },
+                { name: "Forêts côtières E. Afrique",     flag: "🇰🇪", species: 4_000,  threat: "Élevée",   color: "#EF4444", note: "Moins de 30% de couverture" },
+                { name: "Succulent Karoo",                flag: "🇿🇦", species: 6_356,  threat: "Modérée",  color: "#F59E0B", note: "Plus riche désert floral" },
+                { name: "Forêts du Maputaland",           flag: "🇲🇿", species: 3_100,  threat: "Élevée",   color: "#EF4444", note: "Espèces marines & côtières" },
+              ].map((h) => (
+                <div key={h.name} className="rounded-xl p-3" style={{ background: "var(--bg-secondary)", border: `1px solid color-mix(in srgb, ${h.color} 20%, var(--bg-border))` }}>
+                  <div className="flex items-center gap-1.5 mb-1.5">
+                    <span className="text-base">{h.flag}</span>
+                    <span className="text-[10px] px-1.5 py-0.5 rounded-full font-semibold"
+                          style={{ background: `color-mix(in srgb, ${h.color} 15%, transparent)`, color: h.color }}>
+                      {h.threat}
+                    </span>
                   </div>
-                  <p className="text-lg font-bold font-mono" style={{ color: g.color }}>
-                    {(g.loss_ha / 1_000).toFixed(0)}K ha
-                  </p>
-                  <p className="text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>
-                    Perte forêt 2023 {g.trend}
-                  </p>
+                  <p className="text-xs font-semibold leading-tight mb-1" style={{ color: "var(--text-primary)" }}>{h.name}</p>
+                  <p className="text-xs font-mono font-bold" style={{ color: "#10B981" }}>{h.species.toLocaleString("fr-FR")} sp.</p>
+                  <p className="text-[10px] mt-1" style={{ color: "var(--text-muted)" }}>{h.note}</p>
                 </div>
               ))}
             </div>
           </div>
+
           <p className="text-xs" style={{ color: "var(--text-muted)" }}>
-            Sources : EIA International Energy Statistics · GFW Global Forest Watch · Hansen/UMD/Google/USGS/NASA
+            Sources : Global Forest Watch (GFW) · UICN Red List · Conservation International · FAO FRA 2020 · Accord de Kunming-Montréal (CDB 2022) · UNEP-WCMC WDPA
           </p>
         </div>
       )}

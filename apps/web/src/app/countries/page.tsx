@@ -111,6 +111,65 @@ const COMPARE_INDICATORS = [
   { code: "fdi",       label: "IDE entrants (Mds USD)" },
 ];
 
+// ── Principaux produits échangés par pays ────────────────────────────────────
+const TRADE_PRODUCTS: Record<string, { exp: string[]; imp: string[] }> = {
+  NGA:{ exp:["Pétrole brut","GNL","Cacao","Sésame"],             imp:["Machines","Produits pétroliers","Véhicules","Blé"] },
+  ZAF:{ exp:["Or","Platine","Charbon","Voitures"],                imp:["Machines","Pétrole","Produits chimiques","Blé"] },
+  EGY:{ exp:["Gaz nat.","Produits pétroliers","Or","Textiles"],   imp:["Blé","Machines","Pétrole brut","Véhicules"] },
+  ETH:{ exp:["Café","Sésame","Fleurs","Khat"],                    imp:["Machines","Pétrole","Engrais","Véhicules"] },
+  KEN:{ exp:["Thé","Fleurs","Café","Légumes"],                    imp:["Pétrole","Machines","Acier","Médicaments"] },
+  TZA:{ exp:["Or","Café","Thé","Coton"],                          imp:["Machines","Pétrole","Engrais","Voitures"] },
+  MAR:{ exp:["Phosphates","Engrais","Textiles","Agrumes"],         imp:["Pétrole","Gaz","Blé","Machines"] },
+  GHA:{ exp:["Or","Cacao","Pétrole","Manganèse"],                 imp:["Machines","Pétrole","Véhicules","Céréales"] },
+  CIV:{ exp:["Cacao","Noix de cajou","Hévéa","Or"],               imp:["Pétrole","Machines","Riz","Véhicules"] },
+  SEN:{ exp:["Pétrole (2024)","Or","Phosphates","Arachides"],      imp:["Pétrole","Riz","Blé","Machines"] },
+  CMR:{ exp:["Cacao","Café","Coton","Bois"],                      imp:["Pétrole","Machines","Céréales","Médicaments"] },
+  AGO:{ exp:["Pétrole brut (95%)","LNG","Diamants"],              imp:["Machines","Aliments","Médicaments","Véhicules"] },
+  DZA:{ exp:["Gaz nat.","Pétrole","Engrais","Dattes"],            imp:["Blé","Machines","Acier","Médicaments"] },
+  MOZ:{ exp:["GNL","Aluminium","Charbon","Sésame"],               imp:["Carburants","Machines","Céréales","Médicaments"] },
+  ZMB:{ exp:["Cuivre (80%)","Cobalte","Zinc","Or"],               imp:["Carburants","Machines","Engrais","Véhicules"] },
+  RWA:{ exp:["Café","Thé","Coltan","Or"],                         imp:["Pétrole","Céréales","Machines","Médicaments"] },
+  TUN:{ exp:["Phosphates","Huile d'olive","Textiles","Composants"],imp:["Pétrole","Machines","Acier","Céréales"] },
+  UGA:{ exp:["Café","Or","Poisson","Coton"],                      imp:["Pétrole","Céréales","Machines","Médicaments"] },
+  LBY:{ exp:["Pétrole brut","Gaz naturel"],                       imp:["Machines","Aliments","Voitures","Acier"] },
+  SDN:{ exp:["Or","Pétrole","Gomme arabique"],                    imp:["Carburants","Blé","Médicaments","Véhicules"] },
+  MLI:{ exp:["Or","Coton","Bétail"],                              imp:["Pétrole","Machines","Céréales","Engrais"] },
+  BFA:{ exp:["Or","Coton","Bétail","Sésame"],                     imp:["Pétrole","Céréales","Machines","Engrais"] },
+  NER:{ exp:["Pétrole","Or","Uranium","Bétail"],                  imp:["Carburants","Céréales","Machines","Engrais"] },
+  BEN:{ exp:["Coton","Anacarde","Soja","Or"],                     imp:["Pétrole","Riz","Machines","Véhicules"] },
+  TGO:{ exp:["Or","Phosphates","Coton","Ciment"],                 imp:["Pétrole","Riz","Machines","Clinker"] },
+  GIN:{ exp:["Bauxite","Or","Café","Diamants"],                   imp:["Pétrole","Machines","Riz","Ciment"] },
+  TCD:{ exp:["Pétrole","Coton","Bétail","Gomme arabique"],        imp:["Pétrole","Machines","Médicaments","Céréales"] },
+  COD:{ exp:["Cobalte (70% mondial)","Cuivre","Or","Diamants"],   imp:["Machines","Pétrole","Médicaments","Aliments"] },
+  COG:{ exp:["Pétrole","Bois","Sucre","Cacao"],                   imp:["Machines","Aliments","Médicaments","Carburants"] },
+  MUS:{ exp:["Textiles","Sucre","Services financiers"],           imp:["Pétrole","Machines","Aliments","Électronique"] },
+  BWA:{ exp:["Diamants","Or","Viande","Cuivre"],                  imp:["Carburants","Machines","Aliments","Voitures"] },
+  NAM:{ exp:["Diamants","Uranium","Or","Viande"],                 imp:["Carburants","Machines","Véhicules","Aliments"] },
+  ZWE:{ exp:["Or","Platine","Tabac","Ferrochrome"],               imp:["Carburants","Machines","Médicaments","Céréales"] },
+  SOM:{ exp:["Bétail","Bananes","Charbon","Peaux"],               imp:["Sucre","Riz","Carburants","Khat"] },
+  ERI:{ exp:["Or","Zinc","Bétail"],                               imp:["Aliments","Carburants","Machines"] },
+  DJI:{ exp:["Services portuaires","Café (transit)","Bétail"],    imp:["Aliments","Carburants","Machines","Voitures"] },
+  SLE:{ exp:["Rutile","Minerai de fer","Or","Diamants"],          imp:["Carburants","Riz","Machines","Médicaments"] },
+  LBR:{ exp:["Minerai de fer","Or","Caoutchouc","Bois"],          imp:["Carburants","Riz","Machines","Ciment"] },
+  GMB:{ exp:["Arachides","Cashew","Poisson","Sésame"],            imp:["Riz","Pétrole","Machines","Aliments"] },
+  GNB:{ exp:["Noix de cajou (85%)","Poisson"],                    imp:["Riz","Carburants","Machines","Aliments"] },
+  CPV:{ exp:["Poisson","Chaussures","Vêtements"],                 imp:["Carburants","Aliments","Machines","Véhicules"] },
+  GNQ:{ exp:["Pétrole brut (90%)","Bois","Cacao"],                imp:["Machines","Aliments","Médicaments","Carburants"] },
+  GAB:{ exp:["Pétrole","Manganèse","Bois","Or"],                  imp:["Machines","Aliments","Acier","Médicaments"] },
+  CAF:{ exp:["Or","Bois","Café","Coton"],                         imp:["Carburants","Aliments","Machines","Médicaments"] },
+  BDI:{ exp:["Café","Thé","Or","Minerais"],                       imp:["Carburants","Machines","Céréales","Médicaments"] },
+  COM:{ exp:["Vanille","Ylang-ylang","Girofle"],                  imp:["Riz","Carburants","Viande","Machines"] },
+  STP:{ exp:["Cacao","Coprah","Café"],                            imp:["Aliments","Carburants","Machines"] },
+  SYC:{ exp:["Poisson","Huile de coco","Vanille"],                imp:["Carburants","Aliments","Machines","Véhicules"] },
+  LSO:{ exp:["Diamants","Textiles","Chaussures","Eau"],           imp:["Carburants","Aliments","Machines","Vêtements"] },
+  MRT:{ exp:["Minerai de fer","Or","Poisson","Cuivre"],           imp:["Carburants","Aliments","Machines","Engrais"] },
+  SSD:{ exp:["Pétrole brut"],                                     imp:["Aliments","Carburants","Médicaments","Machines"] },
+  MOZ:{ exp:["GNL","Aluminium","Charbon","Sésame"],               imp:["Carburants","Machines","Céréales","Médicaments"] },
+  MWI:{ exp:["Tabac","Thé","Sucre","Coton"],                      imp:["Carburants","Engrais","Machines","Médicaments"] },
+  MDG:{ exp:["Vanille","Clous de girofle","Cacao","Nickel"],      imp:["Carburants","Riz","Machines","Textiles"] },
+  SWZ:{ exp:["Concentré sucre","Canne à sucre","Textiles"],       imp:["Carburants","Machines","Aliments","Voitures"] },
+};
+
 // ── Chantier 7 : Données rankings ────────────────────────────────────────────
 type RankingKey = "gdp_usd" | "gdp_pc" | "growth" | "inflation" | "debt" | "exports" | "fdi";
 
@@ -363,32 +422,33 @@ function CountryCard({ country, compareMode, isPicked, onToggle }: {
     );
   }
 
-  const growthColor = macro
-    ? macro.growth >= 5 ? "#10B981" : macro.growth >= 2.5 ? "#F59E0B" : "#EF4444"
-    : "var(--text-muted)";
+  const trade = TRADE_PRODUCTS[country.id];
+  const name = macro?.name ?? country.name_fr ?? country.name_en;
 
   return (
-    <Link href={`/countries/${country.id}`} className="mansa-card rounded-xl p-4 mansa-card-hover cursor-pointer block">
-      <div className="flex items-start justify-between mb-2">
-        <span className="text-2xl">{macro?.flag ?? country.flag_emoji ?? "🌍"}</span>
-        {macro && (
-          <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded font-mono"
-                style={{ color: growthColor, background: `${growthColor}18` }}>
-            {macro.growth >= 0 ? "+" : ""}{macro.growth.toFixed(1)}%
-          </span>
-        )}
+    <Link href={`/countries/${country.id}`} className="mansa-card rounded-xl p-3 mansa-card-hover cursor-pointer block">
+      <div className="flex items-center gap-2.5 mb-2">
+        <span className="text-2xl leading-none flex-shrink-0">{macro?.flag ?? country.flag_emoji ?? "🌍"}</span>
+        <p className="font-semibold text-sm leading-tight" style={{ color: "var(--text-primary)" }}>{name}</p>
       </div>
-      <div className="font-semibold text-sm leading-tight mb-1" style={{ color: "var(--text-primary)" }}>
-        {macro?.name ?? country.name_fr ?? country.name_en}
-      </div>
-      <div className="flex items-center justify-between mt-auto pt-1">
-        <span className="text-xs font-mono" style={{ color: "var(--text-muted)" }}>{country.id}</span>
-        {macro && (
-          <span className="text-xs" style={{ color: "var(--text-muted)" }}>
-            ${macro.gdp_usd >= 10 ? `${macro.gdp_usd.toFixed(0)}Mds` : `${macro.gdp_usd.toFixed(1)}Mds`}
-          </span>
-        )}
-      </div>
+      {trade && (
+        <div className="space-y-1">
+          <div className="flex items-start gap-1.5">
+            <span className="text-[9px] font-bold uppercase tracking-wider mt-0.5 flex-shrink-0"
+                  style={{ color: "#10B981" }}>↑</span>
+            <p className="text-[10px] leading-snug" style={{ color: "var(--text-muted)" }}>
+              {trade.exp.slice(0, 3).join(" · ")}
+            </p>
+          </div>
+          <div className="flex items-start gap-1.5">
+            <span className="text-[9px] font-bold uppercase tracking-wider mt-0.5 flex-shrink-0"
+                  style={{ color: "#EF4444" }}>↓</span>
+            <p className="text-[10px] leading-snug" style={{ color: "var(--text-muted)" }}>
+              {trade.imp.slice(0, 3).join(" · ")}
+            </p>
+          </div>
+        </div>
+      )}
     </Link>
   );
 }

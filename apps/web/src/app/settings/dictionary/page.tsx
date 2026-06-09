@@ -5,7 +5,7 @@ import { BookOpen, Search, ChevronRight, TrendingUp, BarChart2, DollarSign, Perc
 import { useLangStore } from "@/lib/lang-store";
 
 // ── Types ────────────────────────────────────────────────────────────────────
-type DictCategory = "croissance" | "inflation" | "dette" | "fiscal" | "commerce" | "monnaie" | "esg" | "investissement";
+type DictCategory = "croissance" | "inflation" | "dette" | "fiscal" | "commerce" | "monnaie" | "esg" | "investissement" | "institutions";
 
 interface DictEntry {
   id: string;
@@ -163,11 +163,129 @@ const DICTIONARY: DictEntry[] = [
     category: "croissance",
     relatedTerms: ["Coefficient de Gini", "IDH", "Pauvreté multidimensionnelle", "Capital humain"],
   },
+  /* ── Institutions & Acronymes ─────────────────────────────── */
+  {
+    id: "brvm",
+    term: "BRVM — Bourse Régionale des Valeurs Mobilières",
+    termEn: "BRVM — West African Regional Stock Exchange",
+    definition: "Bourse commune aux 8 États membres de l'UEMOA (Bénin, Burkina Faso, Côte d'Ivoire, Guinée-Bissau, Mali, Niger, Sénégal, Togo). Créée en 1998 et gérée depuis Abidjan, elle est la seule bourse multinationale d'Afrique.",
+    example: "La BRVM affiche une capitalisation boursière d'environ 17 000 Mds FCFA (~28 Mds USD) en 2024. La Sonatel (Sénégal) et la SAPH (Côte d'Ivoire) sont parmi ses blue chips.",
+    category: "institutions",
+    relatedTerms: ["UEMOA", "BCEAO", "Marchés africains", "Actions"],
+  },
+  {
+    id: "bceao",
+    term: "BCEAO — Banque Centrale des États de l'Afrique de l'Ouest",
+    termEn: "BCEAO — Central Bank of West African States",
+    definition: "Banque centrale commune aux 8 pays de l'UEMOA. Émet le franc CFA (XOF), fixe le taux directeur de la zone, gère les réserves de change et supervise les banques commerciales de la région. Son siège est à Dakar.",
+    example: "En juin 2025, la BCEAO maintient son taux directeur à 3,50% pour soutenir la croissance dans un contexte d'inflation modérée (~3,1% dans la zone UEMOA).",
+    category: "institutions",
+    relatedTerms: ["UEMOA", "BRVM", "Taux directeur", "Franc CFA"],
+  },
+  {
+    id: "beac",
+    term: "BEAC — Banque des États de l'Afrique Centrale",
+    termEn: "BEAC — Bank of Central African States",
+    definition: "Banque centrale commune aux 6 pays de la CEMAC (Cameroun, Congo, Gabon, Guinée Équatoriale, République Centrafricaine, Tchad). Émet le franc CFA (XAF) et siège à Yaoundé.",
+    example: "La BEAC a relevé son taux d'intérêt des appels d'offres à 5,50% en 2023 pour lutter contre l'inflation post-Covid, avant de le ramener à 5,00% en 2024.",
+    category: "institutions",
+    relatedTerms: ["CEMAC", "Taux directeur", "Franc CFA", "BCEAO"],
+  },
+  {
+    id: "uemoa",
+    term: "UEMOA — Union Économique et Monétaire Ouest-Africaine",
+    termEn: "UEMOA — West African Economic and Monetary Union",
+    definition: "Union économique et monétaire créée en 1994 regroupant 8 pays d'Afrique de l'Ouest partageant une monnaie commune (franc CFA XOF) et des critères de convergence budgétaire (déficit < 3% du PIB, dette < 70% du PIB).",
+    example: "La Côte d'Ivoire représente environ 40% du PIB de la zone UEMOA. Le commerce intra-UEMOA représente ~20% du total des échanges de la zone.",
+    category: "institutions",
+    relatedTerms: ["BCEAO", "BRVM", "Franc CFA", "CEMAC"],
+  },
+  {
+    id: "cemac",
+    term: "CEMAC — Communauté Économique et Monétaire de l'Afrique Centrale",
+    termEn: "CEMAC — Economic and Monetary Community of Central Africa",
+    definition: "Union économique et monétaire des 6 pays d'Afrique centrale partageant le franc CFA (XAF) émis par la BEAC. Équivalent de l'UEMOA pour l'Afrique centrale.",
+    example: "Le Cameroun génère environ 44% du PIB de la CEMAC. La zone dépend fortement des exportations pétrolières (Gabon, Congo, Guinée Équatoriale, Tchad).",
+    category: "institutions",
+    relatedTerms: ["BEAC", "Franc CFA", "UEMOA"],
+  },
+  {
+    id: "fmi",
+    term: "FMI — Fonds Monétaire International",
+    termEn: "IMF — International Monetary Fund",
+    definition: "Institution financière internationale fondée en 1944 (accords de Bretton Woods), composée de 190 pays membres. Surveille la stabilité du système monétaire mondial, accorde des prêts d'urgence (DTS, programmes stand-by) et publie les prévisions économiques mondiales (WEO — World Economic Outlook).",
+    example: "Environ 25 pays africains sont sous programme FMI en 2024. Le Ghana a conclu un accord de 3 Mds USD avec le FMI en 2023 après défaut partiel sur sa dette.",
+    category: "institutions",
+    relatedTerms: ["Banque Mondiale", "WEO", "DTS", "Dette publique"],
+  },
+  {
+    id: "bm",
+    term: "BM — Banque Mondiale",
+    termEn: "WB — World Bank",
+    definition: "Groupe de 5 institutions (BIRD, IDA, SFI, AMGI, CIRDI) qui finance des projets de développement dans les pays à faibles et moyens revenus. En Afrique, l'IDA (guichet concessionnaire) est le principal outil. Publie les indicateurs WDI (World Development Indicators).",
+    example: "L'IDA-21 (2025-2027) prévoit 100 Mds USD pour les pays les plus pauvres, dont 50% destinés à l'Afrique subsaharienne.",
+    category: "institutions",
+    relatedTerms: ["FMI", "BAD", "IDE", "WDI"],
+  },
+  {
+    id: "bad",
+    term: "BAD — Banque Africaine de Développement",
+    termEn: "AfDB — African Development Bank",
+    definition: "Institution financière multilatérale créée en 1964, dont le siège est à Abidjan. Elle finance des infrastructures, l'agriculture et le secteur privé africain via des prêts et dons à ses 54 membres africains et 27 membres non-africains.",
+    example: "La BAD investit massivement dans les infrastructures énergétiques : le projet Desert to Power vise 10 GW solaires dans 11 pays du Sahel.",
+    category: "institutions",
+    relatedTerms: ["Banque Mondiale", "FMI", "UA", "ZLECAf"],
+  },
+  {
+    id: "ua",
+    term: "UA — Union Africaine",
+    termEn: "AU — African Union",
+    definition: "Organisation panafricaine fondée en 2002 (succédant à l'OUA), regroupant 55 États africains. Elle coordonne les politiques économiques, politiques et sécuritaires du continent, notamment via l'Agenda 2063 (vision de développement continental).",
+    example: "L'UA a lancé la ZLECAf en 2019 pour créer la plus grande zone de libre-échange du monde par nombre de pays membres.",
+    category: "institutions",
+    relatedTerms: ["ZLECAf", "BAD", "COMESA", "EAC"],
+  },
+  {
+    id: "zlecaf",
+    term: "ZLECAf — Zone de Libre-Échange Continentale Africaine",
+    termEn: "AfCFTA — African Continental Free Trade Area",
+    definition: "Accord de libre-échange panafricain entré en vigueur en 2019 et opérationnel depuis 2021, visant à libéraliser 90% des lignes tarifaires. Objectif : doubler le commerce intra-africain (de ~15% à ~52% d'ici 2035).",
+    example: "Avec 1,4 Mds d'habitants et un PIB combiné de 3,4 Trillions USD, la ZLECAf est potentiellement la plus grande zone de libre-échange mondiale par nombre de pays (54 membres).",
+    category: "institutions",
+    relatedTerms: ["UA", "UEMOA", "CEMAC", "COMESA", "Commerce intra-africain"],
+  },
+  {
+    id: "cbn",
+    term: "CBN — Central Bank of Nigeria",
+    termEn: "CBN — Central Bank of Nigeria",
+    definition: "Banque centrale du Nigeria, fondée en 1958. Émet le naira (NGN), fixe le taux directeur (MPR — Monetary Policy Rate) et supervise le secteur bancaire nigérian, le plus grand d'Afrique subsaharienne.",
+    example: "La CBN a relevé son taux directeur (MPR) à 26,25% en 2024 pour enrayer une inflation record de 33%, avant une légère détente à 24,75% en 2025.",
+    category: "institutions",
+    relatedTerms: ["Taux directeur", "BCEAO", "BEAC", "Naira"],
+  },
+  {
+    id: "ngx",
+    term: "NGX — Nigerian Exchange Group",
+    termEn: "NGX — Nigerian Exchange Group",
+    definition: "Principal marché boursier du Nigeria, anciennement NSE (Nigerian Stock Exchange), rebaptisé NGX en 2021 après sa démutalisation. Couvre actions, obligations et produits dérivés. C'est la 2ème bourse d'Afrique par capitalisation.",
+    example: "Le NGX All-Share Index a atteint un sommet historique en 2024 porté par les valeurs pétrolières et bancaires. Sa capitalisation dépasse 50 000 Mds NGN (~35 Mds USD).",
+    category: "institutions",
+    relatedTerms: ["BRVM", "JSE", "Marchés africains"],
+  },
+  {
+    id: "jse",
+    term: "JSE — Johannesburg Stock Exchange",
+    termEn: "JSE — Johannesburg Stock Exchange",
+    definition: "Plus grande bourse d'Afrique par capitalisation (~1 200 Mds USD), fondée en 1887 à Johannesburg. Cotation en rand (ZAR). Inclut le JSE Top 40 (principales blue chips) et des marchés de produits dérivés, obligations et matières premières.",
+    example: "La JSE est souvent utilisée comme baromètre des marchés émergents africains. Des géants miniers comme Anglo American, BHP et Glencore y sont cotés.",
+    category: "institutions",
+    relatedTerms: ["NGX", "BRVM", "Marchés africains", "Rand"],
+  },
 ];
 
 const CATEGORIES: { key: DictCategory | "all"; label: string; icon: React.ElementType; color: string }[] = [
   { key: "all",          label: "Tous",          icon: BookOpen,    color: "var(--mansa-green)" },
-  { key: "croissance",   label: "Croissance",    icon: TrendingUp,  color: "#00D4AA" },
+  { key: "croissance",   label: "Croissance",    icon: TrendingUp,  color: "#0ea5a0" },
   { key: "inflation",    label: "Inflation",     icon: Percent,     color: "#F59E0B" },
   { key: "dette",        label: "Dette",         icon: BarChart2,   color: "#EF4444" },
   { key: "fiscal",       label: "Fiscal",        icon: DollarSign,  color: "#8B5CF6" },
@@ -175,10 +293,11 @@ const CATEGORIES: { key: DictCategory | "all"; label: string; icon: React.Elemen
   { key: "monnaie",      label: "Monnaie",       icon: ArrowUpDown, color: "#EC4899" },
   { key: "esg",          label: "ESG",           icon: Shield,      color: "#10B981" },
   { key: "investissement", label: "Investissement", icon: Zap,      color: "#F97316" },
+  { key: "institutions", label: "Institutions",  icon: Globe2,      color: "#06B6D4" },
 ];
 
 const CATEGORY_COLORS: Record<DictCategory, string> = {
-  croissance:    "#00D4AA",
+  croissance:    "#0ea5a0",
   inflation:     "#F59E0B",
   dette:         "#EF4444",
   fiscal:        "#8B5CF6",
@@ -186,6 +305,7 @@ const CATEGORY_COLORS: Record<DictCategory, string> = {
   monnaie:       "#EC4899",
   esg:           "#10B981",
   investissement:"#F97316",
+  institutions:  "#06B6D4",
 };
 
 // ── Composant entrée ─────────────────────────────────────────────────────────

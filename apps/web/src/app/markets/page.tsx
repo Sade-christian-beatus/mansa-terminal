@@ -672,6 +672,25 @@ export default function MarketsPage() {
               </div>
             ))}
           </div>
+          {/* Grille de lecture des notes */}
+          <div className="mansa-card rounded-xl p-4">
+            <h4 className="text-xs font-semibold uppercase tracking-wider mb-3" style={{ color: "var(--text-muted)" }}>
+              Grille de notation souveraine — Agences S&P / Fitch / Moody&apos;s
+            </h4>
+            <div className="grid grid-cols-3 gap-3">
+              {[
+                { label: "Catégorie investissement", notes: "AAA → BBB-", color: "#10B981", desc: "Risque faible · Accès marchés facile · Spread < 300 bps" },
+                { label: "Haut rendement (Junk)", notes: "BB+ → B-", color: "#F59E0B", desc: "Risque modéré-élevé · Spread 300–700 bps · Suivi FMI" },
+                { label: "Distressed / défaut", notes: "CCC et inférieur", color: "#EF4444", desc: "Risque très élevé · Spread >700 bps · Restructuration probable" },
+              ].map((g) => (
+                <div key={g.label} className="rounded-xl p-3 border" style={{ background: `${g.color}08`, borderColor: `${g.color}30` }}>
+                  <div className="font-mono text-sm font-bold mb-1" style={{ color: g.color }}>{g.notes}</div>
+                  <div className="text-[11px] font-semibold mb-1" style={{ color: "var(--text-primary)" }}>{g.label}</div>
+                  <div className="text-[10px]" style={{ color: "var(--text-muted)" }}>{g.desc}</div>
+                </div>
+              ))}
+            </div>
+          </div>
           <p className="text-xs" style={{ color: "var(--text-muted)" }}>
             Source : Bloomberg · MANSA Terminal · Spread = prime risque vs US Treasuries · Δ7j en points de base
           </p>
@@ -723,6 +742,38 @@ export default function MarketsPage() {
             </div>
           </div>
 
+          {/* Producteurs africains de pétrole */}
+          <div className="mansa-card rounded-xl p-5">
+            <h3 className="text-sm font-semibold mb-4" style={{ color: "var(--text-primary)" }}>
+              Principaux producteurs de pétrole africains (milliers bpj, 2024)
+            </h3>
+            <div className="space-y-3">
+              {[
+                { country: "Nigeria",   flag: "🇳🇬", prod: 1_380, cap: 2_000, ytd: -4.2 },
+                { country: "Angola",    flag: "🇦🇴", prod: 1_120, cap: 1_500, ytd: -1.8 },
+                { country: "Algérie",   flag: "🇩🇿", prod:   970, cap: 1_200, ytd: +0.5 },
+                { country: "Libye",     flag: "🇱🇾", prod:   890, cap: 1_600, ytd: -8.1 },
+                { country: "Égypte",    flag: "🇪🇬", prod:   580, cap:   700, ytd: -2.3 },
+                { country: "Congo",     flag: "🇨🇬", prod:   270, cap:   360, ytd: +1.2 },
+                { country: "Gabon",     flag: "🇬🇦", prod:   200, cap:   280, ytd: -3.0 },
+                { country: "Sénégal",   flag: "🇸🇳", prod:    98, cap:   200, ytd:+52.0 },
+              ].map((p) => (
+                <div key={p.country} className="flex items-center gap-3">
+                  <span className="text-lg flex-shrink-0">{p.flag}</span>
+                  <span className="text-xs w-28 flex-shrink-0" style={{ color: "var(--text-secondary)" }}>{p.country}</span>
+                  <div className="flex-1 h-2 rounded-full overflow-hidden" style={{ background: "var(--bg-border)" }}>
+                    <div className="h-full rounded-full" style={{ width: `${(p.prod / 1_500) * 100}%`, background: "var(--mansa-green)" }} />
+                  </div>
+                  <span className="text-xs font-mono w-16 text-right flex-shrink-0" style={{ color: "var(--text-primary)" }}>{p.prod.toLocaleString("fr-FR")} kbpj</span>
+                  <span className="text-[10px] font-mono w-12 text-right flex-shrink-0"
+                        style={{ color: p.ytd > 0 ? "#10B981" : "#EF4444" }}>
+                    {p.ytd > 0 ? "+" : ""}{p.ytd.toFixed(1)}%
+                  </span>
+                </div>
+              ))}
+            </div>
+            <p className="text-[10px] mt-3" style={{ color: "var(--text-muted)" }}>Source : EIA · OPEP · Données 2024 estimées</p>
+          </div>
           <p className="text-xs" style={{ color: "var(--text-muted)" }}>Source : EIA International Energy Statistics · api.eia.gov · Mise à jour mensuelle</p>
         </div>
       )}
@@ -766,7 +817,59 @@ export default function MarketsPage() {
               </div>
             ))}
           </div>
-          <p className="text-xs" style={{ color: "var(--text-muted)" }}>Source : UN Comtrade v1 · comtradeapi.un.org · Données 2024 · Milliards USD</p>
+          {/* Partenaires commerciaux clés */}
+          <div className="grid grid-cols-2 gap-4">
+            <div className="mansa-card rounded-xl p-4">
+              <h4 className="text-xs font-semibold uppercase tracking-wider mb-3" style={{ color: "var(--text-muted)" }}>
+                Principaux partenaires à l&apos;export (Afrique 2024)
+              </h4>
+              <div className="space-y-2">
+                {[
+                  { partner: "Chine",         share: 18.4, trend: "+2.1", color: "#EF4444" },
+                  { partner: "Union Européenne",share: 24.3, trend: "-1.2", color: "#3B82F6" },
+                  { partner: "États-Unis",    share: 11.8, trend: "-0.8", color: "#6B7280" },
+                  { partner: "Inde",          share: 8.7,  trend: "+1.4", color: "#F97316" },
+                  { partner: "Intra-Afrique", share: 15.2, trend: "+3.5", color: "#10B981" },
+                  { partner: "Autres",        share: 21.6, trend: "-4.0", color: "#8B5CF6" },
+                ].map((p) => (
+                  <div key={p.partner} className="flex items-center gap-3">
+                    <span className="text-xs w-32 truncate" style={{ color: "var(--text-secondary)" }}>{p.partner}</span>
+                    <div className="flex-1 h-1.5 rounded-full overflow-hidden" style={{ background: "var(--bg-border)" }}>
+                      <div className="h-full rounded-full" style={{ width: `${p.share}%`, background: p.color }} />
+                    </div>
+                    <span className="text-xs font-mono w-10 text-right font-bold" style={{ color: "var(--text-primary)" }}>{p.share}%</span>
+                    <span className="text-[10px] font-mono w-12 text-right" style={{ color: parseFloat(p.trend) > 0 ? "#10B981" : "#EF4444" }}>{p.trend}%</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div className="mansa-card rounded-xl p-4">
+              <h4 className="text-xs font-semibold uppercase tracking-wider mb-3" style={{ color: "var(--text-muted)" }}>
+                ZLECAf — Commerce intra-africain
+              </h4>
+              <div className="space-y-3">
+                <div className="rounded-xl p-3" style={{ background: "color-mix(in srgb, var(--mansa-green) 8%, transparent)", border: "1px solid color-mix(in srgb, var(--mansa-green) 25%, transparent)" }}>
+                  <p className="text-sm font-bold" style={{ color: "var(--mansa-green)" }}>15,2%</p>
+                  <p className="text-xs" style={{ color: "var(--text-muted)" }}>Part du commerce intra-africain (2024)</p>
+                  <p className="text-[10px] mt-1" style={{ color: "var(--mansa-green)" }}>↑ +3,5 pts vs 2020 — Effet ZLECAf</p>
+                </div>
+                <div className="space-y-1.5">
+                  {[
+                    { label: "Objectif ZLECAf 2035",    value: "52%", color: "var(--mansa-green)" },
+                    { label: "Pays membres actifs",     value: "44",  color: "#3B82F6" },
+                    { label: "Produits libéralisés",    value: "90%", color: "#10B981" },
+                    { label: "Volume (Bn$ 2024)",       value: "$98B",color: "#F59E0B" },
+                  ].map((s) => (
+                    <div key={s.label} className="flex items-center justify-between">
+                      <span className="text-xs" style={{ color: "var(--text-muted)" }}>{s.label}</span>
+                      <span className="text-sm font-bold font-mono" style={{ color: s.color }}>{s.value}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+          <p className="text-xs" style={{ color: "var(--text-muted)" }}>Source : UN Comtrade v1 · comtradeapi.un.org · UA · Données 2024 · Milliards USD</p>
         </div>
       )}
 

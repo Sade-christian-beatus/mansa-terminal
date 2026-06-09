@@ -462,8 +462,8 @@ export default function IndicatorsPage() {
                 <AreaChart data={chartData} margin={{ top: 5, right: 10, left: -10, bottom: 0 }}>
                   <defs>
                     <linearGradient id="indGrad" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#00D4AA" stopOpacity={0.3} />
-                      <stop offset="95%" stopColor="#00D4AA" stopOpacity={0} />
+                      <stop offset="5%" stopColor="#0ea5a0" stopOpacity={0.3} />
+                      <stop offset="95%" stopColor="#0ea5a0" stopOpacity={0} />
                     </linearGradient>
                   </defs>
                   <CartesianGrid strokeDasharray="3 3" stroke="var(--bg-border)" />
@@ -471,7 +471,7 @@ export default function IndicatorsPage() {
                   <YAxis tick={{ fontSize: 10, fill: "var(--text-muted)" }} />
                   <Tooltip content={<CustomTooltip unit={indMeta.unit} />} />
                   <ReferenceLine y={0} stroke="var(--text-muted)" strokeDasharray="4 4" />
-                  <Area type="monotone" dataKey="value" stroke="#00D4AA" strokeWidth={2} fill="url(#indGrad)" dot={{ r: 3, fill: "#00D4AA" }} activeDot={{ r: 5 }} />
+                  <Area type="monotone" dataKey="value" stroke="#0ea5a0" strokeWidth={2} fill="url(#indGrad)" dot={{ r: 3, fill: "#0ea5a0" }} activeDot={{ r: 5 }} />
                 </AreaChart>
               </ResponsiveContainer>
             ) : (
@@ -482,7 +482,7 @@ export default function IndicatorsPage() {
                   <YAxis tick={{ fontSize: 10, fill: "var(--text-muted)" }} />
                   <Tooltip content={<CustomTooltip unit={indMeta.unit} />} />
                   <ReferenceLine y={0} stroke="var(--text-muted)" strokeDasharray="4 4" />
-                  <Bar dataKey="value" fill="#00D4AA" radius={[3, 3, 0, 0]} />
+                  <Bar dataKey="value" fill="#0ea5a0" radius={[3, 3, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             )}
@@ -540,6 +540,50 @@ export default function IndicatorsPage() {
                   </tbody>
                 </table>
               </div>
+            </div>
+          )}
+
+          {/* ── Classement rapide des pays pour l'indicateur courant ── */}
+          {chartData.length > 0 && (
+            <div className="mansa-card rounded-2xl p-5">
+              <h3 className="text-sm font-semibold mb-4" style={{ color: "var(--text-primary)" }}>
+                Classement Afrique · {indMeta.label} (2025e)
+              </h3>
+              <div className="grid grid-cols-2 gap-x-6 gap-y-2">
+                {Object.entries(STATIC_54)
+                  .map(([id, d]) => ({ id, name: d.name, flag: d.flag, value: d[selectedInd as keyof typeof d] as number ?? null }))
+                  .filter((r) => r.value != null)
+                  .sort((a, b) => (b.value ?? 0) - (a.value ?? 0))
+                  .slice(0, 20)
+                  .map((row, i) => {
+                    const isNeg = (row.value ?? 0) < 0;
+                    const absMax = 20;
+                    const pct = Math.min(Math.abs(row.value ?? 0) / absMax * 100, 100);
+                    return (
+                      <button
+                        key={row.id}
+                        onClick={() => setSelectedCountry(row.id)}
+                        className="flex items-center gap-2 py-1 w-full text-left group"
+                      >
+                        <span className="text-[10px] w-4 font-mono text-right flex-shrink-0" style={{ color: "var(--text-muted)" }}>{i + 1}</span>
+                        <span className="text-sm flex-shrink-0">{row.flag}</span>
+                        <span className="text-[11px] w-20 truncate flex-shrink-0" style={{ color: activeCountry === row.id ? "var(--mansa-green)" : "var(--text-secondary)" }}>
+                          {row.name}
+                        </span>
+                        <div className="flex-1 h-1.5 rounded-full overflow-hidden" style={{ background: "var(--bg-border)" }}>
+                          <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, background: isNeg ? "#EF4444" : "var(--mansa-green)" }} />
+                        </div>
+                        <span className="text-[11px] font-mono w-14 text-right flex-shrink-0"
+                              style={{ color: isNeg ? "#EF4444" : "#10B981" }}>
+                          {(row.value ?? 0) > 0 ? "+" : ""}{(row.value ?? 0).toFixed(1)}{indMeta.unit}
+                        </span>
+                      </button>
+                    );
+                  })}
+              </div>
+              <p className="text-[10px] mt-3" style={{ color: "var(--text-muted)" }}>
+                Sources : FMI WEO 2025e · Banque Mondiale WDI · Cliquer sur un pays pour voir sa série temporelle
+              </p>
             </div>
           )}
         </div>
