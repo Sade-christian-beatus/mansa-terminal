@@ -76,6 +76,12 @@ function CountryKPICard({ country }: { country: typeof KEY_COUNTRIES[0] }) {
           </div>
           <div className="text-xs" style={{ color: "var(--text-muted)" }}>{country.id} · {country.region}</div>
         </div>
+        {isDemo && !isLoading && (
+          <span className="text-[9px] px-1.5 py-0.5 rounded-full font-bold flex-shrink-0"
+                style={{ background: "color-mix(in srgb, #F59E0B 15%, transparent)", color: "#F59E0B" }}>
+            DEMO
+          </span>
+        )}
       </div>
 
       {/* KPIs */}
