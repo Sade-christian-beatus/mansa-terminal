@@ -74,7 +74,7 @@ function CountryKPICard({ country }: { country: typeof KEY_COUNTRIES[0] }) {
           <div className="text-sm font-semibold truncate" style={{ color: "var(--text-primary)" }}>
             {country.name}
           </div>
-          <div className="text-xs" style={{ color: "var(--text-muted)" }}>{country.id} · {country.region}</div>
+          <div className="text-xs font-mono" style={{ color: "var(--text-muted)" }}>{country.region}</div>
         </div>
       </div>
 

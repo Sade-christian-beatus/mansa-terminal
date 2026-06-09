@@ -132,7 +132,7 @@ export function HeroKPIs() {
         trend={gdpTrend}
         trendLabel={`${medianGdpPrev.toFixed(1)}% en 2023`}
         icon={<TrendingUp size={14} />}
-        barColor="bg-[#e2ac38]"
+        barColor="bg-[#0ea5a0]"
         isLoading={isLoading}
       />
       <KpiCard
@@ -142,7 +142,7 @@ export function HeroKPIs() {
         trend="up"
         trendLabel={`/ ${total} pays`}
         icon={<Globe size={14} />}
-        barColor="bg-[#b68527]"
+        barColor="bg-[#0a7a76]"
         isLoading={isLoading}
       />
       <KpiCard

@@ -17,8 +17,8 @@ const SCREENS = [
   {
     id: 0,
     icon: Globe2,
-    iconColor: "#00D4AA",
-    iconBg: "rgba(0,212,170,0.12)",
+    iconColor: "#0ea5a0",
+    iconBg: "rgba(14,165,160,0.12)",
     badge: "Bienvenue sur",
     title: "MANSA Terminal",
     subtitle: "Africa's AI-Powered Macro-Fiscal Intelligence Platform",
@@ -81,8 +81,8 @@ const SCREENS = [
   {
     id: 4,
     icon: Zap,
-    iconColor: "#00D4AA",
-    iconBg: "rgba(0,212,170,0.12)",
+    iconColor: "#0ea5a0",
+    iconBg: "rgba(14,165,160,0.12)",
     badge: "Prêt",
     title: "Commencer l'exploration",
     subtitle: "Votre plateforme est prête",
@@ -174,8 +174,8 @@ function ScreenVisual({ type, color }: { type: string; color: string }) {
         ))}
       </div>
       <div className="px-4 py-3 rounded-2xl rounded-tl-sm text-xs leading-relaxed ml-4"
-           style={{ background: "rgba(0,212,170,0.1)", color: "#94A3B8", border: "1px solid rgba(0,212,170,0.2)" }}>
-        <span style={{ color: "#00D4AA" }}>MANSA AI · </span>
+           style={{ background: "rgba(14,165,160,0.1)", color: "#94A3B8", border: "1px solid rgba(14,165,160,0.2)" }}>
+        <span style={{ color: "#0ea5a0" }}>MANSA AI · </span>
         La dette publique du Sénégal a progressé de 48.2% à 76.3% du PIB entre 2015 et 2024…
       </div>
     </div>
@@ -245,7 +245,7 @@ export default function OnboardingPage() {
   return (
     <div
       className="min-h-screen flex flex-col items-center justify-center p-6 relative overflow-hidden"
-      style={{ background: "#0A0E1A" }}
+      style={{ background: "var(--bg-primary)" }}
     >
       {/* Background orbs */}
       <div className="absolute top-0 left-1/4 w-96 h-96 rounded-full opacity-5 pointer-events-none"
@@ -257,15 +257,15 @@ export default function OnboardingPage() {
       <div className="absolute top-6 left-0 right-0 px-6 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <div className="w-7 h-7 rounded-lg flex items-center justify-center"
-               style={{ background: "color-mix(in srgb, #00D4AA 15%, transparent)", border: "1px solid #00D4AA" }}>
-            <Globe2 size={14} style={{ color: "#00D4AA" }} />
+               style={{ background: "color-mix(in srgb, #0ea5a0 15%, transparent)", border: "1px solid #0ea5a0" }}>
+            <Globe2 size={14} style={{ color: "#0ea5a0" }} />
           </div>
           <span className="text-sm font-bold" style={{ color: "#F1F5F9" }} translate="no">MANSA Terminal</span>
         </div>
         <button
           onClick={markDone}
           className="text-sm px-4 py-1.5 rounded-xl transition-colors"
-          style={{ color: "#64748B", border: "1px solid #1E2A42" }}
+          style={{ color: "#64748B", border: "1px solid var(--bg-border)" }}
           onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = "#94A3B8"; }}
           onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = "#64748B"; }}
         >
@@ -277,8 +277,8 @@ export default function OnboardingPage() {
       <div
         className="relative w-full max-w-2xl rounded-3xl p-8 md:p-12 transition-all duration-200"
         style={{
-          background: "#141B2E",
-          border: "1px solid #1E2A42",
+          background: "var(--bg-card)",
+          border: "1px solid var(--bg-border)",
           opacity: exiting ? 0 : 1,
           transform: exiting ? "translateY(8px)" : "translateY(0)",
         }}
@@ -339,7 +339,7 @@ export default function OnboardingPage() {
           style={{
             opacity: step === 0 ? 0 : 1,
             pointerEvents: step === 0 ? "none" : "auto",
-            color: "#64748B", border: "1px solid #1E2A42",
+            color: "#64748B", border: "1px solid var(--bg-border)",
           }}
         >
           <ChevronLeft size={14} /> Retour
@@ -355,7 +355,7 @@ export default function OnboardingPage() {
               style={{
                 width: i === step ? 24 : 8,
                 height: 8,
-                background: i === step ? screen.iconColor : i < step ? "#374151" : "#1E2A42",
+                background: i === step ? screen.iconColor : i < step ? "#374151" : "var(--bg-border)",
               }}
             />
           ))}
@@ -365,7 +365,7 @@ export default function OnboardingPage() {
         <button
           onClick={next}
           className="flex items-center gap-2 px-6 py-2.5 rounded-xl text-sm font-semibold transition-all"
-          style={{ background: screen.iconColor, color: "#0A0E1A" }}
+          style={{ background: screen.iconColor, color: "var(--bg-primary)" }}
           onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.filter = "brightness(1.1)"; }}
           onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.filter = ""; }}
         >

@@ -272,6 +272,77 @@ function generateStaticSeries(value: number, code: string): { period: string; va
   });
 }
 
+/* ── Profil géographique & institutionnel ───────────────── */
+interface CountryProfile {
+  capital: string;
+  languages: string[];
+  area_km2: number;
+  population_m: number;    // millions
+  phone_code: string;
+  currency: string;
+  currency_code: string;
+  tld: string;
+  major_cities: string[];
+  independence?: string;
+  hdi?: number;
+}
+
+const COUNTRY_PROFILES: Record<string, CountryProfile> = {
+  NGA:{ capital:"Abuja",          languages:["Anglais","Haoussa","Yoruba","Igbo"],    area_km2:923_768, population_m:223, phone_code:"+234", currency:"Naira",           currency_code:"NGN", tld:".ng", major_cities:["Lagos","Kano","Ibadan","Abuja","Port Harcourt"], independence:"1960" },
+  ZAF:{ capital:"Pretoria",       languages:["Zoulou","Xhosa","Afrikaans","Anglais"],  area_km2:1_219_090,population_m:60,  phone_code:"+27",  currency:"Rand",            currency_code:"ZAR", tld:".za", major_cities:["Johannesburg","Cape Town","Durban","Pretoria","Port Elizabeth"], independence:"1910" },
+  EGY:{ capital:"Le Caire",       languages:["Arabe"],                                 area_km2:1_001_449,population_m:106, phone_code:"+20",  currency:"Livre égyptienne",currency_code:"EGP", tld:".eg", major_cities:["Le Caire","Alexandrie","Gizeh","Shubra El-Kheima","Port-Saïd"], independence:"1952" },
+  ETH:{ capital:"Addis-Abeba",    languages:["Amharique","Oromo","Tigrigna"],           area_km2:1_104_300,population_m:127, phone_code:"+251", currency:"Birr",            currency_code:"ETB", tld:".et", major_cities:["Addis-Abeba","Dire Dawa","Mekele","Nazret","Bahir Dar"], independence:"Jamais colonisé" },
+  KEN:{ capital:"Nairobi",        languages:["Swahili","Anglais"],                      area_km2:580_367,  population_m:55,  phone_code:"+254", currency:"Shilling kenyan", currency_code:"KES", tld:".ke", major_cities:["Nairobi","Mombasa","Kisumu","Nakuru","Eldoret"], independence:"1963" },
+  TZA:{ capital:"Dodoma",         languages:["Swahili","Anglais"],                      area_km2:945_087,  population_m:65,  phone_code:"+255", currency:"Shilling tanzanien",currency_code:"TZS",tld:".tz", major_cities:["Dar es Salaam","Mwanza","Arusha","Dodoma","Mbeya"], independence:"1961" },
+  MAR:{ capital:"Rabat",          languages:["Arabe","Tamazight","Français"],           area_km2:710_850,  population_m:37,  phone_code:"+212", currency:"Dirham",          currency_code:"MAD", tld:".ma", major_cities:["Casablanca","Fès","Marrakech","Rabat","Tanger"], independence:"1956" },
+  GHA:{ capital:"Accra",          languages:["Anglais","Akan","Ewe"],                   area_km2:238_533,  population_m:33,  phone_code:"+233", currency:"Cedi",            currency_code:"GHS", tld:".gh", major_cities:["Accra","Kumasi","Tamale","Sekondi-Takoradi","Cape Coast"], independence:"1957" },
+  CIV:{ capital:"Yamoussoukro",   languages:["Français","Dioula"],                      area_km2:322_463,  population_m:27,  phone_code:"+225", currency:"Franc CFA",       currency_code:"XOF", tld:".ci", major_cities:["Abidjan","Bouaké","Daloa","Yamoussoukro","Korhogo"], independence:"1960" },
+  SEN:{ capital:"Dakar",          languages:["Français","Wolof","Pulaar","Sérère"],      area_km2:196_722,  population_m:18,  phone_code:"+221", currency:"Franc CFA",       currency_code:"XOF", tld:".sn", major_cities:["Dakar","Touba","Thiès","Saint-Louis","Ziguinchor"], independence:"1960" },
+  CMR:{ capital:"Yaoundé",        languages:["Français","Anglais"],                     area_km2:475_442,  population_m:28,  phone_code:"+237", currency:"Franc CFA",       currency_code:"XAF", tld:".cm", major_cities:["Douala","Yaoundé","Garoua","Bamenda","Maroua"], independence:"1960" },
+  AGO:{ capital:"Luanda",         languages:["Portugais","Umbundu","Kimbundu"],          area_km2:1_246_700,population_m:36,  phone_code:"+244", currency:"Kwanza",          currency_code:"AOA", tld:".ao", major_cities:["Luanda","Huambo","Lobito","Benguela","Kuito"], independence:"1975" },
+  DZA:{ capital:"Alger",          languages:["Arabe","Tamazight","Français"],            area_km2:2_381_741,population_m:45,  phone_code:"+213", currency:"Dinar algérien",  currency_code:"DZD", tld:".dz", major_cities:["Alger","Oran","Constantine","Annaba","Blida"], independence:"1962" },
+  MOZ:{ capital:"Maputo",         languages:["Portugais","Emakhuwa","Xichangana"],       area_km2:801_590,  population_m:33,  phone_code:"+258", currency:"Metical",         currency_code:"MZN", tld:".mz", major_cities:["Maputo","Matola","Nampula","Beira","Chimoio"], independence:"1975" },
+  ZMB:{ capital:"Lusaka",         languages:["Anglais","Bemba","Tonga","Nyanja"],        area_km2:752_618,  population_m:20,  phone_code:"+260", currency:"Kwacha",          currency_code:"ZMW", tld:".zm", major_cities:["Lusaka","Kitwe","Ndola","Kabwe","Chingola"], independence:"1964" },
+  RWA:{ capital:"Kigali",         languages:["Kinyarwanda","Français","Anglais"],        area_km2:26_338,   population_m:14,  phone_code:"+250", currency:"Franc rwandais",  currency_code:"RWF", tld:".rw", major_cities:["Kigali","Gisenyi","Butare","Gitarama","Ruhengeri"], independence:"1962" },
+  TUN:{ capital:"Tunis",          languages:["Arabe","Français"],                        area_km2:163_610,  population_m:12,  phone_code:"+216", currency:"Dinar tunisien",  currency_code:"TND", tld:".tn", major_cities:["Tunis","Sfax","Sousse","Kairouan","Bizerte"], independence:"1956" },
+  UGA:{ capital:"Kampala",        languages:["Anglais","Swahili","Luganda"],             area_km2:241_038,  population_m:48,  phone_code:"+256", currency:"Shilling ougandais",currency_code:"UGX",tld:".ug", major_cities:["Kampala","Gulu","Lira","Mbarara","Jinja"], independence:"1962" },
+  LBY:{ capital:"Tripoli",        languages:["Arabe"],                                   area_km2:1_759_540,population_m:7,   phone_code:"+218", currency:"Dinar libyen",    currency_code:"LYD", tld:".ly", major_cities:["Tripoli","Benghazi","Misrata","Tarhuna","Al-Khums"], independence:"1951" },
+  SUD:{ capital:"Khartoum",       languages:["Arabe","Anglais","Nubien"],                area_km2:1_861_484,population_m:47,  phone_code:"+249", currency:"Livre soudanaise",currency_code:"SDG", tld:".sd", major_cities:["Khartoum","Omdurman","Khartoum-Nord","Port-Soudan","Kassala"], independence:"1956" },
+  MLI:{ capital:"Bamako",         languages:["Français","Bambara","Fulfulde"],           area_km2:1_240_192,population_m:23,  phone_code:"+223", currency:"Franc CFA",       currency_code:"XOF", tld:".ml", major_cities:["Bamako","Sikasso","Mopti","Koutiala","Kayes"], independence:"1960" },
+  BFA:{ capital:"Ouagadougou",    languages:["Français","Mòoré","Dioula"],               area_km2:274_200,  population_m:22,  phone_code:"+226", currency:"Franc CFA",       currency_code:"XOF", tld:".bf", major_cities:["Ouagadougou","Bobo-Dioulasso","Koudougou","Banfora","Ouahigouya"], independence:"1960" },
+  MWI:{ capital:"Lilongwe",       languages:["Chichewa","Anglais","Tumbuka"],            area_km2:118_484,  population_m:20,  phone_code:"+265", currency:"Kwacha malawite", currency_code:"MWK", tld:".mw", major_cities:["Lilongwe","Blantyre","Mzuzu","Zomba","Kasungu"], independence:"1964" },
+  MDG:{ capital:"Antananarivo",   languages:["Malgache","Français"],                     area_km2:587_041,  population_m:29,  phone_code:"+261", currency:"Ariary",          currency_code:"MGA", tld:".mg", major_cities:["Antananarivo","Toamasina","Antsirabe","Fianarantsoa","Mahajanga"], independence:"1960" },
+  NER:{ capital:"Niamey",         languages:["Français","Haoussa","Zarma"],              area_km2:1_267_000,population_m:26,  phone_code:"+227", currency:"Franc CFA",       currency_code:"XOF", tld:".ne", major_cities:["Niamey","Zinder","Maradi","Tahoua","Agadez"], independence:"1960" },
+  BEN:{ capital:"Porto-Novo",     languages:["Français","Fon","Yoruba","Bariba"],        area_km2:112_622,  population_m:13,  phone_code:"+229", currency:"Franc CFA",       currency_code:"XOF", tld:".bj", major_cities:["Cotonou","Porto-Novo","Parakou","Djougou","Bohicon"], independence:"1960" },
+  TGO:{ capital:"Lomé",           languages:["Français","Ewe","Kabiyè"],                 area_km2:56_785,   population_m:9,   phone_code:"+228", currency:"Franc CFA",       currency_code:"XOF", tld:".tg", major_cities:["Lomé","Sokodé","Kpalimé","Kara","Atakpamé"], independence:"1960" },
+  GIN:{ capital:"Conakry",        languages:["Français","Pular","Mandinka","Soussou"],   area_km2:245_857,  population_m:14,  phone_code:"+224", currency:"Franc guinéen",   currency_code:"GNF", tld:".gn", major_cities:["Conakry","Nzérékoré","Kindia","Kankan","Labé"], independence:"1958" },
+  TCD:{ capital:"N'Djamena",      languages:["Français","Arabe","Sara"],                 area_km2:1_284_000,population_m:18,  phone_code:"+235", currency:"Franc CFA",       currency_code:"XAF", tld:".td", major_cities:["N'Djamena","Moundou","Sarh","Abéché","Kélo"], independence:"1960" },
+  COD:{ capital:"Kinshasa",       languages:["Français","Lingala","Swahili","Kikongo"],  area_km2:2_344_858,population_m:100, phone_code:"+243", currency:"Franc congolais",  currency_code:"CDF", tld:".cd", major_cities:["Kinshasa","Lubumbashi","Mbuji-Mayi","Kananga","Kisangani"], independence:"1960" },
+  COG:{ capital:"Brazzaville",    languages:["Français","Lingala","Monokutuba"],          area_km2:342_000,  population_m:6,   phone_code:"+242", currency:"Franc CFA",       currency_code:"XAF", tld:".cg", major_cities:["Brazzaville","Pointe-Noire","Dolisie","Nkayi","Impfondo"], independence:"1960" },
+  MUS:{ capital:"Port-Louis",     languages:["Anglais","Créole mauricien","Français"],   area_km2:2_040,    population_m:1.3, phone_code:"+230", currency:"Roupie mauricienne",currency_code:"MUR",tld:".mu", major_cities:["Port-Louis","Beau Bassin","Vacoas","Curepipe","Quatre Bornes"], independence:"1968" },
+  BWA:{ capital:"Gaborone",       languages:["Setswana","Anglais"],                       area_km2:581_730,  population_m:2.6, phone_code:"+267", currency:"Pula",            currency_code:"BWP", tld:".bw", major_cities:["Gaborone","Francistown","Molepolole","Selebi-Phikwe","Maun"], independence:"1966" },
+  NAM:{ capital:"Windhoek",       languages:["Anglais","Afrikaans","Oshiwambo"],          area_km2:824_292,  population_m:2.7, phone_code:"+264", currency:"Dollar namibien",  currency_code:"NAD", tld:".na", major_cities:["Windhoek","Rundu","Walvis Bay","Swakopmund","Oshakati"], independence:"1990" },
+  SWZ:{ capital:"Mbabane",        languages:["Siswati","Anglais"],                        area_km2:17_364,   population_m:1.2, phone_code:"+268", currency:"Lilangeni",       currency_code:"SZL", tld:".sz", major_cities:["Mbabane","Manzini","Big Bend","Malkerns","Nhlangano"], independence:"1968" },
+  ZWE:{ capital:"Harare",         languages:["Shona","Ndebele","Anglais"],                area_km2:390_757,  population_m:16,  phone_code:"+263", currency:"Dollar zimbabwéen",currency_code:"ZWL", tld:".zw", major_cities:["Harare","Bulawayo","Chitungwiza","Mutare","Gweru"], independence:"1980" },
+  SOM:{ capital:"Mogadiscio",     languages:["Somali","Arabe"],                           area_km2:637_657,  population_m:18,  phone_code:"+252", currency:"Shilling somalien",currency_code:"SOS", tld:".so", major_cities:["Mogadiscio","Hargeisa","Berbera","Kismayo","Baidoa"], independence:"1960" },
+  ERI:{ capital:"Asmara",         languages:["Tigrigna","Arabe","Anglais"],               area_km2:117_600,  population_m:3.5, phone_code:"+291", currency:"Nakfa",           currency_code:"ERN", tld:".er", major_cities:["Asmara","Keren","Massaoua","Assab","Mendefera"], independence:"1993" },
+  DJI:{ capital:"Djibouti",       languages:["Afar","Somali","Arabe","Français"],         area_km2:23_200,   population_m:1.0, phone_code:"+253", currency:"Franc djiboutien", currency_code:"DJF", tld:".dj", major_cities:["Djibouti","Ali Sabieh","Dikhil","Tadjourah","Obock"], independence:"1977" },
+  SLE:{ capital:"Freetown",       languages:["Anglais","Krio","Temne","Mende"],           area_km2:71_740,   population_m:8.5, phone_code:"+232", currency:"Leone",           currency_code:"SLL", tld:".sl", major_cities:["Freetown","Bo","Kenema","Koidu","Makeni"], independence:"1961" },
+  LBR:{ capital:"Monrovia",       languages:["Anglais","Kpelle","Bassa"],                 area_km2:111_369,  population_m:5.4, phone_code:"+231", currency:"Dollar libérien",  currency_code:"LRD", tld:".lr", major_cities:["Monrovia","Gbarnga","Kakata","Bensonville","Harper"], independence:"1847" },
+  GMB:{ capital:"Banjul",         languages:["Anglais","Mandinka","Wolof","Fulah"],       area_km2:11_295,   population_m:2.7, phone_code:"+220", currency:"Dalasi",          currency_code:"GMD", tld:".gm", major_cities:["Banjul","Serekunda","Brikama","Farafenni","Basse Santa Su"], independence:"1965" },
+  GNB:{ capital:"Bissau",         languages:["Portugais","Créole","Balanta","Fula"],      area_km2:36_125,   population_m:2.1, phone_code:"+245", currency:"Franc CFA",       currency_code:"XOF", tld:".gw", major_cities:["Bissau","Bafatá","Gabú","Bissorã","Cacheu"], independence:"1974" },
+  CPV:{ capital:"Praia",          languages:["Portugais","Créole capverdien"],            area_km2:4_033,    population_m:0.6, phone_code:"+238", currency:"Escudo capverdien",currency_code:"CVE", tld:".cv", major_cities:["Praia","Mindelo","Santa Maria","Assomada","São Filipe"], independence:"1975" },
+  GNQ:{ capital:"Malabo",         languages:["Espagnol","Français","Portugais","Fang"],   area_km2:28_051,   population_m:1.5, phone_code:"+240", currency:"Franc CFA",       currency_code:"XAF", tld:".gq", major_cities:["Malabo","Bata","Ebebiyín","Aconibe","Añisoc"], independence:"1968" },
+  GAB:{ capital:"Libreville",     languages:["Français","Fang","Myene"],                  area_km2:267_668,  population_m:2.3, phone_code:"+241", currency:"Franc CFA",       currency_code:"XAF", tld:".ga", major_cities:["Libreville","Port-Gentil","Franceville","Oyem","Moanda"], independence:"1960" },
+  CAF:{ capital:"Bangui",         languages:["Français","Sango"],                         area_km2:622_984,  population_m:5.5, phone_code:"+236", currency:"Franc CFA",       currency_code:"XAF", tld:".cf", major_cities:["Bangui","Bimbo","Mbaïki","Berberati","Kaga-Bandoro"], independence:"1960" },
+  BDI:{ capital:"Bujumbura",      languages:["Kirundi","Français","Anglais"],             area_km2:27_834,   population_m:13,  phone_code:"+257", currency:"Franc burundais",  currency_code:"BIF", tld:".bi", major_cities:["Bujumbura","Gitega","Muyinga","Ngozi","Ruyigi"], independence:"1962" },
+  COM:{ capital:"Moroni",         languages:["Comorien","Arabe","Français"],              area_km2:2_235,    population_m:0.9, phone_code:"+269", currency:"Franc comorien",   currency_code:"KMF", tld:".km", major_cities:["Moroni","Mutsamudu","Fomboni","Domoni","Sima"], independence:"1975" },
+  STP:{ capital:"São Tomé",       languages:["Portugais","Créole santomais"],             area_km2:964,      population_m:0.2, phone_code:"+239", currency:"Dobra",           currency_code:"STN", tld:".st", major_cities:["São Tomé","Santo António","Neves","Guadalupe","Santa Cruz"], independence:"1975" },
+  SYC:{ capital:"Victoria",       languages:["Créole seychellois","Anglais","Français"],  area_km2:451,      population_m:0.1, phone_code:"+248", currency:"Roupie seychelloise",currency_code:"SCR",tld:".sc", major_cities:["Victoria","Anse Boileau","Bel Ombre","Beau Vallon","Takamaka"], independence:"1976" },
+  LSO:{ capital:"Maseru",         languages:["Sesotho","Anglais","Zoulou"],               area_km2:30_355,   population_m:2.2, phone_code:"+266", currency:"Loti",            currency_code:"LSL", tld:".ls", major_cities:["Maseru","Teyateyaneng","Mafeteng","Hlotse","Mohale's Hoek"], independence:"1966" },
+  MRT:{ capital:"Nouakchott",     languages:["Arabe","Pulaar","Wolof","Soninké"],         area_km2:1_030_700,population_m:4.7, phone_code:"+222", currency:"Ouguiya",         currency_code:"MRU", tld:".mr", major_cities:["Nouakchott","Nouadhibou","Kaédi","Zouerate","Rosso"], independence:"1960" },
+};
+
 /* ── Page principale ─────────────────────────────────── */
 export default function CountryDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -292,7 +363,8 @@ export default function CountryDetailPage() {
     retry: 1,
   });
 
-  const meta = countries?.find((c: { id: string }) => c.id === countryId);
+  const meta    = countries?.find((c: { id: string }) => c.id === countryId);
+  const profile = COUNTRY_PROFILES[countryId];
 
   // Si l'API échoue, on utilise les données statiques
   const staticData = STATIC_COUNTRY_DATA[countryId];
@@ -431,6 +503,79 @@ export default function CountryDetailPage() {
           <KPICard label="Inflation"         value={inf.latest}   unit="%"     trend={inf.trend}  />
           <KPICard label="Solde budgétaire"  value={fis.latest}   unit="% PIB" trend={fis.trend}  />
           <KPICard label="Dette publique"    value={dbt.latest}   unit="% PIB" trend={dbt.trend}  />
+        </div>
+      )}
+
+      {/* Profil géographique & institutionnel */}
+      {profile && (
+        <div className="mansa-card rounded-xl p-5">
+          <h3 className="text-xs font-semibold uppercase tracking-wider mb-4" style={{ color: "var(--text-muted)" }}>
+            Profil institutionnel
+          </h3>
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
+            <div>
+              <p className="text-[10px] uppercase tracking-wider mb-1" style={{ color: "var(--text-muted)" }}>Capitale</p>
+              <p className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>{profile.capital}</p>
+            </div>
+            <div>
+              <p className="text-[10px] uppercase tracking-wider mb-1" style={{ color: "var(--text-muted)" }}>Superficie</p>
+              <p className="text-sm font-semibold font-mono" style={{ color: "var(--text-primary)" }}>
+                {profile.area_km2.toLocaleString("fr-FR")} km²
+              </p>
+            </div>
+            <div>
+              <p className="text-[10px] uppercase tracking-wider mb-1" style={{ color: "var(--text-muted)" }}>Population</p>
+              <p className="text-sm font-semibold font-mono" style={{ color: "var(--text-primary)" }}>
+                {profile.population_m >= 1 ? `${profile.population_m.toFixed(0)} M` : `${(profile.population_m * 1000).toFixed(0)} K`}
+              </p>
+            </div>
+            <div>
+              <p className="text-[10px] uppercase tracking-wider mb-1" style={{ color: "var(--text-muted)" }}>Monnaie</p>
+              <p className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>
+                {profile.currency} <span className="text-xs font-mono" style={{ color: "var(--text-muted)" }}>({profile.currency_code})</span>
+              </p>
+            </div>
+            <div>
+              <p className="text-[10px] uppercase tracking-wider mb-1" style={{ color: "var(--text-muted)" }}>Indicatif / TLD</p>
+              <p className="text-sm font-semibold font-mono" style={{ color: "var(--text-primary)" }}>
+                {profile.phone_code} · {profile.tld}
+              </p>
+            </div>
+            {profile.independence && (
+              <div>
+                <p className="text-[10px] uppercase tracking-wider mb-1" style={{ color: "var(--text-muted)" }}>Indépendance</p>
+                <p className="text-sm font-semibold font-mono" style={{ color: "var(--text-primary)" }}>{profile.independence}</p>
+              </div>
+            )}
+          </div>
+          <div className="mt-4 pt-4 border-t grid grid-cols-1 sm:grid-cols-2 gap-4" style={{ borderColor: "var(--bg-border)" }}>
+            <div>
+              <p className="text-[10px] uppercase tracking-wider mb-2" style={{ color: "var(--text-muted)" }}>Langues officielles</p>
+              <div className="flex flex-wrap gap-1.5">
+                {profile.languages.map((l) => (
+                  <span key={l} className="text-xs px-2 py-0.5 rounded-full font-medium"
+                        style={{ background: "var(--bg-border)", color: "var(--text-secondary)" }}>
+                    {l}
+                  </span>
+                ))}
+              </div>
+            </div>
+            <div>
+              <p className="text-[10px] uppercase tracking-wider mb-2" style={{ color: "var(--text-muted)" }}>Principales villes</p>
+              <div className="flex flex-wrap gap-1.5">
+                {profile.major_cities.slice(0, 5).map((c, i) => (
+                  <span key={c} className="text-xs px-2 py-0.5 rounded-full"
+                        style={{
+                          background: i === 0 ? "color-mix(in srgb, var(--mansa-green) 15%, transparent)" : "var(--bg-border)",
+                          color: i === 0 ? "var(--mansa-green)" : "var(--text-secondary)",
+                          border: i === 0 ? "1px solid color-mix(in srgb, var(--mansa-green) 25%, transparent)" : "none",
+                        }}>
+                    {i === 0 ? "★ " : ""}{c}
+                  </span>
+                ))}
+              </div>
+            </div>
+          </div>
         </div>
       )}
 
