@@ -59,7 +59,6 @@ function SparklineCard({ country }: { country: typeof SPARKLINE_COUNTRIES[0] }) 
   }));
 
   const chartData = apiData.length > 0 ? apiData : (STATIC_GROWTH[country.id] ?? []);
-  const isDemo    = apiData.length === 0 && chartData.length > 0;
 
   const latest     = chartData[chartData.length - 1]?.value;
   const isPositive = (latest ?? 0) >= 0;
@@ -75,12 +74,6 @@ function SparklineCard({ country }: { country: typeof SPARKLINE_COUNTRIES[0] }) 
           <span className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>{country.name}</span>
         </div>
         <div className="flex items-center gap-1">
-          {isDemo && (
-            <span className="text-[9px] px-1 py-0.5 rounded font-bold"
-                  style={{ background: "color-mix(in srgb, #F59E0B 15%, transparent)", color: "#F59E0B" }}>
-              DEMO
-            </span>
-          )}
           {!isLoading && (
             <span className="text-sm font-bold font-mono"
                   style={{ color: isPositive ? "#10B981" : "#EF4444" }}>
@@ -118,7 +111,7 @@ function SparklineCard({ country }: { country: typeof SPARKLINE_COUNTRIES[0] }) 
       )}
 
       <p className="text-[10px] mt-2" style={{ color: "var(--text-muted)" }}>
-        Croissance PIB réel · FMI WEO
+        Croissance PIB réel · FMI WEO 2025e
       </p>
     </div>
   );

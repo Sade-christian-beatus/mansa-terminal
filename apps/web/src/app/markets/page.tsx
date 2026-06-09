@@ -1,10 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
   TrendingUp, TrendingDown, DollarSign, BarChart2, RefreshCw,
-  Download, Zap, Ship, Globe2, Package, Landmark, ArrowUpDown,
+  Download, Zap, Ship, Package, Landmark, ArrowUpDown, Scale,
 } from "lucide-react";
 import { marketsApi } from "@/lib/api";
 import { ExportModal } from "@/components/common/ExportModal";
@@ -50,14 +50,20 @@ const EIA_PRICES = [
 ];
 
 const COMTRADE_FLOWS = [
-  { country: "Nigeria",      flag: "🇳🇬", exports: 58.2,  imports: 24.1, balance: +34.1, main_exp: "Pétrole brut (92%)" },
-  { country: "Afrique du S.",flag: "🇿🇦", exports: 99.4,  imports: 92.3, balance: +7.1,  main_exp: "Or, platine, charbon" },
-  { country: "Égypte",       flag: "🇪🇬", exports: 31.7,  imports: 68.2, balance: -36.5, main_exp: "Gaz nat., produits pétrole" },
-  { country: "Maroc",        flag: "🇲🇦", exports: 35.2,  imports: 49.1, balance: -13.9, main_exp: "Phosphates, textile" },
-  { country: "Côte d'Ivoire",flag: "🇨🇮", exports: 12.8,  imports: 9.6,  balance: +3.2,  main_exp: "Cacao, noix de cajou" },
-  { country: "Kenya",        flag: "🇰🇪", exports: 8.1,   imports: 14.2, balance: -6.1,  main_exp: "Thé, horticulture, café" },
-  { country: "Éthiopie",     flag: "🇪🇹", exports: 4.2,   imports: 10.3, balance: -6.1,  main_exp: "Café, sésame, peaux" },
-  { country: "Ghana",        flag: "🇬🇭", exports: 14.9,  imports: 13.1, balance: +1.8,  main_exp: "Or, pétrole, cacao" },
+  { country: "Nigeria",       flag: "🇳🇬", exports: 58.2,  imports: 24.1, balance: +34.1, main_exp: "Pétrole brut (92%)",              gdp_share: 9.5 },
+  { country: "Afrique du S.", flag: "🇿🇦", exports: 99.4,  imports: 92.3, balance: +7.1,  main_exp: "Or, platine, charbon",            gdp_share: 28.4 },
+  { country: "Algérie",       flag: "🇩🇿", exports: 58.0,  imports: 39.2, balance: +18.8, main_exp: "Gaz naturel, pétrole (90%)",       gdp_share: 26.4 },
+  { country: "Égypte",        flag: "🇪🇬", exports: 31.7,  imports: 68.2, balance: -36.5, main_exp: "Gaz nat., produits pétrole",       gdp_share: 7.6  },
+  { country: "Maroc",         flag: "🇲🇦", exports: 35.2,  imports: 49.1, balance: -13.9, main_exp: "Phosphates, engrais, textile",    gdp_share: 26.1 },
+  { country: "Angola",        flag: "🇦🇴", exports: 32.0,  imports: 11.3, balance: +20.7, main_exp: "Pétrole brut (95%), LNG",          gdp_share: 29.6 },
+  { country: "Ghana",         flag: "🇬🇭", exports: 14.9,  imports: 13.1, balance: +1.8,  main_exp: "Or, pétrole, cacao",              gdp_share: 21.4 },
+  { country: "Côte d'Ivoire", flag: "🇨🇮", exports: 12.8,  imports: 9.6,  balance: +3.2,  main_exp: "Cacao, cajou, hévéa",             gdp_share: 17.9 },
+  { country: "Kenya",         flag: "🇰🇪", exports: 8.1,   imports: 14.2, balance: -6.1,  main_exp: "Thé, horticulture, café",         gdp_share: 7.4  },
+  { country: "Éthiopie",      flag: "🇪🇹", exports: 4.2,   imports: 10.3, balance: -6.1,  main_exp: "Café (60%), sésame, peaux",       gdp_share: 2.7  },
+  { country: "Tanzanie",      flag: "🇹🇿", exports: 5.1,   imports: 9.3,  balance: -4.2,  main_exp: "Or, café, thé, coton",            gdp_share: 6.7  },
+  { country: "Sénégal",       flag: "🇸🇳", exports: 4.8,   imports: 11.2, balance: -6.4,  main_exp: "Pétrole (déb.2024), or, phosph.", gdp_share: 15.4 },
+  { country: "Zambie",        flag: "🇿🇲", exports: 9.5,   imports: 5.1,  balance: +4.4,  main_exp: "Cuivre (80%), cobalte",           gdp_share: 34.0 },
+  { country: "RD Congo",      flag: "🇨🇩", exports: 18.3,  imports: 9.2,  balance: +9.1,  main_exp: "Cobalte (70% mondial), cuivre",   gdp_share: 28.2 },
 ];
 
 /* ── Données Eurobonds (prototype macro-data.js) ─────────────── */
@@ -88,16 +94,223 @@ function ratingColor(r: string) {
 }
 function spreadColor(bps: number) { return bps >= 900 ? "#EF4444" : bps >= 500 ? "#F59E0B" : "#10B981"; }
 
-const WB_COMMODITIES = [
-  { name: "Cacao",      unit: "$/t",   price: 9_420, change: +22.3, flag: "🍫" },
-  { name: "Café Arabica",unit: "$/lb", price: 1.98,  change: +8.1,  flag: "☕" },
-  { name: "Coton",      unit: "¢/lb",  price: 82.4,  change: -3.2,  flag: "🪡" },
-  { name: "Phosphates", unit: "$/t",   price: 388,   change: -5.7,  flag: "⚗️" },
-  { name: "Cuivre",     unit: "$/t",   price: 9_820, change: +4.8,  flag: "🔶" },
-  { name: "Or",         unit: "$/oz",  price: 2_340, change: +12.1, flag: "🥇" },
-  { name: "Brent",      unit: "$/bbl", price: 79.2,  change: -6.3,  flag: "🛢️" },
-  { name: "Gaz nat.",   unit: "$/mbtu",price: 2.41,  change: +3.4,  flag: "🔥" },
+// ── Taux de change africains (USD base) ──────────────────────────────────────
+const AFRICAN_CURRENCIES: { code: string; symbol: string; label: string; rate: number }[] = [
+  { code: "USD", symbol: "$",  label: "Dollar US (USD)",           rate: 1      },
+  { code: "XOF", symbol: "₣", label: "Franc CFA UEMOA (XOF)",     rate: 655.96 },
+  { code: "XAF", symbol: "₣", label: "Franc CFA CEMAC (XAF)",     rate: 655.96 },
+  { code: "NGN", symbol: "₦", label: "Naira nigérian (NGN)",       rate: 1620   },
+  { code: "ZAR", symbol: "R", label: "Rand sud-africain (ZAR)",    rate: 18.62  },
+  { code: "KES", symbol: "Ksh",label: "Shilling kényan (KES)",     rate: 129.5  },
+  { code: "EGP", symbol: "£E", label: "Livre égyptienne (EGP)",    rate: 48.5   },
+  { code: "MAD", symbol: "د.م.", label: "Dirham marocain (MAD)",   rate: 9.92   },
+  { code: "GHS", symbol: "₵", label: "Cedi ghanéen (GHS)",         rate: 15.8   },
+  { code: "ETB", symbol: "Br", label: "Birr éthiopien (ETB)",       rate: 57.5   },
 ];
+
+// ── Matières premières avec poids/volumes alternatifs ────────────────────────
+interface Commodity {
+  name: string;
+  flag: string;
+  priceUSD: number;   // prix en unité de base
+  unitBase: string;   // unité de base (ex: "$/t")
+  change: number;     // % sur 30j
+  altUnits?: { label: string; factor: number }[]; // conversions d'unité
+  origins: string[];  // principaux pays producteurs africains
+}
+
+const WB_COMMODITIES: Commodity[] = [
+  {
+    name: "Cacao",       flag: "🍫", priceUSD: 9_420, unitBase: "$/t",    change: +22.3,
+    altUnits: [{ label: "$/kg", factor: 0.001 }, { label: "$/sac 50kg", factor: 0.05 }],
+    origins: ["Côte d'Ivoire 🇨🇮", "Ghana 🇬🇭", "Cameroun 🇨🇲"],
+  },
+  {
+    name: "Café Arabica",flag: "☕", priceUSD: 1.98,  unitBase: "$/lb",   change: +8.1,
+    altUnits: [{ label: "$/kg", factor: 2.20462 }, { label: "$/sac 60kg", factor: 132.28 }],
+    origins: ["Éthiopie 🇪🇹", "Kenya 🇰🇪", "Ouganda 🇺🇬"],
+  },
+  {
+    name: "Coton",       flag: "🪡", priceUSD: 0.824, unitBase: "$/lb",   change: -3.2,
+    altUnits: [{ label: "$/kg", factor: 2.20462 }, { label: "$/balle 218kg", factor: 480.6 }],
+    origins: ["Mali 🇲🇱", "Bénin 🇧🇯", "Burkina 🇧🇫", "Côte d'Ivoire 🇨🇮"],
+  },
+  {
+    name: "Phosphates",  flag: "⚗️", priceUSD: 388,   unitBase: "$/t",    change: -5.7,
+    altUnits: [{ label: "$/kg", factor: 0.001 }],
+    origins: ["Maroc 🇲🇦 (#1 mondial)", "Tunisie 🇹🇳", "Sénégal 🇸🇳"],
+  },
+  {
+    name: "Cuivre",      flag: "🔶", priceUSD: 9_820, unitBase: "$/t",    change: +4.8,
+    altUnits: [{ label: "$/kg", factor: 0.001 }, { label: "$/livre", factor: 0.000453592 }],
+    origins: ["Zambie 🇿🇲", "RDC 🇨🇩", "Afrique du Sud 🇿🇦"],
+  },
+  {
+    name: "Or",          flag: "🥇", priceUSD: 2_340, unitBase: "$/oz",   change: +12.1,
+    altUnits: [{ label: "$/g", factor: 0.032151 }, { label: "$/kg", factor: 0.032151 * 1000 }],
+    origins: ["Afrique du Sud 🇿🇦", "Ghana 🇬🇭", "Mali 🇲🇱", "Tanzanie 🇹🇿"],
+  },
+  {
+    name: "Brent",       flag: "🛢️", priceUSD: 79.2,  unitBase: "$/bbl",  change: -6.3,
+    altUnits: [{ label: "$/litre", factor: 1/158.987 }],
+    origins: ["Nigeria 🇳🇬", "Angola 🇦🇴", "Algérie 🇩🇿", "Libye 🇱🇾"],
+  },
+  {
+    name: "Gaz naturel", flag: "🔥", priceUSD: 2.41,  unitBase: "$/MMBtu",change: +3.4,
+    altUnits: [{ label: "$/GJ", factor: 0.94782 }],
+    origins: ["Algérie 🇩🇿", "Mozambique 🇲🇿", "Sénégal/Mauritanie 🇸🇳"],
+  },
+  {
+    name: "Manganèse",   flag: "🪨", priceUSD: 3_250, unitBase: "$/t",    change: -8.4,
+    altUnits: [{ label: "$/kg", factor: 0.001 }],
+    origins: ["Gabon 🇬🇦 (#4 mondial)", "Afrique du Sud 🇿🇦", "Ghana 🇬🇭"],
+  },
+  {
+    name: "Cobalte",     flag: "🔋", priceUSD: 27_500,unitBase: "$/t",    change: -15.2,
+    altUnits: [{ label: "$/kg", factor: 0.001 }, { label: "$/lb", factor: 0.000453592 }],
+    origins: ["RDC 🇨🇩 (70% mondial)", "Zambie 🇿🇲", "Maroc 🇲🇦"],
+  },
+  {
+    name: "Thé",         flag: "🍵", priceUSD: 2.95,  unitBase: "$/kg",   change: +5.2,
+    altUnits: [{ label: "$/sac 25kg", factor: 25 }],
+    origins: ["Kenya 🇰🇪 (#1 Afrique)", "Éthiopie 🇪🇹", "Rwanda 🇷🇼"],
+  },
+  {
+    name: "Arachides",   flag: "🥜", priceUSD: 1_150, unitBase: "$/t",    change: +2.1,
+    altUnits: [{ label: "$/kg", factor: 0.001 }],
+    origins: ["Nigeria 🇳🇬", "Sénégal 🇸🇳", "Soudan 🇸🇩"],
+  },
+];
+
+/* ── Composant Matières premières ─────────────────────── */
+function CommoditiesTab() {
+  const [selectedCurrency, setSelectedCurrency] = useState("USD");
+  const [selectedUnit, setSelectedUnit] = useState<Record<string, number>>({});
+
+  const currency = AFRICAN_CURRENCIES.find((c) => c.code === selectedCurrency) ?? AFRICAN_CURRENCIES[0];
+
+  const convertPrice = (priceUSD: number, altUnitFactor: number | undefined) => {
+    const basePrice = altUnitFactor !== undefined ? priceUSD * altUnitFactor : priceUSD;
+    return basePrice * currency.rate;
+  };
+
+  const formatPrice = (price: number): string => {
+    if (price >= 1_000_000) return (price / 1_000_000).toFixed(2) + " M";
+    if (price >= 1_000)     return price.toLocaleString("fr-FR", { maximumFractionDigits: 1 });
+    if (price >= 10)        return price.toFixed(2);
+    return price.toFixed(4);
+  };
+
+  const topChanges = useMemo(() =>
+    [...WB_COMMODITIES].sort((a, b) => Math.abs(b.change) - Math.abs(a.change)).slice(0, 4),
+  []);
+
+  return (
+    <div className="space-y-5">
+      {/* KPIs */}
+      <div className="grid grid-cols-4 gap-4">
+        {topChanges.map((c) => (
+          <div key={c.name} className="mansa-card rounded-xl p-4">
+            <div className="flex items-center gap-2 mb-2">
+              <span className="text-2xl">{c.flag}</span>
+              <p className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>{c.name}</p>
+            </div>
+            <p className="text-xs mb-0.5" style={{ color: "var(--text-muted)" }}>Variation 30j</p>
+            <div className={`text-lg font-bold font-mono ${c.change >= 0 ? "text-emerald-400" : "text-red-400"}`}>
+              {c.change >= 0 ? "+" : ""}{c.change.toFixed(1)}%
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Contrôles de conversion */}
+      <div className="mansa-card rounded-xl p-4 flex items-center gap-4 flex-wrap">
+        <Scale size={16} style={{ color: "var(--mansa-green)" }} />
+        <span className="text-sm font-medium" style={{ color: "var(--text-secondary)" }}>Afficher les prix en :</span>
+        <select
+          value={selectedCurrency}
+          onChange={(e) => setSelectedCurrency(e.target.value)}
+          className="text-sm rounded-lg px-3 py-1.5 border focus:outline-none"
+          style={{ background: "var(--input-bg)", borderColor: "var(--input-border)", color: "var(--text-secondary)" }}
+        >
+          {AFRICAN_CURRENCIES.map((c) => (
+            <option key={c.code} value={c.code}>{c.label}</option>
+          ))}
+        </select>
+        {selectedCurrency !== "USD" && (
+          <span className="text-xs px-2 py-1 rounded-lg" style={{ background: "color-mix(in srgb, var(--mansa-green) 10%, transparent)", color: "var(--mansa-green)" }}>
+            1 USD = {currency.rate.toLocaleString("fr-FR")} {currency.code} {currency.symbol}
+          </span>
+        )}
+      </div>
+
+      {/* Grille des matières premières */}
+      <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+        {WB_COMMODITIES.map((c) => {
+          const altFactor = c.altUnits ? (c.altUnits[selectedUnit[c.name] ?? 0]?.factor) : undefined;
+          const altUnitLabel = c.altUnits ? (c.altUnits[selectedUnit[c.name] ?? 0]?.label ?? c.unitBase) : c.unitBase;
+          const converted = convertPrice(c.priceUSD, altFactor);
+          // Compute unit label in target currency
+          const unitDisplay = selectedCurrency === "USD" ? altUnitLabel : altUnitLabel.replace("$", currency.symbol);
+
+          return (
+            <div key={c.name} className="mansa-card rounded-xl p-4 mansa-card-hover">
+              <div className="flex items-center justify-between mb-3">
+                <span className="text-2xl">{c.flag}</span>
+                <span className={`text-xs font-mono font-semibold ${c.change >= 0 ? "text-emerald-400" : "text-red-400"}`}>
+                  {c.change >= 0 ? "+" : ""}{c.change.toFixed(1)}%
+                </span>
+              </div>
+              <p className="text-sm font-semibold mb-1" style={{ color: "var(--text-primary)" }}>{c.name}</p>
+              <p className="text-xl font-bold font-mono mb-0.5" style={{ color: "var(--mansa-green)" }}>
+                {currency.symbol} {formatPrice(converted)}
+              </p>
+              <p className="text-[10px] mb-2" style={{ color: "var(--text-muted)" }}>{unitDisplay}</p>
+
+              {/* Sélecteur d'unité */}
+              {c.altUnits && c.altUnits.length > 0 && (
+                <div className="flex gap-1 flex-wrap">
+                  <button
+                    className="text-[9px] px-1.5 py-0.5 rounded border transition-colors"
+                    style={!selectedUnit[c.name]
+                      ? { background: "color-mix(in srgb, var(--mansa-green) 15%, transparent)", borderColor: "var(--mansa-green)", color: "var(--mansa-green)" }
+                      : { background: "var(--bg-border)", borderColor: "var(--bg-border)", color: "var(--text-muted)" }}
+                    onClick={() => setSelectedUnit((prev) => ({ ...prev, [c.name]: 0 }))}
+                  >
+                    {c.unitBase.replace("$", "")}
+                  </button>
+                  {c.altUnits.map((u, i) => (
+                    <button
+                      key={u.label}
+                      className="text-[9px] px-1.5 py-0.5 rounded border transition-colors"
+                      style={selectedUnit[c.name] === i + 1
+                        ? { background: "color-mix(in srgb, var(--mansa-green) 15%, transparent)", borderColor: "var(--mansa-green)", color: "var(--mansa-green)" }
+                        : { background: "var(--bg-border)", borderColor: "var(--bg-border)", color: "var(--text-muted)" }}
+                      onClick={() => setSelectedUnit((prev) => ({ ...prev, [c.name]: i + 1 }))}
+                    >
+                      {u.label.replace("$", "")}
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {/* Principaux producteurs africains */}
+              <div className="mt-2 pt-2 border-t" style={{ borderColor: "var(--bg-border)" }}>
+                <p className="text-[9px] mb-0.5 uppercase tracking-wider" style={{ color: "var(--text-muted)" }}>Afrique</p>
+                <p className="text-[10px]" style={{ color: "var(--text-muted)" }}>{c.origins.slice(0,2).join(" · ")}</p>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      <p className="text-xs" style={{ color: "var(--text-muted)" }}>
+        Sources : World Bank Commodity Markets · Banque Mondiale · EIA · USDA ·
+        Taux de change : BCEAO / banques centrales africaines · Mise à jour mensuelle
+      </p>
+    </div>
+  );
+}
 
 /* ── Sous-composants ───────────────────────────────────── */
 function ChangeTag({ value, suffix = "%" }: { value: number; suffix?: string }) {
@@ -110,13 +323,25 @@ function ChangeTag({ value, suffix = "%" }: { value: number; suffix?: string }) 
   );
 }
 
+// Symboles des monnaies africaines
+const CURRENCY_SYMBOLS: Record<string, string> = {
+  XOF: "₣ CFA", XAF: "₣ CFA", NGN: "₦", ZAR: "R", KES: "Ksh",
+  EGP: "£E", MAD: "MAD", ETB: "Br", TZS: "TSh", GHS: "₵",
+  UGX: "USh", DZD: "DA", TND: "DT", MAU: "UM", SDG: "£SD",
+  RWF: "Fr", BIF: "Fr", DJF: "Fdj", SOS: "Sh", SCR: "Rs",
+};
+
 function FxCard({ rate }: { rate: FxRate }) {
   const highSpread = rate.spread_pct > 5;
+  const symbol = CURRENCY_SYMBOLS[rate.currency_code] ?? rate.currency_code;
   return (
     <div className="mansa-card rounded-xl p-4 mansa-card-hover">
       <div className="flex items-start justify-between mb-3">
         <div>
-          <p className="text-base font-bold font-mono" style={{ color: "var(--text-primary)" }}>{rate.currency_code}</p>
+          <div className="flex items-baseline gap-2">
+            <p className="text-base font-bold font-mono" style={{ color: "var(--text-primary)" }}>{rate.currency_code}</p>
+            <span className="text-lg font-bold" style={{ color: "var(--mansa-green)" }}>{symbol}</span>
+          </div>
           <p className="text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>{rate.currency_name}</p>
         </div>
         {rate.peg && (
@@ -126,7 +351,7 @@ function FxCard({ rate }: { rate: FxRate }) {
         )}
       </div>
       <div className="mb-3">
-        <p className="text-xs mb-0.5" style={{ color: "var(--text-muted)" }}>Taux officiel (USD)</p>
+        <p className="text-xs mb-0.5" style={{ color: "var(--text-muted)" }}>Taux officiel (1 USD = {symbol})</p>
         <p className="text-xl font-bold font-mono" style={{ color: "var(--text-primary)" }}>
           {rate.rate_official.toLocaleString("fr-FR", { maximumFractionDigits: 2 })}
         </p>
@@ -493,53 +718,35 @@ export default function MarketsPage() {
           </div>
 
           <div className="mansa-card rounded-xl overflow-hidden">
-            <div className="grid grid-cols-[2fr_1fr_1fr_1fr_3fr] gap-4 px-4 py-2 border-b text-[10px] font-semibold uppercase tracking-wider"
-                 style={{ background: "var(--sidebar-bg)", borderColor: "var(--bg-border)", color: "var(--text-muted)" }}>
-              <span>Pays</span><span>Exports (Bn$)</span><span>Imports (Bn$)</span><span>Balance</span><span>Principaux exports</span>
+            <div className="grid gap-3 px-4 py-2 border-b text-[10px] font-semibold uppercase tracking-wider"
+                 style={{ gridTemplateColumns: "2fr 80px 80px 80px 60px 3fr", background: "var(--sidebar-bg)", borderColor: "var(--bg-border)", color: "var(--text-muted)" }}>
+              <span>Pays</span><span>Exports</span><span>Imports</span><span>Balance</span><span>% PIB</span><span>Principaux exports</span>
             </div>
             {COMTRADE_FLOWS.map((c) => (
               <div key={c.country}
-                   className="grid grid-cols-[2fr_1fr_1fr_1fr_3fr] gap-4 px-4 py-3 items-center border-b text-sm"
-                   style={{ borderColor: "var(--bg-border)" }}>
+                   className="grid gap-3 px-4 py-2.5 items-center border-b text-sm"
+                   style={{ gridTemplateColumns: "2fr 80px 80px 80px 60px 3fr", borderColor: "var(--bg-border)" }}>
                 <div className="flex items-center gap-2">
                   <span className="text-base">{c.flag}</span>
-                  <span className="font-medium" style={{ color: "var(--text-primary)" }}>{c.country}</span>
+                  <span className="font-medium text-sm" style={{ color: "var(--text-primary)" }}>{c.country}</span>
                 </div>
-                <span className="font-mono text-emerald-400">{c.exports.toFixed(1)}</span>
-                <span className="font-mono text-red-400">{c.imports.toFixed(1)}</span>
-                <span className={`font-mono font-semibold ${c.balance >= 0 ? "text-emerald-400" : "text-red-400"}`}>
+                <span className="font-mono text-sm text-emerald-400">+{c.exports.toFixed(1)}</span>
+                <span className="font-mono text-sm text-red-400">{c.imports.toFixed(1)}</span>
+                <span className={`font-mono text-sm font-semibold ${c.balance >= 0 ? "text-emerald-400" : "text-red-400"}`}>
                   {c.balance >= 0 ? "+" : ""}{c.balance.toFixed(1)}
                 </span>
-                <span className="text-xs" style={{ color: "var(--text-muted)" }}>{c.main_exp}</span>
+                <span className="text-xs font-mono" style={{ color: "var(--text-muted)" }}>{c.gdp_share}%</span>
+                <span className="text-xs truncate" style={{ color: "var(--text-muted)" }}>{c.main_exp}</span>
               </div>
             ))}
           </div>
-          <p className="text-xs" style={{ color: "var(--text-muted)" }}>Source : UN Comtrade v1 · comtradeapi.un.org · Données 2023–2024</p>
+          <p className="text-xs" style={{ color: "var(--text-muted)" }}>Source : UN Comtrade v1 · comtradeapi.un.org · Données 2024 · Milliards USD</p>
         </div>
       )}
 
       {/* ── Tab Matières premières ── */}
       {activeTab === "commodities" && (
-        <div className="space-y-5">
-          <div className="grid grid-cols-4 gap-4">
-            {WB_COMMODITIES.map((c) => (
-              <div key={c.name} className="mansa-card rounded-xl p-4 mansa-card-hover">
-                <div className="flex items-center justify-between mb-3">
-                  <span className="text-2xl">{c.flag}</span>
-                  <ChangeTag value={c.change} />
-                </div>
-                <p className="text-sm font-semibold mb-1" style={{ color: "var(--text-primary)" }}>{c.name}</p>
-                <p className="text-xl font-bold font-mono" style={{ color: "var(--mansa-green)" }}>
-                  {typeof c.price === "number" && c.price > 100
-                    ? c.price.toLocaleString("fr-FR")
-                    : c.price}
-                </p>
-                <p className="text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>{c.unit}</p>
-              </div>
-            ))}
-          </div>
-          <p className="text-xs" style={{ color: "var(--text-muted)" }}>Source : World Bank Commodity Markets · Banque Mondiale · Mise à jour mensuelle</p>
-        </div>
+        <CommoditiesTab />
       )}
 
       {/* Footer */}

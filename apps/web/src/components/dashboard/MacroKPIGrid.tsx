@@ -61,8 +61,6 @@ function CountryKPICard({ country }: { country: typeof KEY_COUNTRIES[0] }) {
   const fiscal    = apiFiscal    ?? staticFallback?.fiscal    ?? null;
   const gdp       = staticFallback?.gdp ?? null;
 
-  const isDemo = apiGrowth === undefined && staticFallback !== undefined;
-
   return (
     <div
       onClick={() => router.push(`/countries/${country.id}`)}
@@ -152,7 +150,7 @@ export function MacroKPIGrid() {
     <div className="space-y-2">
       <div className="flex items-center justify-between mb-1">
         <h3 className="text-xs font-semibold uppercase tracking-wider" style={{ color: "var(--text-muted)" }}>
-          Économies clés · Indicateurs 2024e
+          Économies clés · Indicateurs 2025e
         </h3>
         <span className="text-[10px]" style={{ color: "var(--text-muted)" }}>
           Source : FMI WEO · Banque Mondiale
