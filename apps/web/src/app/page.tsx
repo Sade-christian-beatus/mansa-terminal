@@ -14,7 +14,6 @@ import { TopCountriesTable }   from "@/components/dashboard/CountrySparklines";
 import { MacroKPIGrid }        from "@/components/dashboard/MacroKPIGrid";
 import { MarketTicker }        from "@/components/dashboard/MarketTicker";
 import { HeroKPIs }            from "@/components/dashboard/HeroKPIs";
-import { SmartChart }          from "@/components/dashboard/SmartChart";
 import { NewsPanel }           from "@/components/dashboard/NewsPanel";
 import { CommandPalette }      from "@/components/dashboard/CommandPalette";
 import { ExportModal }         from "@/components/common/ExportModal";
@@ -135,15 +134,15 @@ export default function DashboardPage() {
           className="rounded-2xl px-6 py-5 border relative overflow-hidden"
           style={{ background: "var(--card-bg)", borderColor: "var(--card-border)" }}
         >
-          {/* Logo MANSA en fond — watermark discret */}
-          <div className="absolute inset-0 flex items-center justify-end pointer-events-none select-none pr-8 opacity-[0.045]">
+          {/* Logo MANSA en fond — watermark visible */}
+          <div className="absolute inset-0 flex items-center justify-end pointer-events-none select-none pr-10 opacity-[0.18]">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/logo.png" alt="" className="h-36 w-auto object-contain"
-                 style={{ filter: "grayscale(1) brightness(10)" }} />
+            <img src="/logo.png" alt="" className="h-44 w-auto object-contain"
+                 style={{ filter: "sepia(1) saturate(2) hue-rotate(5deg) brightness(1.4)" }} />
           </div>
           {/* Gradient subtil à gauche pour lisibilité du texte */}
           <div className="absolute inset-0 pointer-events-none"
-               style={{ background: "linear-gradient(to right, var(--card-bg) 60%, transparent)" }} />
+               style={{ background: "linear-gradient(to right, var(--card-bg) 55%, transparent 85%)" }} />
 
           <div className="relative flex items-start justify-between gap-4 flex-wrap">
             <div>
@@ -305,9 +304,9 @@ export default function DashboardPage() {
         {/* ── Hero KPIs ── */}
         <HeroKPIs />
 
-        {/* ── Main 3-column grid ── */}
+        {/* ── Main 2-column grid ── */}
         <div className="grid grid-cols-12 gap-4">
-          <div className="col-span-5">
+          <div className="col-span-8">
             <AfricaHeatmap
               data={effectiveHeatmapData}
               indicator={indicator}
@@ -316,9 +315,6 @@ export default function DashboardPage() {
             />
           </div>
           <div className="col-span-4">
-            <SmartChart />
-          </div>
-          <div className="col-span-3">
             <NewsPanel />
           </div>
         </div>
