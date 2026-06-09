@@ -121,7 +121,7 @@ const COMPARE_INDICATORS = [
 type RankingKey = "gdp_usd" | "gdp_pc" | "growth" | "inflation" | "debt" | "exports" | "fdi";
 
 const RANKING_TABS: { key: RankingKey; label: string; unit: string; desc: string; dir: "asc" | "desc" }[] = [
-  { key: "gdp_usd",   label: "PIB nominal",      unit: "Mds USD",  desc: "Classement des économies africaines par taille du PIB nominal (USD courants, 2024e)",       dir: "desc" },
+  { key: "gdp_usd",   label: "PIB nominal",      unit: "Mds USD",  desc: "Classement des économies africaines par taille du PIB nominal (USD courants, 2025e)",       dir: "desc" },
   { key: "gdp_pc",    label: "PIB / habitant",    unit: "USD/hab",  desc: "PIB nominal divisé par la population — indicateur du niveau de vie moyen",                  dir: "desc" },
   { key: "growth",    label: "Croissance",        unit: "%",        desc: "Croissance du PIB réel 2024 — économies les plus dynamiques en tête",                       dir: "desc" },
   { key: "inflation", label: "Inflation",         unit: "%",        desc: "Taux d'inflation IPC 2024 — classement du plus stable au plus élevé",                       dir: "asc"  },
@@ -194,7 +194,7 @@ function ComparePanel({ picked, countries, onRemove }: {
         })}
       </div>
       <p className="text-xs mt-4" style={{ color: "var(--text-muted)" }}>
-        {indMeta.label} · Données 2024e · FMI WEO
+        {indMeta.label} · Données 2025e · FMI WEO
       </p>
     </div>
   );
@@ -243,7 +243,7 @@ function RankingsPanel() {
       <div className="rounded-xl px-4 py-2.5 text-xs border flex items-center gap-2"
            style={{ background: "var(--card-bg)", borderColor: "var(--bg-border)", color: "var(--text-muted)" }}>
         <Trophy size={12} style={{ color: "var(--mansa-green)" }} />
-        {tab.desc} · {tab.dir === "desc" ? "Du plus élevé au plus bas" : "Du plus bas au plus élevé"} · Données 2024e · FMI WEO
+        {tab.desc} · {tab.dir === "desc" ? "Du plus élevé au plus bas" : "Du plus bas au plus élevé"} · Données 2025e · FMI WEO
       </div>
 
       {/* Top 3 podium */}
@@ -395,6 +395,18 @@ function CountryCard({ country, compareMode, isPicked, onToggle }: {
   );
 }
 
+// ── Pays statiques fallback (54 pays africains depuis MACRO_DATA) ─────────────
+const STATIC_COUNTRIES: Country[] = Object.entries(MACRO_DATA).map(([id, d]) => ({
+  id,
+  iso2: id.slice(0, 2),
+  name_en: d.name,
+  name_fr: d.name,
+  region: d.region,
+  currency_code: null,
+  coverage_tier: 2,
+  flag_emoji: d.flag,
+}));
+
 // ── Page principale ──────────────────────────────────────────────────────────
 export default function CountriesPage() {
   const [view,           setView]           = useState<"grid" | "rankings">("grid");
@@ -403,11 +415,17 @@ export default function CountriesPage() {
   const [compareMode,    setCompareMode]    = useState(false);
   const [picked,         setPicked]         = useState<string[]>(["NGA","ZAF","EGY","KEN"]);
 
-  const { data: countries = [], isLoading } = useQuery<Country[]>({
+  const { data: apiCountries = [], isLoading } = useQuery<Country[]>({
     queryKey: ["countries"],
     queryFn:  () => macroApi.getCountries(),
     staleTime: 1000 * 60 * 60,
+    retry: 1,
   });
+
+  // Fallback vers les données statiques si l'API ne répond pas
+  const countries = useMemo(() =>
+    apiCountries.length > 0 ? apiCountries : STATIC_COUNTRIES,
+  [apiCountries]);
 
   const filtered = useMemo(() =>
     countries.filter((c) => {
@@ -431,7 +449,7 @@ export default function CountriesPage() {
   }, [filtered, selectedRegion]);
 
   const togglePick = (id: string) => {
-    setPicked((prev) => prev.includes(id) ? prev.filter((x) => x !== id) : prev.length < 8 ? [...prev, id] : prev);
+    setPicked((prev) => prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]);
   };
 
   return (
@@ -444,7 +462,7 @@ export default function CountriesPage() {
             Analyse pays · Afrique
           </h1>
           <p className="text-sm mt-1" style={{ color: "var(--text-muted)" }}>
-            {Object.keys(MACRO_DATA).length} économies · FMI WEO · Banque Mondiale · Données 2024e
+            {Object.keys(MACRO_DATA).length} économies · FMI WEO · Banque Mondiale · Données 2025e
           </p>
         </div>
 
@@ -508,11 +526,9 @@ export default function CountriesPage() {
           {compareMode && (
             <div className="space-y-3">
               <ComparePanel picked={picked} countries={countries} onRemove={(id) => togglePick(id)} />
-              {picked.length < 8 && (
-                <p className="text-xs" style={{ color: "var(--text-muted)" }}>
-                  Cliquez sur un pays ci-dessous pour l&apos;ajouter (max 8). Actuellement : {picked.length}/8
-                </p>
-              )}
+              <p className="text-xs" style={{ color: "var(--text-muted)" }}>
+                Cliquez sur un pays ci-dessous pour l&apos;ajouter · {picked.length} pays sélectionnés
+              </p>
             </div>
           )}
 
