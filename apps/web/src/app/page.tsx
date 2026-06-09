@@ -135,30 +135,41 @@ export default function DashboardPage() {
           className="rounded-2xl px-6 py-5 border relative overflow-hidden"
           style={{ background: "var(--card-bg)", borderColor: "var(--card-border)" }}
         >
-          {/* Gradient orb décoratif */}
-          <div className="absolute -top-10 -right-10 w-48 h-48 rounded-full opacity-5"
-               style={{ background: "radial-gradient(circle, var(--mansa-green), transparent)" }} />
-          <div className="absolute -bottom-8 -left-8 w-32 h-32 rounded-full opacity-5"
-               style={{ background: "radial-gradient(circle, var(--mansa-blue), transparent)" }} />
+          {/* Logo MANSA en fond — watermark discret */}
+          <div className="absolute inset-0 flex items-center justify-end pointer-events-none select-none pr-8 opacity-[0.045]">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/logo.png" alt="" className="h-36 w-auto object-contain"
+                 style={{ filter: "grayscale(1) brightness(10)" }} />
+          </div>
+          {/* Gradient subtil à gauche pour lisibilité du texte */}
+          <div className="absolute inset-0 pointer-events-none"
+               style={{ background: "linear-gradient(to right, var(--card-bg) 60%, transparent)" }} />
 
           <div className="relative flex items-start justify-between gap-4 flex-wrap">
             <div>
-              <div className="flex items-center gap-2 mb-1">
+              {/* Badge LIVE */}
+              <div className="flex items-center gap-2 mb-2">
                 <div className="w-2 h-2 rounded-full animate-pulse" style={{ background: "var(--mansa-green)" }} />
                 <span className="text-[10px] font-semibold uppercase tracking-widest"
                       style={{ color: "var(--mansa-green)" }}>
                   Live · {now}
                 </span>
               </div>
-              <h1 className="text-2xl font-bold tracking-tight" style={{ color: "var(--text-primary)" }}>
-                Intelligence Macro-Fiscale
+
+              {/* Nouveau titre — accroche produit */}
+              <h1 className="text-2xl font-bold tracking-tight leading-snug max-w-xl"
+                  style={{ color: "var(--text-primary)" }}>
+                La plateforme qui transforme les{" "}
+                <span style={{ background: "linear-gradient(135deg, var(--mansa-green), var(--mansa-blue))", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>
+                  données africaines
+                </span>{" "}
+                en décisions stratégiques.
               </h1>
-              <h1 className="text-2xl font-bold tracking-tight"
-                  style={{ background: "linear-gradient(135deg, var(--mansa-green), var(--mansa-blue))", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>
-                Afrique · Propulsée par l&apos;IA
-              </h1>
-              <p className="text-sm mt-1.5" style={{ color: "var(--text-muted)" }}>
-                54 économies · FMI WEO · Banque Mondiale · OMS · EM-DAT · NASA VIIRS · EIA
+
+              {/* Slogan */}
+              <p className="text-sm mt-2 font-medium italic"
+                 style={{ color: "var(--mansa-green)", opacity: 0.85 }}>
+                &ldquo;Comprendre l&apos;Afrique. Décider avec confiance.&rdquo;
               </p>
             </div>
 
@@ -183,6 +194,7 @@ export default function DashboardPage() {
 
           {/* Contrôles */}
           <div className="relative mt-4 flex items-center gap-2 flex-wrap">
+            {/* Barre de recherche */}
             <button
               onClick={openCommandPalette}
               className="flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-mono rounded-lg border transition-colors hover:border-[var(--mansa-green)]"
@@ -193,6 +205,24 @@ export default function DashboardPage() {
               <kbd className="text-[10px] border rounded px-1 ml-1"
                    style={{ borderColor: "var(--bg-border)", color: "var(--text-muted)" }}>⌃K</kbd>
             </button>
+
+            {/* Filtre source */}
+            <select
+              className="text-[11px] font-mono rounded-lg px-2.5 py-1.5 focus:outline-none cursor-pointer border transition-colors"
+              style={{ background: "var(--input-bg)", borderColor: "var(--input-border)", color: "var(--text-secondary)" }}
+              defaultValue=""
+            >
+              <option value="" disabled>Source</option>
+              <option value="IMF">FMI WEO</option>
+              <option value="WB">Banque Mondiale</option>
+              <option value="WHO">OMS</option>
+              <option value="EMDAT">EM-DAT</option>
+              <option value="EIA">EIA</option>
+              <option value="NASA">NASA VIIRS</option>
+              <option value="Comtrade">UN Comtrade</option>
+              <option value="BCEAO">BCEAO</option>
+              <option value="AU">Union Africaine</option>
+            </select>
 
             <select
               value={indicator}
