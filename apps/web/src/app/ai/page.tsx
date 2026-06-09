@@ -23,7 +23,7 @@ interface Message {
   errorCode?: number;
 }
 
-/* ── Suggested queries enrichies avec nouvelles sources ── */
+
 const SUGGESTED_QUERIES = [
   { q: "Compare la dynamique de la dette publique au Nigeria et au Ghana sur 5 ans", tags: ["IMF", "WB"] },
   { q: "Analyse les risques macro pour investir en Côte d'Ivoire en 2024", tags: ["IMF", "WB", "Comtrade"] },
@@ -158,7 +158,7 @@ export default function MansaAIPage() {
       content: m.content,
       timestamp: new Date().toISOString(),
     }));
-    exportData(rows, "json", "mansa-conversation");
+    exportData(rows, "json", "mansa-ai-conversation");
   };
 
   return (
