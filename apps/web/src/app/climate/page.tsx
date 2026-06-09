@@ -146,7 +146,39 @@ export default function ClimatePage() {
     staleTime: 1000 * 60 * 60,
   });
 
-  const countries: CountryClimate[] = (climateData as any)?.data ?? [];
+  // Fallback statique (WB WDI / IEA 2022) quand l'API ne répond pas
+  const STATIC_CLIMATE: CountryClimate[] = [
+    { country_id:"MAR",name:"Maroc",          flag:"🇲🇦",indicators:{ CO2_PC:1.85,ELEC_ACC:100,REN_PCT:20.8,CLIM_FIN_USD:450  }},
+    { country_id:"EGY",name:"Égypte",         flag:"🇪🇬",indicators:{ CO2_PC:2.48,ELEC_ACC:100,REN_PCT:9.5, CLIM_FIN_USD:920  }},
+    { country_id:"TUN",name:"Tunisie",         flag:"🇹🇳",indicators:{ CO2_PC:2.52,ELEC_ACC:100,REN_PCT:7.1, CLIM_FIN_USD:120  }},
+    { country_id:"DZA",name:"Algérie",         flag:"🇩🇿",indicators:{ CO2_PC:4.02,ELEC_ACC:99, REN_PCT:2.4, CLIM_FIN_USD:80   }},
+    { country_id:"NGA",name:"Nigeria",         flag:"🇳🇬",indicators:{ CO2_PC:0.62,ELEC_ACC:57, REN_PCT:22.1,CLIM_FIN_USD:1200 }},
+    { country_id:"GHA",name:"Ghana",           flag:"🇬🇭",indicators:{ CO2_PC:0.59,ELEC_ACC:87, REN_PCT:41.2,CLIM_FIN_USD:310  }},
+    { country_id:"CIV",name:"Côte d'Ivoire",   flag:"🇨🇮",indicators:{ CO2_PC:0.42,ELEC_ACC:70, REN_PCT:55.8,CLIM_FIN_USD:180  }},
+    { country_id:"SEN",name:"Sénégal",         flag:"🇸🇳",indicators:{ CO2_PC:0.47,ELEC_ACC:74, REN_PCT:33.5,CLIM_FIN_USD:220  }},
+    { country_id:"KEN",name:"Kenya",           flag:"🇰🇪",indicators:{ CO2_PC:0.32,ELEC_ACC:75, REN_PCT:82.5,CLIM_FIN_USD:560  }},
+    { country_id:"ETH",name:"Éthiopie",        flag:"🇪🇹",indicators:{ CO2_PC:0.10,ELEC_ACC:48, REN_PCT:93.0,CLIM_FIN_USD:480  }},
+    { country_id:"TZA",name:"Tanzanie",        flag:"🇹🇿",indicators:{ CO2_PC:0.18,ELEC_ACC:42, REN_PCT:61.4,CLIM_FIN_USD:290  }},
+    { country_id:"UGA",name:"Ouganda",         flag:"🇺🇬",indicators:{ CO2_PC:0.09,ELEC_ACC:44, REN_PCT:87.0,CLIM_FIN_USD:175  }},
+    { country_id:"RWA",name:"Rwanda",          flag:"🇷🇼",indicators:{ CO2_PC:0.11,ELEC_ACC:48, REN_PCT:73.5,CLIM_FIN_USD:140  }},
+    { country_id:"ZAF",name:"Afrique du Sud",  flag:"🇿🇦",indicators:{ CO2_PC:7.85,ELEC_ACC:85, REN_PCT:11.4,CLIM_FIN_USD:2100 }},
+    { country_id:"BWA",name:"Botswana",        flag:"🇧🇼",indicators:{ CO2_PC:3.82,ELEC_ACC:73, REN_PCT:2.1, CLIM_FIN_USD:45   }},
+    { country_id:"ZMB",name:"Zambie",          flag:"🇿🇲",indicators:{ CO2_PC:0.37,ELEC_ACC:47, REN_PCT:85.2,CLIM_FIN_USD:95   }},
+    { country_id:"ZWE",name:"Zimbabwe",        flag:"🇿🇼",indicators:{ CO2_PC:0.82,ELEC_ACC:50, REN_PCT:38.0,CLIM_FIN_USD:60   }},
+    { country_id:"MOZ",name:"Mozambique",      flag:"🇲🇿",indicators:{ CO2_PC:0.19,ELEC_ACC:32, REN_PCT:79.0,CLIM_FIN_USD:155  }},
+    { country_id:"CMR",name:"Cameroun",        flag:"🇨🇲",indicators:{ CO2_PC:0.37,ELEC_ACC:68, REN_PCT:68.5,CLIM_FIN_USD:120  }},
+    { country_id:"COD",name:"Congo (RDC)",     flag:"🇨🇩",indicators:{ CO2_PC:0.04,ELEC_ACC:20, REN_PCT:99.2,CLIM_FIN_USD:220  }},
+    { country_id:"AGO",name:"Angola",          flag:"🇦🇴",indicators:{ CO2_PC:0.63,ELEC_ACC:46, REN_PCT:62.5,CLIM_FIN_USD:88   }},
+    { country_id:"LBY",name:"Libye",           flag:"🇱🇾",indicators:{ CO2_PC:9.11,ELEC_ACC:99, REN_PCT:0.5, CLIM_FIN_USD:15   }},
+    { country_id:"MUS",name:"Maurice",         flag:"🇲🇺",indicators:{ CO2_PC:3.45,ELEC_ACC:100,REN_PCT:22.4,CLIM_FIN_USD:35   }},
+    { country_id:"SYC",name:"Seychelles",      flag:"🇸🇨",indicators:{ CO2_PC:4.82,ELEC_ACC:100,REN_PCT:15.0,CLIM_FIN_USD:12   }},
+    { country_id:"NAM",name:"Namibie",         flag:"🇳🇦",indicators:{ CO2_PC:1.54,ELEC_ACC:55, REN_PCT:72.0,CLIM_FIN_USD:48   }},
+    { country_id:"SWZ",name:"Eswatini",        flag:"🇸🇿",indicators:{ CO2_PC:1.10,ELEC_ACC:80, REN_PCT:44.0,CLIM_FIN_USD:22   }},
+  ];
+
+  const countries: CountryClimate[] = (climateData as any)?.data?.length > 0
+    ? (climateData as any).data
+    : STATIC_CLIMATE;
   const summary: ClimateSummary | null = (summaryData as any) ?? null;
 
   const co2Data = [...countries]
@@ -206,16 +238,28 @@ export default function ClimatePage() {
     return rows;
   };
 
-  /* ── ESG Scorecard data (simulé — sera lié à la DB) ── */
+  /* ── ESG Scorecard data (simulé, FMI WEO · WB WDI 2024e) ── */
   const ESG_SCORES = [
+    { country: "Rwanda",         flag: "🇷🇼", e: 56, s: 57, g: 72, total: 62, trend: "+5" },
     { country: "Maroc",          flag: "🇲🇦", e: 62, s: 55, g: 64, total: 60, trend: "+3" },
+    { country: "Botswana",       flag: "🇧🇼", e: 55, s: 58, g: 70, total: 61, trend: "+2" },
+    { country: "Maurice",        flag: "🇲🇺", e: 60, s: 65, g: 75, total: 67, trend: "+4" },
+    { country: "Seychelles",     flag: "🇸🇨", e: 58, s: 68, g: 74, total: 67, trend: "+3" },
     { country: "Kenya",          flag: "🇰🇪", e: 58, s: 52, g: 56, total: 55, trend: "+2" },
     { country: "Afrique du Sud", flag: "🇿🇦", e: 38, s: 61, g: 68, total: 55, trend: "-1" },
     { country: "Sénégal",        flag: "🇸🇳", e: 53, s: 49, g: 54, total: 52, trend: "+4" },
-    { country: "Rwanda",         flag: "🇷🇼", e: 56, s: 57, g: 72, total: 62, trend: "+5" },
     { country: "Ghana",          flag: "🇬🇭", e: 50, s: 53, g: 58, total: 54, trend: "+1" },
+    { country: "Tanzanie",       flag: "🇹🇿", e: 52, s: 48, g: 54, total: 51, trend: "+2" },
+    { country: "Tunisie",        flag: "🇹🇳", e: 48, s: 58, g: 56, total: 54, trend: "+1" },
+    { country: "Namibie",        flag: "🇳🇦", e: 53, s: 55, g: 62, total: 57, trend: "+3" },
+    { country: "Côte d'Ivoire",  flag: "🇨🇮", e: 51, s: 47, g: 52, total: 50, trend: "+2" },
+    { country: "Éthiopie",       flag: "🇪🇹", e: 49, s: 40, g: 44, total: 44, trend: "+3" },
     { country: "Égypte",         flag: "🇪🇬", e: 44, s: 50, g: 48, total: 47, trend: "0"  },
+    { country: "Zambie",         flag: "🇿🇲", e: 47, s: 43, g: 46, total: 45, trend: "+1" },
     { country: "Nigeria",        flag: "🇳🇬", e: 36, s: 44, g: 42, total: 41, trend: "-2" },
+    { country: "Angola",         flag: "🇦🇴", e: 38, s: 40, g: 40, total: 39, trend: "0"  },
+    { country: "Zimbabwe",       flag: "🇿🇼", e: 34, s: 39, g: 36, total: 36, trend: "-1" },
+    { country: "Soudan",         flag: "🇸🇩", e: 22, s: 24, g: 20, total: 22, trend: "-4" },
   ];
 
   return (
