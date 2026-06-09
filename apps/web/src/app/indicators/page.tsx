@@ -34,29 +34,72 @@ const REGIONS: { value: string; label: string }[] = [
   { value: "Southern Africa",label: "Afrique Australe"     },
 ];
 
-/* ── Séries de démo (fallback quand l'API ne répond pas) ── */
+/* ── Données macro 54 pays africains (fallback quand API indisponible) ── */
+const STATIC_54: Record<string, { flag:string; name:string; region:string; growth:number; inflation:number; fiscal:number; debt:number; ca:number; gdp_pc:number; unemployment:number }> = {
+  NGA:{flag:"🇳🇬",name:"Nigeria",          region:"West Africa",    growth:3.1, inflation:32.5,fiscal:-4.6,debt:46, ca: 0.8,gdp_pc:2200,unemployment:5.0},
+  ZAF:{flag:"🇿🇦",name:"Afrique du Sud",   region:"Southern Africa",growth:1.1, inflation:4.6, fiscal:-5.0,debt:75, ca:-1.6,gdp_pc:6200,unemployment:33.0},
+  EGY:{flag:"🇪🇬",name:"Égypte",           region:"North Africa",   growth:2.7, inflation:28.3,fiscal:-7.2,debt:90, ca:-5.4,gdp_pc:3400,unemployment:7.2},
+  ETH:{flag:"🇪🇹",name:"Éthiopie",         region:"East Africa",    growth:6.8, inflation:24.1,fiscal:-2.6,debt:38, ca:-3.1,gdp_pc:1300,unemployment:3.5},
+  KEN:{flag:"🇰🇪",name:"Kenya",            region:"East Africa",    growth:5.0, inflation:6.5, fiscal:-5.5,debt:70, ca:-4.0,gdp_pc:2100,unemployment:5.7},
+  TZA:{flag:"🇹🇿",name:"Tanzanie",         region:"East Africa",    growth:5.4, inflation:3.1, fiscal:-3.0,debt:42, ca:-3.5,gdp_pc:1200,unemployment:2.7},
+  MAR:{flag:"🇲🇦",name:"Maroc",            region:"North Africa",   growth:3.2, inflation:2.4, fiscal:-4.1,debt:69, ca:-1.2,gdp_pc:3700,unemployment:12.9},
+  GHA:{flag:"🇬🇭",name:"Ghana",            region:"West Africa",    growth:3.1, inflation:22.3,fiscal:-4.6,debt:83, ca:-2.0,gdp_pc:2400,unemployment:4.5},
+  CIV:{flag:"🇨🇮",name:"Côte d'Ivoire",    region:"West Africa",    growth:6.5, inflation:3.8, fiscal:-4.0,debt:57, ca:-3.7,gdp_pc:2900,unemployment:3.8},
+  SEN:{flag:"🇸🇳",name:"Sénégal",          region:"West Africa",    growth:8.3, inflation:2.8, fiscal:-4.9,debt:73, ca:-12.1,gdp_pc:1800,unemployment:20.1},
+  CMR:{flag:"🇨🇲",name:"Cameroun",         region:"Central Africa", growth:4.1, inflation:7.4, fiscal:-2.5,debt:48, ca:-4.2,gdp_pc:1700,unemployment:4.2},
+  AGO:{flag:"🇦🇴",name:"Angola",           region:"Central Africa", growth:2.4, inflation:28.2,fiscal:-1.0,debt:73, ca: 4.5,gdp_pc:3100,unemployment:7.5},
+  DZA:{flag:"🇩🇿",name:"Algérie",          region:"North Africa",   growth:3.6, inflation:9.2, fiscal:-5.8,debt:60, ca: 2.4,gdp_pc:5200,unemployment:11.8},
+  MOZ:{flag:"🇲🇿",name:"Mozambique",       region:"East Africa",    growth:5.5, inflation:6.2, fiscal:-5.0,debt:100,ca:-26.0,gdp_pc:560, unemployment:3.2},
+  ZMB:{flag:"🇿🇲",name:"Zambie",           region:"Southern Africa",growth:4.8, inflation:13.0,fiscal:-7.6,debt:137,ca: 1.5,gdp_pc:1500,unemployment:12.7},
+  RWA:{flag:"🇷🇼",name:"Rwanda",           region:"East Africa",    growth:7.0, inflation:5.8, fiscal:-6.0,debt:68, ca:-11.4,gdp_pc:900, unemployment:1.3},
+  TUN:{flag:"🇹🇳",name:"Tunisie",          region:"North Africa",   growth:1.8, inflation:9.3, fiscal:-7.7,debt:80, ca:-6.2,gdp_pc:3700,unemployment:15.4},
+  UGA:{flag:"🇺🇬",name:"Ouganda",          region:"East Africa",    growth:6.1, inflation:3.8, fiscal:-4.4,debt:50, ca:-9.2,gdp_pc:1100,unemployment:2.1},
+  LBY:{flag:"🇱🇾",name:"Libye",            region:"North Africa",   growth:4.0, inflation:2.8, fiscal: 4.0,debt:84, ca:13.3,gdp_pc:5200,unemployment:18.6},
+  SUD:{flag:"🇸🇩",name:"Soudan",           region:"East Africa",    growth:0.5, inflation:65.0,fiscal:-3.0,debt:183,ca:-5.0,gdp_pc:750, unemployment:13.7},
+  MLI:{flag:"🇲🇱",name:"Mali",             region:"West Africa",    growth:4.0, inflation:2.5, fiscal:-3.5,debt:50, ca:-5.5,gdp_pc:1000,unemployment:7.9},
+  BFA:{flag:"🇧🇫",name:"Burkina Faso",     region:"West Africa",    growth:2.5, inflation:3.0, fiscal:-4.5,debt:54, ca:-4.1,gdp_pc:840, unemployment:5.5},
+  MWI:{flag:"🇲🇼",name:"Malawi",           region:"East Africa",    growth:1.8, inflation:25.0,fiscal:-7.0,debt:92, ca:-9.0,gdp_pc:500, unemployment:6.0},
+  MDG:{flag:"🇲🇬",name:"Madagascar",       region:"East Africa",    growth:4.8, inflation:8.0, fiscal:-4.8,debt:57, ca:-6.0,gdp_pc:520, unemployment:1.8},
+  NER:{flag:"🇳🇪",name:"Niger",            region:"West Africa",    growth:12.3,inflation:3.9, fiscal:-6.8,debt:52, ca:-16.0,gdp_pc:650, unemployment:0.8},
+  BEN:{flag:"🇧🇯",name:"Bénin",            region:"West Africa",    growth:6.4, inflation:2.7, fiscal:-4.7,debt:54, ca:-4.2,gdp_pc:1500,unemployment:2.3},
+  TGO:{flag:"🇹🇬",name:"Togo",             region:"West Africa",    growth:6.0, inflation:4.0, fiscal:-3.8,debt:69, ca:-2.9,gdp_pc:1050,unemployment:3.5},
+  GIN:{flag:"🇬🇳",name:"Guinée",           region:"West Africa",    growth:6.5, inflation:9.6, fiscal:-3.3,debt:35, ca:-12.0,gdp_pc:1200,unemployment:4.0},
+  TCD:{flag:"🇹🇩",name:"Tchad",            region:"Central Africa", growth:3.0, inflation:4.5, fiscal:-1.0,debt:45, ca:-1.5,gdp_pc:750, unemployment:2.3},
+  COD:{flag:"🇨🇩",name:"Congo (RDC)",      region:"Central Africa", growth:6.3, inflation:23.6,fiscal:-1.0,debt:15, ca:-3.7,gdp_pc:660, unemployment:4.5},
+  COG:{flag:"🇨🇬",name:"Congo (Brazza)",   region:"Central Africa", growth:4.1, inflation:4.0, fiscal:-0.3,debt:89, ca: 1.0,gdp_pc:2300,unemployment:5.5},
+  MUS:{flag:"🇲🇺",name:"Maurice",          region:"East Africa",    growth:5.6, inflation:7.0, fiscal:-4.0,debt:85, ca:-5.9,gdp_pc:10500,unemployment:6.2},
+  BWA:{flag:"🇧🇼",name:"Botswana",         region:"Southern Africa",growth:3.5, inflation:5.5, fiscal:-1.5,debt:19, ca:-1.6,gdp_pc:7400,unemployment:24.5},
+  NAM:{flag:"🇳🇦",name:"Namibie",          region:"Southern Africa",growth:3.6, inflation:5.8, fiscal:-5.2,debt:68, ca:-10.0,gdp_pc:4700,unemployment:33.4},
+  SWZ:{flag:"🇸🇿",name:"Eswatini",         region:"Southern Africa",growth:2.0, inflation:5.9, fiscal:-2.8,debt:52, ca: 0.5,gdp_pc:3800,unemployment:22.0},
+  ZWE:{flag:"🇿🇼",name:"Zimbabwe",         region:"Southern Africa",growth:3.0, inflation:165.0,fiscal:-3.0,debt:95,ca:-6.0,gdp_pc:1700,unemployment:5.3},
+  SOM:{flag:"🇸🇴",name:"Somalie",          region:"East Africa",    growth:3.5, inflation:3.5, fiscal:-1.0,debt:80, ca:-10.0,gdp_pc:600, unemployment:8.0},
+  ERI:{flag:"🇪🇷",name:"Érythrée",         region:"East Africa",    growth:2.5, inflation:5.0, fiscal:-12.0,debt:180,ca:-4.0,gdp_pc:740, unemployment:6.0},
+  DJI:{flag:"🇩🇯",name:"Djibouti",         region:"East Africa",    growth:7.1, inflation:3.0, fiscal:-1.5,debt:73, ca:-6.0,gdp_pc:3800,unemployment:11.5},
+  SLE:{flag:"🇸🇱",name:"Sierra Leone",     region:"West Africa",    growth:3.5, inflation:37.0,fiscal:-8.3,debt:82, ca:-14.0,gdp_pc:600, unemployment:4.5},
+  LBR:{flag:"🇱🇷",name:"Liberia",          region:"West Africa",    growth:4.5, inflation:8.0, fiscal:-5.0,debt:60, ca:-23.0,gdp_pc:900, unemployment:3.5},
+  GMB:{flag:"🇬🇲",name:"Gambie",           region:"West Africa",    growth:5.8, inflation:15.0,fiscal:-3.9,debt:80, ca:-5.0,gdp_pc:900, unemployment:8.3},
+  GNB:{flag:"🇬🇼",name:"Guinée-Bissau",    region:"West Africa",    growth:4.2, inflation:5.0, fiscal:-3.5,debt:78, ca:-5.0,gdp_pc:900, unemployment:6.3},
+  CPV:{flag:"🇨🇻",name:"Cap-Vert",         region:"West Africa",    growth:4.5, inflation:7.5, fiscal:-2.8,debt:140,ca:-5.0,gdp_pc:3700,unemployment:11.0},
+  GNQ:{flag:"🇬🇶",name:"Guinée équato.",   region:"Central Africa", growth:-2.0,inflation:5.0, fiscal:-6.5,debt:47, ca:-4.0,gdp_pc:8400,unemployment:6.8},
+  GAB:{flag:"🇬🇦",name:"Gabon",            region:"Central Africa", growth:2.5, inflation:4.8, fiscal:-1.8,debt:75, ca: 2.5,gdp_pc:8600,unemployment:6.0},
+  CAF:{flag:"🇨🇫",name:"Centrafrique",     region:"Central Africa", growth:1.5, inflation:5.3, fiscal:-5.0,debt:60, ca:-12.0,gdp_pc:550, unemployment:5.8},
+  BDI:{flag:"🇧🇮",name:"Burundi",          region:"East Africa",    growth:2.2, inflation:22.0,fiscal:-5.0,debt:70, ca:-13.0,gdp_pc:230, unemployment:1.5},
+  COM:{flag:"🇰🇲",name:"Comores",          region:"East Africa",    growth:3.1, inflation:5.0, fiscal:-2.5,debt:37, ca:-3.0,gdp_pc:1500,unemployment:3.0},
+  STP:{flag:"🇸🇹",name:"São Tomé",         region:"Central Africa", growth:2.5, inflation:17.0,fiscal:-3.0,debt:104,ca:-17.0,gdp_pc:3200,unemployment:13.0},
+  SYC:{flag:"🇸🇨",name:"Seychelles",       region:"East Africa",    growth:5.0, inflation:4.5, fiscal:-1.5,debt:65, ca:-10.0,gdp_pc:15800,unemployment:3.4},
+  LSO:{flag:"🇱🇸",name:"Lesotho",          region:"Southern Africa",growth:1.8, inflation:7.0, fiscal:-5.5,debt:65, ca: 3.0,gdp_pc:1200,unemployment:24.0},
+  MRT:{flag:"🇲🇷",name:"Mauritanie",       region:"West Africa",    growth:3.9, inflation:6.3, fiscal:-1.0,debt:60, ca:-7.0,gdp_pc:2100,unemployment:11.0},
+};
+
+/* ── Séries de démo (fallback quand l'API ne répond pas) — 54 pays ── */
 const DEMO_SERIES: Record<string, Record<string, number>> = {
-  NGDP_RPCH: { // Croissance PIB réel
-    NGA:3.2, ZAF:1.1, EGY:2.7, ETH:6.8, KEN:5.0, MAR:3.2, GHA:3.1, CIV:6.5, SEN:8.3, TZA:5.4,
-  },
-  PCPIPCH: { // Inflation IPC
-    NGA:32.5, ZAF:4.6, EGY:28.3, ETH:24.1, KEN:6.5, MAR:2.4, GHA:22.3, CIV:3.8, SEN:2.8, TZA:3.1,
-  },
-  GGXCNL_NGDP: { // Solde budgétaire
-    NGA:-4.6, ZAF:-5.0, EGY:-7.2, ETH:-2.6, KEN:-5.5, MAR:-4.1, GHA:-4.6, CIV:-4.0, SEN:-4.9, TZA:-3.0,
-  },
-  GGXWDG_NGDP: { // Dette publique
-    NGA:46, ZAF:75, EGY:90, ETH:38, KEN:70, MAR:69, GHA:83, CIV:57, SEN:73, TZA:42,
-  },
-  BCA_NGDPD: { // Compte courant
-    NGA:0.8, ZAF:-1.6, EGY:-5.4, ETH:-3.1, KEN:-4.0, MAR:-1.2, GHA:-2.0, CIV:-3.7, SEN:-12.1, TZA:-3.5,
-  },
-  NGDPDPC: { // PIB par habitant
-    NGA:2200, ZAF:6200, EGY:3400, ETH:1300, KEN:2100, MAR:3700, GHA:2400, CIV:2900, SEN:1800, TZA:1200,
-  },
-  LUR: { // Chômage
-    NGA:5.0, ZAF:33.0, EGY:7.2, ETH:3.5, KEN:5.7, MAR:12.9, GHA:4.5, CIV:3.8, SEN:20.1, TZA:2.7,
-  },
+  NGDP_RPCH:    Object.fromEntries(Object.entries(STATIC_54).map(([k, v]) => [k, v.growth])),
+  PCPIPCH:      Object.fromEntries(Object.entries(STATIC_54).map(([k, v]) => [k, v.inflation])),
+  GGXCNL_NGDP:  Object.fromEntries(Object.entries(STATIC_54).map(([k, v]) => [k, v.fiscal])),
+  GGXWDG_NGDP:  Object.fromEntries(Object.entries(STATIC_54).map(([k, v]) => [k, v.debt])),
+  BCA_NGDPD:    Object.fromEntries(Object.entries(STATIC_54).map(([k, v]) => [k, v.ca])),
+  NGDPDPC:      Object.fromEntries(Object.entries(STATIC_54).map(([k, v]) => [k, v.gdp_pc])),
+  LUR:          Object.fromEntries(Object.entries(STATIC_54).map(([k, v]) => [k, v.unemployment])),
 };
 
 /** Génère une série temporelle simulée 2010–2024 à partir de la valeur 2024 */
@@ -160,19 +203,16 @@ export default function IndicatorsPage() {
     }), [countries, search, region]
   );
 
-  // Si aucun pays API, utiliser une liste statique pour le sélecteur
-  const DEMO_COUNTRIES: CountrySummary[] = [
-    { id:"NGA", iso2:"NG", name_en:"Nigeria",       name_fr:"Nigeria",        region:"West Africa",    flag_emoji:"🇳🇬", coverage_tier:1 },
-    { id:"ZAF", iso2:"ZA", name_en:"South Africa",  name_fr:"Afrique du Sud", region:"Southern Africa",flag_emoji:"🇿🇦", coverage_tier:1 },
-    { id:"EGY", iso2:"EG", name_en:"Egypt",          name_fr:"Égypte",         region:"North Africa",   flag_emoji:"🇪🇬", coverage_tier:1 },
-    { id:"ETH", iso2:"ET", name_en:"Ethiopia",       name_fr:"Éthiopie",       region:"East Africa",    flag_emoji:"🇪🇹", coverage_tier:1 },
-    { id:"KEN", iso2:"KE", name_en:"Kenya",          name_fr:"Kenya",          region:"East Africa",    flag_emoji:"🇰🇪", coverage_tier:1 },
-    { id:"MAR", iso2:"MA", name_en:"Morocco",        name_fr:"Maroc",          region:"North Africa",   flag_emoji:"🇲🇦", coverage_tier:1 },
-    { id:"GHA", iso2:"GH", name_en:"Ghana",          name_fr:"Ghana",          region:"West Africa",    flag_emoji:"🇬🇭", coverage_tier:1 },
-    { id:"CIV", iso2:"CI", name_en:"Côte d'Ivoire",  name_fr:"Côte d'Ivoire",  region:"West Africa",    flag_emoji:"🇨🇮", coverage_tier:2 },
-    { id:"SEN", iso2:"SN", name_en:"Senegal",        name_fr:"Sénégal",        region:"West Africa",    flag_emoji:"🇸🇳", coverage_tier:2 },
-    { id:"TZA", iso2:"TZ", name_en:"Tanzania",       name_fr:"Tanzanie",       region:"East Africa",    flag_emoji:"🇹🇿", coverage_tier:2 },
-  ];
+  // Si aucun pays API, utiliser les 54 pays statiques pour le sélecteur
+  const DEMO_COUNTRIES: CountrySummary[] = Object.entries(STATIC_54).map(([id, d]) => ({
+    id,
+    iso2: id.slice(0, 2).toLowerCase(),
+    name_en: d.name,
+    name_fr: d.name,
+    region: d.region,
+    flag_emoji: d.flag,
+    coverage_tier: 2,
+  }));
   const effectiveCountries = countries.length > 0 ? filteredCountries : DEMO_COUNTRIES;
 
   /* ── Données du pays sélectionné ── */

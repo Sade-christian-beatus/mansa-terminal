@@ -74,59 +74,56 @@ interface CardProps {
 function KpiCard({ title, value, sub, trend, trendLabel, icon, barColor, isLoading }: CardProps) {
   if (isLoading) {
     return (
-      <div className="bg-[#0D1426] border border-[#1E2A42] rounded-lg p-4 animate-pulse">
-        <div className="h-2.5 bg-[#1E2A42] rounded w-24 mb-4" />
-        <div className="h-7 bg-[#1E2A42] rounded w-16 mb-2" />
-        <div className="h-2.5 bg-[#1E2A42] rounded w-36" />
+      <div className="mansa-card rounded-lg p-4 animate-pulse">
+        <div className="h-2.5 skeleton rounded w-24 mb-4" />
+        <div className="h-7 skeleton rounded w-16 mb-2" />
+        <div className="h-2.5 skeleton rounded w-36" />
       </div>
     );
   }
 
   const trendColors = {
-    up: "text-green-400",
-    down: "text-red-400",
-    warn: "text-amber-400",
+    up:   { color: "var(--mansa-green)" },
+    down: { color: "#EF4444"            },
+    warn: { color: "var(--warning)"     },
   };
 
   return (
-    <div className="bg-[#0D1426] border border-[#1E2A42] rounded-lg p-4 hover:border-[#2A3A52] transition-colors relative overflow-hidden group">
+    <div className="mansa-card mansa-card-hover rounded-lg p-4 relative overflow-hidden group">
       <div className={`absolute top-0 inset-x-0 h-[2px] ${barColor}`} />
 
       <div className="flex items-start justify-between mb-3">
-        <span className="text-gray-500 text-[10px] font-mono uppercase tracking-widest leading-tight">
+        <span className="text-[10px] font-mono uppercase tracking-widest leading-tight"
+              style={{ color: "var(--text-muted)" }}>
           {title}
         </span>
-        <span className="text-gray-600 group-hover:text-gray-400 transition-colors">{icon}</span>
+        <span style={{ color: "var(--text-muted)" }}>{icon}</span>
       </div>
 
       <div className="flex items-baseline gap-2 mb-1">
-        <span className="text-white text-2xl font-bold font-mono tabular-nums">{value}</span>
+        <span className="text-2xl font-bold font-mono tabular-nums"
+              style={{ color: "var(--text-primary)" }}>{value}</span>
         {trend && trendLabel && (
-          <span className={`text-[11px] font-mono ${trendColors[trend] ?? "text-gray-500"}`}>
+          <span className="text-[11px] font-mono" style={trendColors[trend] ?? { color: "var(--text-muted)" }}>
             {trend === "up" ? "▲" : trend === "down" ? "▼" : "⚠"}
             &nbsp;{trendLabel}
           </span>
         )}
       </div>
 
-      <p className="text-gray-600 text-[11px] leading-tight">{sub}</p>
+      <p className="text-[11px] leading-tight" style={{ color: "var(--text-muted)" }}>{sub}</p>
     </div>
   );
 }
 
 export function HeroKPIs() {
-  const { isLoading, isFallback, medianGdp, medianGdpPrev, growingCount, total, medianInf, highInfCount, medianDebt } =
+  const { isLoading, medianGdp, medianGdpPrev, growingCount, total, medianInf, highInfCount, medianDebt } =
     useAggregates();
 
   const gdpTrend = medianGdp >= medianGdpPrev ? "up" : "down";
 
   return (
     <div className="space-y-1">
-      {isFallback && (
-        <p className="text-[10px] font-mono text-amber-400/60 text-right pr-1">
-          ⚠ Données de démonstration · FMI WEO Oct 2024
-        </p>
-      )}
     <div className="grid grid-cols-4 gap-4">
       <KpiCard
         title="Croissance PIB médiane"
@@ -135,7 +132,7 @@ export function HeroKPIs() {
         trend={gdpTrend}
         trendLabel={`${medianGdpPrev.toFixed(1)}% en 2023`}
         icon={<TrendingUp size={14} />}
-        barColor="bg-[#00D4AA]"
+        barColor="bg-[#e2ac38]"
         isLoading={isLoading}
       />
       <KpiCard
@@ -145,7 +142,7 @@ export function HeroKPIs() {
         trend="up"
         trendLabel={`/ ${total} pays`}
         icon={<Globe size={14} />}
-        barColor="bg-blue-500"
+        barColor="bg-[#b68527]"
         isLoading={isLoading}
       />
       <KpiCard

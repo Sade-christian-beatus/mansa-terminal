@@ -7,74 +7,76 @@
    Dark mode (default) + Light mode via data-theme="light"
    ============================================================ */
 
-/* ── DARK MODE (défaut) ────────────────────────────────────── */
+/* ── DARK MODE (défaut) — Palette Or / Noir ────────────────── */
+/* Palette : #e2ac38 (or vif) · #b68527 (or moyen) · #74561a (brun-or)
+             #dfceac (crème) · #000000 (noir) */
 :root,
 [data-theme="dark"] {
-  --mansa-green:      #00D4AA;
-  --mansa-green-dark: #00A882;
-  --mansa-gold:       #FFB800;
-  --mansa-blue:       #3B82F6;
+  --mansa-green:      #e2ac38;   /* Or vif — accent principal   */
+  --mansa-green-dark: #b68527;   /* Or moyen — hover / actif    */
+  --mansa-gold:       #e2ac38;
+  --mansa-blue:       #c49130;   /* Or chaud — accent secondaire */
 
-  --bg-primary:       #0A0E1A;
-  --bg-secondary:     #0F1629;
-  --bg-card:          #141B2E;
-  --bg-card-hover:    #1A2236;
-  --bg-border:        #1E2A42;
+  --bg-primary:       #000000;   /* Noir pur                    */
+  --bg-secondary:     #080601;   /* Noir, légère teinte or      */
+  --bg-card:          #0E0B02;   /* Fond carte                  */
+  --bg-card-hover:    #151006;   /* Hover carte                 */
+  --bg-border:        #211900;   /* Bordure or sombre           */
 
-  --text-primary:     #F1F5F9;
-  --text-secondary:   #94A3B8;
-  --text-muted:       #64748B;
+  --text-primary:     #dfceac;   /* Crème — texte principal     */
+  --text-secondary:   #c4a45e;   /* Or clair — texte secondaire */
+  --text-muted:       #806535;   /* Or sombre — texte discret   */
 
-  --positive:  #10B981;
+  --positive:  #e2ac38;
   --negative:  #EF4444;
-  --warning:   #F59E0B;
-  --neutral:   #6B7280;
+  --warning:   #b68527;
+  --neutral:   #74561a;
 
   /* Sidebar / TopBar */
-  --sidebar-bg:        #0F1629;
-  --sidebar-border:    #1E2A42;
-  --sidebar-item-bg:   #141B2E;
-  --topbar-bg:         #0F1629;
-  --topbar-border:     #1E2A42;
-  --input-bg:          #141B2E;
-  --input-border:      #1E2A42;
-  --dropdown-bg:       #0F1629;
-  --card-bg:           #141B2E;
-  --card-border:       #1E2A42;
+  --sidebar-bg:        #050400;
+  --sidebar-border:    #1A1300;
+  --sidebar-item-bg:   #0E0B02;
+  --topbar-bg:         #050400;
+  --topbar-border:     #1A1300;
+  --input-bg:          #0E0B02;
+  --input-border:      #211900;
+  --dropdown-bg:       #080601;
+  --card-bg:           #0E0B02;
+  --card-border:       #211900;
 }
 
-/* ── LIGHT MODE ────────────────────────────────────────────── */
+/* ── LIGHT MODE — Palette Or / Crème ──────────────────────── */
 [data-theme="light"] {
-  --mansa-green:      #00A882;
-  --mansa-green-dark: #007A60;
-  --mansa-gold:       #D97706;
-  --mansa-blue:       #2563EB;
+  --mansa-green:      #b68527;   /* Or moyen sur fond clair     */
+  --mansa-green-dark: #74561a;   /* Brun-or                     */
+  --mansa-gold:       #e2ac38;
+  --mansa-blue:       #8a6520;
 
-  --bg-primary:       #F0F4F8;
+  --bg-primary:       #faf6ee;   /* Fond crème clair            */
   --bg-secondary:     #FFFFFF;
   --bg-card:          #FFFFFF;
-  --bg-card-hover:    #F8FAFC;
-  --bg-border:        #E2E8F0;
+  --bg-card-hover:    #fdf9f2;
+  --bg-border:        #e8d9b4;   /* Bordure crème-or            */
 
-  --text-primary:     #0F172A;
-  --text-secondary:   #475569;
-  --text-muted:       #94A3B8;
+  --text-primary:     #1a1200;   /* Noir chaud                  */
+  --text-secondary:   #4a3510;   /* Brun foncé                  */
+  --text-muted:       #8a6520;
 
-  --positive:  #059669;
+  --positive:  #b68527;
   --negative:  #DC2626;
-  --warning:   #D97706;
-  --neutral:   #6B7280;
+  --warning:   #e2ac38;
+  --neutral:   #74561a;
 
   --sidebar-bg:        #FFFFFF;
-  --sidebar-border:    #E2E8F0;
-  --sidebar-item-bg:   #F1F5F9;
+  --sidebar-border:    #e8d9b4;
+  --sidebar-item-bg:   #fdf9f2;
   --topbar-bg:         #FFFFFF;
-  --topbar-border:     #E2E8F0;
-  --input-bg:          #F8FAFC;
-  --input-border:      #E2E8F0;
+  --topbar-border:     #e8d9b4;
+  --input-bg:          #fdf9f2;
+  --input-border:      #e8d9b4;
   --dropdown-bg:       #FFFFFF;
   --card-bg:           #FFFFFF;
-  --card-border:       #E2E8F0;
+  --card-border:       #e8d9b4;
 }
 
 /* Scrollbar stylisée */
