@@ -133,7 +133,7 @@ function ProgressBar({ value, max = 100, color }: { value: number; max?: number;
 /* ─── Page principale ───────────────────────────────────── */
 export default function ClimatePage() {
   const [exportOpen, setExportOpen] = useState(false);
-  const [activeTab,  setActiveTab]  = useState<"overview" | "esg" | "disasters" | "water" | "energy">("overview");
+  const [activeTab,  setActiveTab]  = useState<"overview" | "weather" | "esg" | "disasters" | "water" | "energy">("overview");
 
   const { data: climateData, isLoading: climateLoading } = useQuery({
     queryKey: ["climate-indicators"],
@@ -265,9 +265,10 @@ export default function ClimatePage() {
       )}
 
       {/* ── Tabs ── */}
-      <div className="flex items-center gap-1 border-b" style={{ borderColor: "var(--bg-border)" }}>
+      <div className="flex items-center gap-1 border-b overflow-x-auto" style={{ borderColor: "var(--bg-border)" }}>
         {([
           { id: "overview",  label: "Vue générale",        icon: Leaf },
+          { id: "weather",   label: "Météo Afrique",       icon: CloudRain },
           { id: "esg",       label: "ESG Scorecard",       icon: TrendingUp },
           { id: "disasters", label: "Catastrophes EM-DAT", icon: AlertTriangle },
           { id: "water",     label: "Stress hydrique",     icon: Droplets },
@@ -397,6 +398,148 @@ export default function ClimatePage() {
             </div>
           )}
         </>
+      )}
+
+      {/* ── Tab: Météo Afrique ── */}
+      {activeTab === "weather" && (
+        <div className="space-y-5">
+          {/* KPIs météo continentaux */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            {[
+              { label: "Température moyenne Afrique",   value: "26,4°C", sub: "+0.6°C vs normale 1990–2020", color: "#EF4444", icon: Flame },
+              { label: "Précipitations annuelles moy.", value: "678 mm", sub: "Déficit -8% vs normale",       color: "#3B82F6", icon: Droplets },
+              { label: "Anomalie thermique 2024",        value: "+1.2°C", sub: "Vs moyenne préindustrielle",  color: "#F59E0B", icon: TrendingUp },
+              { label: "Événements extrêmes 2024",       value: "143",    sub: "Cyclones, sécheresses, crues", color: "#8B5CF6", icon: AlertTriangle },
+            ].map(({ label, value, sub, color, icon: Icon }) => (
+              <div key={label} className="mansa-card rounded-xl p-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: `${color}18` }}>
+                    <Icon size={14} style={{ color }} />
+                  </div>
+                  <p className="text-xs" style={{ color: "var(--text-muted)" }}>{label}</p>
+                </div>
+                <p className="text-2xl font-bold font-mono" style={{ color: "var(--text-primary)" }}>{value}</p>
+                <p className="text-xs mt-1" style={{ color: "var(--text-muted)" }}>{sub}</p>
+              </div>
+            ))}
+          </div>
+
+          {/* Conditions météo par région */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+            {/* Tableau régions */}
+            <div className="mansa-card rounded-xl overflow-hidden">
+              <div className="px-4 py-3 border-b flex items-center gap-2" style={{ borderColor: "var(--bg-border)" }}>
+                <CloudRain size={14} style={{ color: "var(--mansa-green)" }} />
+                <h3 className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>Conditions par région</h3>
+                <span className="ml-auto text-xs px-2 py-0.5 rounded-full" style={{ background: "color-mix(in srgb, var(--mansa-green) 12%, transparent)", color: "var(--mansa-green)" }}>
+                  Juin 2025
+                </span>
+              </div>
+              <div className="divide-y" style={{ borderColor: "var(--bg-border)" }}>
+                {[
+                  { region: "Afrique du Nord",    emoji: "☀️",  temp: 38, precip: 2,  condition: "Chaud et sec",        alert: null,      color: "#F59E0B" },
+                  { region: "Afrique de l'Ouest", emoji: "⛈️",  temp: 32, precip: 180, condition: "Saison des pluies",   alert: "Inondations Sahel", color: "#3B82F6" },
+                  { region: "Afrique Centrale",   emoji: "🌧️",  temp: 28, precip: 220, condition: "Très humide",         alert: null,      color: "#3B82F6" },
+                  { region: "Afrique de l'Est",   emoji: "🌤️",  temp: 24, precip: 45,  condition: "Saison sèche",        alert: "Sécheresse Corne", color: "#EF4444" },
+                  { region: "Afrique Australe",   emoji: "❄️",  temp: 14, precip: 30,  condition: "Hiver austral",       alert: null,      color: "#60A5FA" },
+                ].map((r) => (
+                  <div key={r.region} className="px-4 py-3 flex items-center gap-3 transition-colors"
+                       onMouseEnter={(e) => (e.currentTarget.style.background = "var(--sidebar-item-bg)")}
+                       onMouseLeave={(e) => (e.currentTarget.style.background = "")}>
+                    <span className="text-2xl w-8 flex-shrink-0">{r.emoji}</span>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>{r.region}</p>
+                      <p className="text-xs" style={{ color: "var(--text-muted)" }}>{r.condition}</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-sm font-bold font-mono" style={{ color: r.color }}>{r.temp}°C</p>
+                      <p className="text-xs" style={{ color: "var(--text-muted)" }}>{r.precip} mm</p>
+                    </div>
+                    {r.alert && (
+                      <div className="flex items-center gap-1 text-[10px] px-2 py-1 rounded-lg"
+                           style={{ background: "rgba(239,68,68,0.1)", color: "#EF4444" }}>
+                        <AlertTriangle size={10} />
+                        {r.alert}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Top villes températures */}
+            <div className="mansa-card rounded-xl overflow-hidden">
+              <div className="px-4 py-3 border-b flex items-center gap-2" style={{ borderColor: "var(--bg-border)" }}>
+                <Flame size={14} style={{ color: "#EF4444" }} />
+                <h3 className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>Températures — Capitales africaines</h3>
+              </div>
+              <div className="divide-y" style={{ borderColor: "var(--bg-border)" }}>
+                {[
+                  { city: "Khartoum",       flag: "🇸🇩", temp: 43, humid: 18, condition: "☀️ Brûlant",    trend: "+3.1°C" },
+                  { city: "Niamey",         flag: "🇳🇪", temp: 41, humid: 22, condition: "☀️ Très chaud", trend: "+2.8°C" },
+                  { city: "Bamako",         flag: "🇲🇱", temp: 38, humid: 35, condition: "⛅ Chaud",      trend: "+2.1°C" },
+                  { city: "Dakar",          flag: "🇸🇳", temp: 31, humid: 72, condition: "🌤️ Brumeux",    trend: "+1.2°C" },
+                  { city: "Nairobi",        flag: "🇰🇪", temp: 22, humid: 62, condition: "🌧️ Pluvieux",   trend: "+0.8°C" },
+                  { city: "Johannesburg",   flag: "🇿🇦", temp: 13, humid: 55, condition: "❄️ Frais",      trend: "+0.9°C" },
+                  { city: "Addis-Abeba",    flag: "🇪🇹", temp: 19, humid: 68, condition: "🌦️ Variable",   trend: "+1.0°C" },
+                  { city: "Abidjan",        flag: "🇨🇮", temp: 29, humid: 85, condition: "🌧️ Humide",     trend: "+1.5°C" },
+                ].map((c) => (
+                  <div key={c.city} className="px-4 py-2.5 flex items-center gap-3 transition-colors"
+                       onMouseEnter={(e) => (e.currentTarget.style.background = "var(--sidebar-item-bg)")}
+                       onMouseLeave={(e) => (e.currentTarget.style.background = "")}>
+                    <span className="text-base w-7">{c.flag}</span>
+                    <div className="flex-1">
+                      <p className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>{c.city}</p>
+                      <p className="text-xs" style={{ color: "var(--text-muted)" }}>{c.condition} · Humidité {c.humid}%</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-sm font-bold font-mono"
+                         style={{ color: c.temp > 35 ? "#EF4444" : c.temp > 25 ? "#F59E0B" : c.temp < 15 ? "#60A5FA" : "#10B981" }}>
+                        {c.temp}°C
+                      </p>
+                      <p className="text-[10px]" style={{ color: "#EF4444" }}>Anomalie {c.trend}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* Prévisions saisonnières */}
+          <div className="mansa-card rounded-xl p-4">
+            <div className="flex items-center gap-2 mb-4">
+              <Wind size={14} style={{ color: "#3B82F6" }} />
+              <h3 className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>
+                Prévisions saisonnières NOAA / ECMWF — Juil–Sep 2025
+              </h3>
+            </div>
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+              {[
+                { label: "Sahel (Afrique de l'Ouest)", forecast: "Précipitations excédentaires +15%", risk: "Inondations",   level: "Élevé",  color: "#EF4444" },
+                { label: "Corne de l'Afrique",          forecast: "Saison courte OMN déficitaire",    risk: "Sécheresse",    level: "Sévère", color: "#F97316" },
+                { label: "Afrique Centrale",            forecast: "Pluies normales à excédentaires",  risk: "Faible",        level: "Faible", color: "#10B981" },
+                { label: "Afrique du Sud",              forecast: "Hiver sec — précipitations -20%",  risk: "Sécheresse hivernale", level: "Modéré", color: "#F59E0B" },
+              ].map((f) => (
+                <div key={f.label} className="rounded-xl p-3 border"
+                     style={{ background: "var(--bg-primary)", borderColor: `color-mix(in srgb, ${f.color} 25%, var(--bg-border))` }}>
+                  <p className="text-xs font-semibold mb-1.5" style={{ color: "var(--text-secondary)" }}>{f.label}</p>
+                  <p className="text-xs mb-2" style={{ color: "var(--text-muted)" }}>{f.forecast}</p>
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold"
+                          style={{ background: `color-mix(in srgb, ${f.color} 15%, transparent)`, color: f.color }}>
+                      {f.risk}
+                    </span>
+                    <span className="text-[10px]" style={{ color: f.color }}>{f.level}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <p className="text-xs" style={{ color: "var(--text-muted)" }}>
+            Sources : NOAA CPC · ECMWF SEAS5 · NASA POWER · MeteoGroup · IGAD Climate Prediction and Applications Centre (ICPAC) · Mise à jour : juin 2025
+          </p>
+        </div>
       )}
 
       {/* ── Tab: ESG Scorecard ── */}
