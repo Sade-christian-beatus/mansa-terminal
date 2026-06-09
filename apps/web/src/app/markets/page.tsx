@@ -263,6 +263,15 @@ export default function MarketsPage() {
     return rows;
   };
 
+  const handleExport = async (_sources: string[], yFrom: number, yTo: number): Promise<ExportRow[]> => {
+    const rows: ExportRow[] = [];
+    rates.forEach((r) => rows.push({ dataset: "FX Rates", currency: r.currency_code, name: r.currency_name, rate_official: r.rate_official, rate_parallel: r.rate_parallel, spread_pct: r.spread_pct, change_7d: r.change_7d, change_30d: r.change_30d }));
+    indices.forEach((i) => rows.push({ dataset: "Stock Indices", name: i.name, exchange: i.exchange, value: i.value, change_1d: i.change_1d, change_ytd: i.change_ytd, volume_usd_m: i.volume_usd_m }));
+    COMTRADE_FLOWS.forEach((c) => rows.push({ dataset: "UN Comtrade", country: c.country, exports_bn: c.exports, imports_bn: c.imports, balance_bn: c.balance, main_exports: c.main_exp }));
+    WB_COMMODITIES.forEach((c) => rows.push({ dataset: "WB Commodities", commodity: c.name, unit: c.unit, price: c.price, change_pct: c.change }));
+    return rows;
+  };
+
   return (
     <div className="space-y-6 animate-fade-in">
       {/* Header */}

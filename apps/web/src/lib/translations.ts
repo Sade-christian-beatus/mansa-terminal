@@ -3,7 +3,7 @@ import type { Locale } from "./lang-store";
 const translations = {
   // ── Sidebar ──────────────────────────────────────────────────────────
   nav_dashboard:      { fr: "Tableau de bord",  en: "Dashboard"        },
-  nav_ai:             { fr: "MANSA AI",          en: "MANSA AI"         },
+  nav_ai:             { fr: "MANSA IA",          en: "MANSA AI"         },
   nav_countries:      { fr: "Analyse pays",      en: "Country Analysis" },
   nav_indicators:     { fr: "Indicateurs",       en: "Indicators"       },
   nav_markets:        { fr: "Marchés",           en: "Markets"          },
