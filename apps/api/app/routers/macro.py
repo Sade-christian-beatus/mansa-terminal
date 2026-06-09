@@ -131,6 +131,57 @@ async def get_country_macro(
     )
 
 
+@router.get("/export")
+async def export_macro_data(
+    current_user: Annotated[User, Depends(require_active_subscription)],
+    db: AsyncSession = Depends(get_db),
+    sources: Optional[str] = Query(None, description="Sources CSV, ex: IMF,WB"),
+    year_from: int = Query(2015, ge=1990, le=2030),
+    year_to: int = Query(2025, ge=1990, le=2030),
+):
+    """
+    Export des données macro pour le dashboard.
+    Retourne toutes les valeurs dans la plage d'années demandée.
+    """
+    q = select(
+        MacroIndicator.country_id,
+        MacroIndicator.indicator_code,
+        MacroIndicator.value,
+        MacroIndicator.period,
+        MacroIndicator.unit,
+        MacroIndicator.source,
+        Country.name_en,
+        Country.flag_emoji,
+    ).join(Country, MacroIndicator.country_id == Country.id).where(
+        and_(
+            MacroIndicator.period >= str(year_from),
+            MacroIndicator.period <= str(year_to),
+            MacroIndicator.period_type == "annual",
+        )
+    )
+    if sources:
+        src_list = [s.strip().upper() for s in sources.split(",") if s.strip()]
+        if src_list:
+            q = q.where(MacroIndicator.source.in_(src_list))
+
+    result = await db.execute(q.order_by(MacroIndicator.country_id, MacroIndicator.indicator_code, MacroIndicator.period).limit(5_000))
+    rows = result.fetchall()
+    return [
+        {
+            "country": r.country_id,
+            "country_name": r.name_en,
+            "flag": r.flag_emoji,
+            "indicator_code": r.indicator_code,
+            "indicator_name": KEY_INDICATORS.get(r.indicator_code, r.indicator_code),
+            "value": r.value,
+            "period": r.period,
+            "unit": r.unit,
+            "source": r.source,
+        }
+        for r in rows
+    ]
+
+
 @router.get("/heatmap/africa")
 async def get_africa_heatmap(
     current_user: Annotated[User, Depends(require_active_subscription)],

@@ -3,7 +3,8 @@
 import { useState, useRef, useEffect } from "react";
 import {
   Send, Bot, User, Loader2, History, X, Clock, Coins,
-  Download, Copy, Check, Sparkles, Database,
+  Download, Copy, Check, Sparkles, Database, AlertCircle,
+  Zap, MessageSquare, ChevronDown,
 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { streamAIQuery, aiApi, type AIHistoryItem } from "@/lib/api";
@@ -17,21 +18,36 @@ interface Message {
   content: string;
   isStreaming?: boolean;
   sources?: string[];
+  error?: boolean;
+  errorCode?: number;
 }
 
-/* ── Suggested queries enrichies avec nouvelles sources ── */
+/* ── Diagnostic d'erreur précis ── */
+function getErrorMessage(err: unknown): { message: string; code?: number } {
+  const msg = err instanceof Error ? err.message : String(err);
+  if (msg.includes("401")) return { message: "Session expirée. Veuillez vous reconnecter.", code: 401 };
+  if (msg.includes("403")) return { message: "Abonnement requis pour accéder à MANSA AI.", code: 403 };
+  if (msg.includes("429")) return { message: "Quota journalier atteint. Réessayez demain ou passez au plan supérieur.", code: 429 };
+  if (msg.includes("422")) return { message: "Question invalide ou trop courte. Reformulez votre question.", code: 422 };
+  if (msg.includes("500")) return { message: "Erreur serveur. L'équipe MANSA a été notifiée.", code: 500 };
+  if (msg.includes("Failed to fetch") || msg.includes("NetworkError") || msg.includes("ECONNREFUSED"))
+    return { message: "Impossible de joindre le serveur MANSA. Vérifiez votre connexion.", code: 0 };
+  return { message: "Une erreur inattendue est survenue. Réessayez dans quelques instants." };
+}
+
 const SUGGESTED_QUERIES = [
   { q: "Compare la dynamique de la dette publique au Nigeria et au Ghana sur 5 ans", tags: ["IMF", "WB"] },
   { q: "Analyse les risques macro pour investir en Côte d'Ivoire en 2024", tags: ["IMF", "WB", "Comtrade"] },
   { q: "Quels pays UEMOA sont les plus proches des critères de convergence ?", tags: ["IMF", "BCEAO"] },
-  { q: "Analyse le profil climatique et les risques catastrophes naturelles au Kenya (EM-DAT)", tags: ["EM-DAT", "WRI"] },
-  { q: "Quels pays africains ont la meilleure production d'énergie renouvelable ? (EIA)", tags: ["EIA", "WB"] },
-  { q: "Analyse l'insécurité alimentaire en Afrique de l'Est en 2024 (IPC/CH)", tags: ["IPC/CH", "FAO"] },
-  { q: "Quels ports africains ont subi le plus de pression en 2024 ? (PortWatch)", tags: ["PortWatch", "IMF"] },
-  { q: "Compare les taux de pauvreté extrême au Sahel (données WB PIP & World Bank)", tags: ["WB PIP", "WB"] },
+  { q: "Analyse le profil climatique et les risques catastrophes naturelles au Kenya", tags: ["EM-DAT", "WRI"] },
+  { q: "Quels pays africains ont la meilleure production d'énergie renouvelable ?", tags: ["EIA", "WB"] },
+  { q: "Analyse l'insécurité alimentaire en Afrique de l'Est en 2024", tags: ["IPC/CH", "FAO"] },
+  { q: "Quels ports africains ont subi le plus de pression en 2024 ?", tags: ["PortWatch", "IMF"] },
+  { q: "Compare les taux de pauvreté extrême au Sahel", tags: ["WB PIP", "WB"] },
 ];
 
-/* ── Chip source ── */
+const SOURCES = ["IMF WEO", "World Bank", "WHO GHO", "EM-DAT", "EIA", "IPC/CH", "PortWatch", "Comtrade", "WB PIP", "MANSA Research"];
+
 function SourceChip({ label }: { label: string }) {
   const colors: Record<string, string> = {
     "IMF": "text-blue-400 bg-blue-400/10", "WB": "text-green-400 bg-green-400/10",
@@ -41,18 +57,20 @@ function SourceChip({ label }: { label: string }) {
     "WRI": "text-teal-400 bg-teal-400/10", "WB PIP": "text-emerald-400 bg-emerald-400/10",
     "Comtrade": "text-indigo-400 bg-indigo-400/10",
   };
-  const cls = colors[label] ?? "text-gray-400 bg-gray-400/10";
   return (
-    <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${cls}`}>{label}</span>
+    <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${colors[label] ?? "text-gray-400 bg-gray-400/10"}`}>
+      {label}
+    </span>
   );
 }
 
-export default function AIAnalystPage() {
+export default function MansaAIPage() {
   const [messages,     setMessages]     = useState<Message[]>([]);
   const [input,        setInput]        = useState("");
   const [isLoading,    setIsLoading]    = useState(false);
   const [showHistory,  setShowHistory]  = useState(false);
   const [copied,       setCopied]       = useState<string | null>(null);
+  const [showSources,  setShowSources]  = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef    = useRef<HTMLTextAreaElement>(null);
 
@@ -71,7 +89,10 @@ export default function AIAnalystPage() {
     if (!question.trim() || isLoading) return;
 
     const userMsg: Message = { id: Date.now().toString(), role: "user", content: question };
-    const assistantMsg: Message = { id: (Date.now() + 1).toString(), role: "assistant", content: "", isStreaming: true, sources: [] };
+    const assistantId = (Date.now() + 1).toString();
+    const assistantMsg: Message = {
+      id: assistantId, role: "assistant", content: "", isStreaming: true, sources: [],
+    };
 
     setMessages((prev) => [...prev, userMsg, assistantMsg]);
     setInput("");
@@ -83,41 +104,42 @@ export default function AIAnalystPage() {
         if (chunk.type === "text" && chunk.content) {
           fullContent += chunk.content;
           setMessages((prev) =>
-            prev.map((m) => m.id === assistantMsg.id ? { ...m, content: fullContent } : m)
+            prev.map((m) => m.id === assistantId ? { ...m, content: fullContent } : m)
           );
         } else if (chunk.type === "done") {
           setMessages((prev) =>
-            prev.map((m) => m.id === assistantMsg.id ? { ...m, isStreaming: false } : m)
+            prev.map((m) => m.id === assistantId ? { ...m, isStreaming: false } : m)
           );
         } else if (chunk.type === "error") {
+          const errText = chunk.content ?? "Erreur inconnue du service IA.";
           setMessages((prev) =>
             prev.map((m) =>
-              m.id === assistantMsg.id
-                ? { ...m, content: "❌ Erreur lors de l'analyse. Veuillez réessayer.", isStreaming: false }
+              m.id === assistantId
+                ? { ...m, content: errText, isStreaming: false, error: true }
                 : m
             )
           );
         }
       }
-    } catch {
+    } catch (err) {
+      const { message: errMsg, code } = getErrorMessage(err);
       setMessages((prev) =>
         prev.map((m) =>
-          m.id === assistantMsg.id ? { ...m, content: "❌ Erreur de connexion.", isStreaming: false } : m
+          m.id === assistantId
+            ? { ...m, content: errMsg, isStreaming: false, error: true, errorCode: code }
+            : m
         )
       );
     } finally {
       setIsLoading(false);
       setMessages((prev) =>
-        prev.map((m) => m.id === assistantMsg.id ? { ...m, isStreaming: false } : m)
+        prev.map((m) => m.id === assistantId ? { ...m, isStreaming: false } : m)
       );
     }
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault();
-      sendMessage(input);
-    }
+    if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(input); }
   };
 
   const copyMessage = (id: string, text: string) => {
@@ -128,34 +150,45 @@ export default function AIAnalystPage() {
 
   const exportConversation = () => {
     if (messages.length === 0) return;
-    const rows = messages.map((m, i) => ({
-      index: i + 1,
-      role: m.role,
-      content: m.content,
-      timestamp: new Date().toISOString(),
-    }));
-    exportData(rows, "json", "mansa-conversation");
+    const rows = messages.map((m, i) => ({ index: i + 1, role: m.role, content: m.content, timestamp: new Date().toISOString() }));
+    exportData(rows, "json", "mansa-ai-conversation");
   };
 
   return (
     <div className="flex flex-col h-full max-h-[calc(100vh-8rem)]">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-5">
-        <div>
-          <h1 className="text-2xl font-bold flex items-center gap-3" style={{ color: "var(--text-primary)" }}>
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-[#00D4AA] to-[#3B82F6] flex items-center justify-center">
-              <Bot size={18} className="text-white" />
-            </div>
-            MANSA Analyst
-          </h1>
-          <p className="text-sm mt-1" style={{ color: "var(--text-muted)" }}>
-            IA spécialisée · 54 économies africaines · IMF · WB · EM-DAT · EIA · IPC/CH · PortWatch
-          </p>
+
+      {/* ── Header ── */}
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#00D4AA] to-[#3B82F6] flex items-center justify-center shadow-lg">
+            <Bot size={20} className="text-white" />
+          </div>
+          <div>
+            <h1 className="text-xl font-bold flex items-center gap-2" style={{ color: "var(--text-primary)" }}>
+              MANSA AI
+              <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold"
+                    style={{ background: "color-mix(in srgb, var(--mansa-green) 15%, transparent)", color: "var(--mansa-green)" }}>
+                Powered by Claude
+              </span>
+            </h1>
+            <p className="text-xs" style={{ color: "var(--text-muted)" }}>
+              IA spécialisée · 54 économies africaines · Données temps réel
+            </p>
+          </div>
         </div>
         <div className="flex items-center gap-2">
           {messages.length > 0 && (
             <button onClick={exportConversation} className="mansa-btn-ghost text-xs flex items-center gap-1.5 px-3 py-1.5">
               <Download size={12} /> Exporter
+            </button>
+          )}
+          {messages.length > 0 && (
+            <button
+              onClick={() => setMessages([])}
+              className="text-xs flex items-center gap-1.5 px-3 py-1.5 rounded-lg border transition-colors"
+              style={{ borderColor: "var(--bg-border)", color: "var(--text-muted)" }}
+            >
+              <MessageSquare size={12} /> Nouveau
             </button>
           )}
           <button
@@ -168,45 +201,63 @@ export default function AIAnalystPage() {
         </div>
       </div>
 
-      {/* Bandeau sources disponibles */}
-      <div className="flex items-center gap-2 mb-4 flex-wrap">
-        <Database size={12} style={{ color: "var(--text-muted)" }} />
-        <span className="text-xs" style={{ color: "var(--text-muted)" }}>Sources actives :</span>
-        {["IMF WEO", "World Bank", "WHO GHO", "EM-DAT", "EIA", "IPC/CH", "PortWatch", "Comtrade", "WB PIP", "MANSA Research"].map((s) => (
-          <span key={s} className="text-[10px] px-2 py-0.5 rounded-full border"
-                style={{ borderColor: "var(--bg-border)", color: "var(--text-muted)", background: "var(--sidebar-bg)" }}>
-            {s}
-          </span>
-        ))}
+      {/* ── Sources déroulantes ── */}
+      <div className="mb-3">
+        <button
+          onClick={() => setShowSources((v) => !v)}
+          className="flex items-center gap-2 text-xs rounded-lg px-3 py-1.5 border transition-colors"
+          style={{ background: "var(--card-bg)", borderColor: "var(--card-border)", color: "var(--text-muted)" }}
+        >
+          <Database size={11} />
+          <span>Sources de données actives</span>
+          <ChevronDown size={11} className={`transition-transform ${showSources ? "rotate-180" : ""}`} />
+        </button>
+        {showSources && (
+          <div className="mt-2 flex items-center gap-1.5 flex-wrap px-1 animate-fade-in">
+            {SOURCES.map((s) => (
+              <span key={s} className="text-[10px] px-2 py-0.5 rounded-full border"
+                    style={{ borderColor: "var(--bg-border)", color: "var(--text-muted)", background: "var(--sidebar-bg)" }}>
+                {s}
+              </span>
+            ))}
+          </div>
+        )}
       </div>
 
-      {/* Zone messages */}
-      <div className="flex-1 overflow-y-auto space-y-4 mb-4 pr-2">
+      {/* ── Zone messages ── */}
+      <div className="flex-1 overflow-y-auto space-y-4 mb-4 pr-1" style={{ scrollbarWidth: "thin" }}>
+
+        {/* État vide */}
         {messages.length === 0 && (
-          <div className="flex flex-col items-center justify-center h-full text-center py-12">
-            <div className="w-16 h-16 rounded-2xl flex items-center justify-center mb-4"
-                 style={{ background: "linear-gradient(135deg, rgba(0,212,170,0.15), rgba(59,130,246,0.15))" }}>
-              <Bot size={32} style={{ color: "var(--mansa-green)" }} />
+          <div className="flex flex-col items-center justify-center h-full text-center py-8">
+            <div className="w-20 h-20 rounded-2xl flex items-center justify-center mb-5 shadow-xl"
+                 style={{ background: "linear-gradient(135deg, rgba(0,212,170,0.15), rgba(59,130,246,0.15))", border: "1px solid color-mix(in srgb, var(--mansa-green) 20%, transparent)" }}>
+              <Zap size={36} style={{ color: "var(--mansa-green)" }} />
             </div>
-            <h2 className="text-xl font-semibold mb-2" style={{ color: "var(--text-primary)" }}>
-              Interrogez MANSA Analyst
+            <h2 className="text-xl font-bold mb-2" style={{ color: "var(--text-primary)" }}>
+              Interrogez MANSA AI
             </h2>
-            <p className="text-sm mb-8 max-w-md" style={{ color: "var(--text-muted)" }}>
-              Analyses macro-fiscales, risques souverains, profils pays, catastrophes naturelles,
-              sécurité alimentaire, énergie — données FMI, Banque Mondiale et 12 sources spécialisées.
+            <p className="text-sm mb-2 max-w-lg" style={{ color: "var(--text-muted)" }}>
+              Analyses macro-fiscales, risques souverains, profils pays, données FMI, Banque Mondiale
+              et 12 sources spécialisées pour 54 économies africaines.
+            </p>
+            <p className="text-xs mb-8 max-w-md" style={{ color: "var(--text-muted)", opacity: 0.7 }}>
+              Les réponses s&apos;appuient sur la base de données MANSA, puis les APIs connectées, puis la base de connaissances RAG.
             </p>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3 w-full max-w-3xl">
               {SUGGESTED_QUERIES.map(({ q, tags }) => (
                 <button
                   key={q}
                   onClick={() => sendMessage(q)}
-                  className="mansa-card mansa-card-hover text-left px-4 py-3 rounded-xl text-sm transition-all"
+                  className="mansa-card text-left px-4 py-3 rounded-xl text-sm transition-all hover:shadow-md group"
                   style={{ color: "var(--text-secondary)" }}
+                  onMouseEnter={(e) => (e.currentTarget.style.borderColor = "color-mix(in srgb, var(--mansa-green) 40%, transparent)")}
+                  onMouseLeave={(e) => (e.currentTarget.style.borderColor = "")}
                 >
                   <div className="flex items-start gap-2">
-                    <Sparkles size={13} className="text-amber-400 flex-shrink-0 mt-0.5" />
+                    <Sparkles size={13} className="text-amber-400 flex-shrink-0 mt-0.5 group-hover:scale-110 transition-transform" />
                     <div>
-                      <p className="leading-snug mb-2" style={{ color: "var(--text-secondary)" }}>{q}</p>
+                      <p className="leading-snug mb-2 text-sm" style={{ color: "var(--text-secondary)" }}>{q}</p>
                       <div className="flex flex-wrap gap-1">
                         {tags.map((t) => <SourceChip key={t} label={t} />)}
                       </div>
@@ -218,75 +269,118 @@ export default function AIAnalystPage() {
           </div>
         )}
 
+        {/* Messages */}
         {messages.map((message) => (
           <div
             key={message.id}
-            className={`flex gap-3 ${message.role === "user" ? "justify-end" : "justify-start"}`}
+            className={`flex gap-3 animate-fade-in ${message.role === "user" ? "justify-end" : "justify-start"}`}
           >
             {message.role === "assistant" && (
               <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#00D4AA] to-[#3B82F6]
-                              flex items-center justify-center flex-shrink-0 mt-1">
+                              flex items-center justify-center flex-shrink-0 mt-1 shadow-md">
                 <Bot size={14} className="text-white" />
               </div>
             )}
 
             <div className={`max-w-3xl rounded-2xl px-4 py-3 group relative ${
-              message.role === "user" ? "bg-[#3B82F6] text-white" : "mansa-card"
-            }`}>
+              message.role === "user"
+                ? "bg-[#3B82F6] text-white"
+                : message.error
+                  ? "border border-red-500/30"
+                  : "mansa-card"
+            }`}
+            style={message.error ? { background: "rgba(239,68,68,0.07)" } : {}}>
+
               {message.role === "assistant" ? (
                 <>
-                  <div className="prose prose-invert prose-sm max-w-none
-                                  prose-headings:font-semibold
-                                  prose-code:text-[#00D4AA]
-                                  prose-table:text-sm"
-                       style={{ color: "var(--text-secondary)" }}>
-                    <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                      {message.content}
-                    </ReactMarkdown>
-                    {message.isStreaming && (
-                      <span className="inline-block w-2 h-4 animate-pulse ml-1 rounded-sm"
-                            style={{ background: "var(--mansa-green)" }} />
-                    )}
-                  </div>
-                  {!message.isStreaming && message.content && (
-                    <div className="flex items-center gap-2 mt-3 pt-2 border-t opacity-0 group-hover:opacity-100 transition-opacity"
-                         style={{ borderColor: "var(--bg-border)" }}>
-                      <button
-                        onClick={() => copyMessage(message.id, message.content)}
-                        className="flex items-center gap-1 text-xs px-2 py-1 rounded transition-colors"
-                        style={{ color: "var(--text-muted)", background: "var(--sidebar-bg)" }}
-                      >
-                        {copied === message.id ? <Check size={10} className="text-emerald-400" /> : <Copy size={10} />}
-                        {copied === message.id ? "Copié" : "Copier"}
-                      </button>
-                      <button
-                        onClick={() => exportData([{ content: message.content }], "json", "mansa-response")}
-                        className="flex items-center gap-1 text-xs px-2 py-1 rounded transition-colors"
-                        style={{ color: "var(--text-muted)", background: "var(--sidebar-bg)" }}
-                      >
-                        <Download size={10} /> Exporter
-                      </button>
+                  {message.error ? (
+                    <div className="flex items-start gap-2.5">
+                      <AlertCircle size={15} className="text-red-400 flex-shrink-0 mt-0.5" />
+                      <div>
+                        <p className="text-sm font-medium text-red-400">{message.content}</p>
+                        {message.errorCode === 401 && (
+                          <a href="/auth/login" className="text-xs mt-1 block underline" style={{ color: "var(--mansa-green)" }}>
+                            → Se reconnecter
+                          </a>
+                        )}
+                        {message.errorCode === 403 && (
+                          <a href="/billing" className="text-xs mt-1 block underline" style={{ color: "var(--mansa-green)" }}>
+                            → Voir les plans d&apos;abonnement
+                          </a>
+                        )}
+                      </div>
                     </div>
+                  ) : (
+                    <>
+                      <div className="prose prose-invert prose-sm max-w-none
+                                      prose-headings:font-semibold
+                                      prose-code:text-[#00D4AA]
+                                      prose-table:text-sm
+                                      prose-strong:text-white"
+                           style={{ color: "var(--text-secondary)" }}>
+                        <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                          {message.content}
+                        </ReactMarkdown>
+                        {message.isStreaming && (
+                          <span className="inline-block w-2 h-4 animate-pulse ml-1 rounded-sm"
+                                style={{ background: "var(--mansa-green)" }} />
+                        )}
+                      </div>
+                      {!message.isStreaming && message.content && (
+                        <div className="flex items-center gap-2 mt-3 pt-2 border-t opacity-0 group-hover:opacity-100 transition-opacity"
+                             style={{ borderColor: "var(--bg-border)" }}>
+                          <button
+                            onClick={() => copyMessage(message.id, message.content)}
+                            className="flex items-center gap-1 text-xs px-2 py-1 rounded transition-colors"
+                            style={{ color: "var(--text-muted)", background: "var(--sidebar-bg)" }}
+                          >
+                            {copied === message.id ? <Check size={10} className="text-emerald-400" /> : <Copy size={10} />}
+                            {copied === message.id ? "Copié !" : "Copier"}
+                          </button>
+                          <button
+                            onClick={() => exportData([{ content: message.content }], "json", "mansa-ai-response")}
+                            className="flex items-center gap-1 text-xs px-2 py-1 rounded transition-colors"
+                            style={{ color: "var(--text-muted)", background: "var(--sidebar-bg)" }}
+                          >
+                            <Download size={10} /> Exporter
+                          </button>
+                        </div>
+                      )}
+                    </>
                   )}
                 </>
               ) : (
-                <p className="text-sm">{message.content}</p>
+                <p className="text-sm leading-relaxed">{message.content}</p>
               )}
             </div>
 
             {message.role === "user" && (
               <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 mt-1"
-                   style={{ background: "var(--bg-border)" }}>
-                <User size={14} style={{ color: "var(--text-muted)" }} />
+                   style={{ background: "linear-gradient(135deg, var(--mansa-green), var(--mansa-blue))" }}>
+                <User size={14} className="text-white" />
               </div>
             )}
           </div>
         ))}
 
+        {/* Indicateur de frappe */}
+        {isLoading && messages[messages.length - 1]?.role === "assistant" && !messages[messages.length - 1]?.content && (
+          <div className="flex gap-3 justify-start animate-fade-in">
+            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#00D4AA] to-[#3B82F6] flex items-center justify-center flex-shrink-0">
+              <Bot size={14} className="text-white" />
+            </div>
+            <div className="mansa-card rounded-2xl px-4 py-3 flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full animate-bounce" style={{ background: "var(--mansa-green)", animationDelay: "0ms" }} />
+              <span className="w-2 h-2 rounded-full animate-bounce" style={{ background: "var(--mansa-green)", animationDelay: "150ms" }} />
+              <span className="w-2 h-2 rounded-full animate-bounce" style={{ background: "var(--mansa-green)", animationDelay: "300ms" }} />
+            </div>
+          </div>
+        )}
+
         <div ref={messagesEndRef} />
       </div>
 
-      {/* Historique panel */}
+      {/* ── Historique panel ── */}
       {showHistory && (
         <div className="fixed inset-y-0 right-0 w-96 z-50 flex flex-col shadow-2xl border-l"
              style={{ background: "var(--sidebar-bg)", borderColor: "var(--bg-border)" }}>
@@ -294,7 +388,7 @@ export default function AIAnalystPage() {
                style={{ borderColor: "var(--bg-border)" }}>
             <h2 className="font-semibold flex items-center gap-2" style={{ color: "var(--text-primary)" }}>
               <History size={16} style={{ color: "var(--mansa-green)" }} />
-              Historique
+              Historique des conversations
             </h2>
             <button onClick={() => setShowHistory(false)} style={{ color: "var(--text-muted)" }}>
               <X size={18} />
@@ -307,15 +401,18 @@ export default function AIAnalystPage() {
               </div>
             )}
             {!historyLoading && (!history || history.length === 0) && (
-              <p className="text-sm text-center py-8" style={{ color: "var(--text-muted)" }}>
-                Aucune requête pour l&apos;instant.
-              </p>
+              <div className="text-center py-12">
+                <MessageSquare size={32} className="mx-auto mb-3" style={{ color: "var(--text-muted)", opacity: 0.4 }} />
+                <p className="text-sm" style={{ color: "var(--text-muted)" }}>Aucune requête pour l&apos;instant.</p>
+              </div>
             )}
             {history?.map((item) => (
               <button
                 key={item.id}
                 onClick={() => { setInput(item.question); setShowHistory(false); textareaRef.current?.focus(); }}
-                className="w-full text-left mansa-card rounded-xl px-4 py-3 hover:border-[#00D4AA]/40 transition-all group"
+                className="w-full text-left mansa-card rounded-xl px-4 py-3 transition-all group"
+                onMouseEnter={(e) => (e.currentTarget.style.borderColor = "color-mix(in srgb, var(--mansa-green) 40%, transparent)")}
+                onMouseLeave={(e) => (e.currentTarget.style.borderColor = "")}
               >
                 <p className="text-sm line-clamp-2 mb-2" style={{ color: "var(--text-secondary)" }}>
                   {item.question}
@@ -340,15 +437,15 @@ export default function AIAnalystPage() {
         </div>
       )}
 
-      {/* Zone saisie */}
-      <div className="mansa-card rounded-2xl p-4">
+      {/* ── Zone saisie ── */}
+      <div className="mansa-card rounded-2xl p-4 shadow-lg" style={{ borderColor: "var(--card-border)" }}>
         <div className="flex gap-3 items-end">
           <textarea
             ref={textareaRef}
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="Ex: Analyse la soutenabilité de la dette du Sénégal avec données EM-DAT et PortWatch..."
+            placeholder="Ex: Analyse la soutenabilité de la dette du Sénégal avec les dernières données IMF..."
             rows={2}
             className="flex-1 bg-transparent text-sm resize-none focus:outline-none leading-relaxed"
             style={{ color: "var(--text-secondary)" }}
@@ -356,19 +453,23 @@ export default function AIAnalystPage() {
           <button
             onClick={() => sendMessage(input)}
             disabled={!input.trim() || isLoading}
-            className="w-10 h-10 rounded-xl flex items-center justify-center transition-colors flex-shrink-0 disabled:cursor-not-allowed"
+            className="w-10 h-10 rounded-xl flex items-center justify-center transition-all flex-shrink-0 disabled:cursor-not-allowed shadow-md"
             style={{
-              background: !input.trim() || isLoading ? "var(--bg-border)" : "var(--mansa-green)",
+              background: !input.trim() || isLoading ? "var(--bg-border)" : "linear-gradient(135deg, var(--mansa-green), var(--mansa-blue))",
               color: "#fff",
             }}
           >
             {isLoading ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
           </button>
         </div>
-        <p className="text-xs mt-2" style={{ color: "var(--text-muted)" }}>
-          Entrée pour envoyer · Maj+Entrée pour nouvelle ligne ·
-          Sources : IMF · Banque Mondiale · WHO · EM-DAT · EIA · IPC/CH · PortWatch · Comtrade · MANSA Research
-        </p>
+        <div className="flex items-center justify-between mt-2">
+          <p className="text-xs" style={{ color: "var(--text-muted)" }}>
+            Entrée pour envoyer · Maj+Entrée pour saut de ligne
+          </p>
+          <p className="text-[10px]" style={{ color: "var(--text-muted)" }}>
+            IMF · Banque Mondiale · WHO · EM-DAT · EIA · PortWatch
+          </p>
+        </div>
       </div>
     </div>
   );

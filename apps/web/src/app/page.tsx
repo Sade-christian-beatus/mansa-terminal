@@ -4,7 +4,8 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
   RefreshCw, Search, Calendar, Download, Zap,
-  Flame, Droplets, Satellite, Anchor,
+  Flame, Droplets, Satellite, Anchor, TrendingUp,
+  TrendingDown, Globe2, Activity, BarChart3,
 } from "lucide-react";
 
 import { api } from "@/lib/api";
@@ -20,16 +21,15 @@ import { ExportModal }         from "@/components/common/ExportModal";
 import type { ExportRow }      from "@/lib/export-utils";
 
 const INDICATORS = [
-  { code: "NGDP_RPCH",    label: "Croissance PIB réel"  },
-  { code: "PCPIPCH",      label: "Inflation IPC"         },
-  { code: "GGXCNL_NGDP", label: "Solde budgétaire"      },
-  { code: "GGXWDG_NGDP", label: "Dette publique"         },
-  { code: "BCA_NGDPD",   label: "Compte courant"         },
-  { code: "ASSDRESES",   label: "Réserves (mois import)" },
-  { code: "LUR",         label: "Chômage"                },
+  { code: "NGDP_RPCH",    label: "Croissance PIB"        },
+  { code: "PCPIPCH",      label: "Inflation IPC"          },
+  { code: "GGXCNL_NGDP", label: "Solde budgétaire"       },
+  { code: "GGXWDG_NGDP", label: "Dette publique"          },
+  { code: "BCA_NGDPD",   label: "Compte courant"          },
+  { code: "ASSDRESES",   label: "Réserves import."        },
+  { code: "LUR",         label: "Chômage"                 },
 ];
 
-/* Signaux HF à afficher dans la barre du dashboard */
 const HF_ALERTS = [
   { flag: "🇪🇹", country: "Éthiopie",   msg: "Conflit +34%",   color: "#EF4444", icon: Flame    },
   { flag: "🇰🇪", country: "Kenya",      msg: "Inondations",     color: "#F59E0B", icon: Droplets },
@@ -37,6 +37,14 @@ const HF_ALERTS = [
   { flag: "🇸🇴", country: "Somalie",    msg: "IPC Phase 3+",   color: "#F97316", icon: Flame    },
   { flag: "🇪🇬", country: "Égypte",     msg: "Port –12%",      color: "#6366F1", icon: Anchor   },
   { flag: "🇨🇩", country: "RD Congo",   msg: "NLI +6.8pts",    color: "#10B981", icon: Satellite},
+];
+
+/* ── KPI stats pour la hero section ── */
+const PLATFORM_STATS = [
+  { label: "Économies africaines", value: "54",    icon: Globe2,    color: "#00D4AA" },
+  { label: "Indicateurs disponibles", value: "141", icon: BarChart3, color: "#3B82F6" },
+  { label: "Sources de données", value: "14",      icon: Activity,  color: "#8B5CF6" },
+  { label: "Mise à jour quotidienne", value: "IMF · WB", icon: RefreshCw, color: "#F59E0B" },
 ];
 
 function openCommandPalette() {
@@ -66,7 +74,6 @@ export default function DashboardPage() {
       );
       return resp.data ?? [];
     } catch {
-      // Fallback : données heatmap actuelles
       return (heatmap?.data ?? []).map((d: Record<string, unknown>) => ({
         country: d.country_id as string,
         indicator_code: indicator,
@@ -88,25 +95,66 @@ export default function DashboardPage() {
 
       <div className="mt-5 space-y-5 animate-fade-in">
 
-        {/* ── Page header ── */}
-        <div className="flex items-center justify-between gap-4 flex-wrap">
-          <div>
-            <h1 className="text-lg font-bold tracking-tight" style={{ color: "var(--text-primary)" }}>
-              Terminal Macro-Africain
-            </h1>
-            <p className="text-[11px] font-mono mt-0.5" style={{ color: "var(--text-muted)" }}>
-              54 économies · IMF · World Bank · WHO · EIA · EM-DAT · NASA VIIRS · {new Date().getFullYear()}
-            </p>
+        {/* ── Hero Header — Slogan MANSA + actions ── */}
+        <div
+          className="rounded-2xl px-6 py-5 border relative overflow-hidden"
+          style={{ background: "var(--card-bg)", borderColor: "var(--card-border)" }}
+        >
+          {/* Gradient orb décoratif */}
+          <div className="absolute -top-10 -right-10 w-48 h-48 rounded-full opacity-5"
+               style={{ background: "radial-gradient(circle, var(--mansa-green), transparent)" }} />
+          <div className="absolute -bottom-8 -left-8 w-32 h-32 rounded-full opacity-5"
+               style={{ background: "radial-gradient(circle, var(--mansa-blue), transparent)" }} />
+
+          <div className="relative flex items-start justify-between gap-4 flex-wrap">
+            <div>
+              <div className="flex items-center gap-2 mb-1">
+                <div className="w-2 h-2 rounded-full animate-pulse" style={{ background: "var(--mansa-green)" }} />
+                <span className="text-[10px] font-semibold uppercase tracking-widest"
+                      style={{ color: "var(--mansa-green)" }}>
+                  Live · {now}
+                </span>
+              </div>
+              <h1 className="text-2xl font-bold tracking-tight" style={{ color: "var(--text-primary)" }}>
+                Africa&apos;s AI-Powered
+              </h1>
+              <h1 className="text-2xl font-bold tracking-tight"
+                  style={{ background: "linear-gradient(135deg, var(--mansa-green), var(--mansa-blue))", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>
+                Macro-Fiscal Intelligence
+              </h1>
+              <p className="text-sm mt-1.5" style={{ color: "var(--text-muted)" }}>
+                54 économies · IMF WEO · World Bank · WHO · EM-DAT · NASA VIIRS · EIA
+              </p>
+            </div>
+
+            {/* Stats plateforme */}
+            <div className="flex items-center gap-3 flex-wrap">
+              {PLATFORM_STATS.map((stat) => {
+                const Icon = stat.icon;
+                return (
+                  <div key={stat.label}
+                       className="flex items-center gap-2 px-3 py-2 rounded-xl border"
+                       style={{ background: `color-mix(in srgb, ${stat.color} 8%, var(--card-bg))`, borderColor: `color-mix(in srgb, ${stat.color} 25%, transparent)` }}>
+                    <Icon size={13} style={{ color: stat.color }} />
+                    <div>
+                      <div className="text-sm font-bold leading-none" style={{ color: stat.color }}>{stat.value}</div>
+                      <div className="text-[9px] mt-0.5 leading-none" style={{ color: "var(--text-muted)" }}>{stat.label}</div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
           </div>
 
-          <div className="flex items-center gap-2 flex-wrap">
+          {/* Contrôles */}
+          <div className="relative mt-4 flex items-center gap-2 flex-wrap">
             <button
               onClick={openCommandPalette}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-mono rounded-lg border transition-colors"
+              className="flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-mono rounded-lg border transition-colors hover:border-[var(--mansa-green)]"
               style={{ background: "var(--input-bg)", borderColor: "var(--input-border)", color: "var(--text-muted)" }}
             >
               <Search size={11} />
-              Recherche
+              Recherche pays, indicateurs...
               <kbd className="text-[10px] border rounded px-1 ml-1"
                    style={{ borderColor: "var(--bg-border)", color: "var(--text-muted)" }}>⌃K</kbd>
             </button>
@@ -114,7 +162,7 @@ export default function DashboardPage() {
             <select
               value={indicator}
               onChange={(e) => setIndicator(e.target.value)}
-              className="text-[11px] font-mono rounded-lg px-2.5 py-1.5 focus:outline-none cursor-pointer border"
+              className="text-[11px] font-mono rounded-lg px-2.5 py-1.5 focus:outline-none cursor-pointer border transition-colors"
               style={{ background: "var(--input-bg)", borderColor: "var(--input-border)", color: "var(--text-secondary)" }}
             >
               {INDICATORS.map((ind) => (
@@ -125,7 +173,7 @@ export default function DashboardPage() {
             <select
               value={year}
               onChange={(e) => setYear(Number(e.target.value))}
-              className="text-[11px] font-mono rounded-lg px-2.5 py-1.5 focus:outline-none cursor-pointer border"
+              className="text-[11px] font-mono rounded-lg px-2.5 py-1.5 focus:outline-none cursor-pointer border transition-colors"
               style={{ background: "var(--input-bg)", borderColor: "var(--input-border)", color: "var(--text-secondary)" }}
             >
               {[2025, 2024, 2023, 2022, 2021, 2020].map((y) => (
@@ -136,7 +184,7 @@ export default function DashboardPage() {
             <button
               onClick={() => refetch()}
               title="Actualiser"
-              className="p-1.5 rounded-lg border transition-colors"
+              className="p-1.5 rounded-lg border transition-all hover:border-[var(--mansa-green)]"
               style={{ background: "var(--input-bg)", borderColor: "var(--input-border)", color: "var(--text-muted)" }}
             >
               <RefreshCw size={12} className={isFetching ? "animate-spin" : ""} />
@@ -150,7 +198,7 @@ export default function DashboardPage() {
               Exporter
             </button>
 
-            <div className="flex items-center gap-1 text-[10px] font-mono"
+            <div className="flex items-center gap-1 text-[10px] font-mono ml-auto"
                  style={{ color: "var(--text-muted)" }}>
               <Calendar size={10} />
               {now}
@@ -160,31 +208,32 @@ export default function DashboardPage() {
 
         {/* ── Barre signaux HF ── */}
         <div
-          className="rounded-xl px-4 py-3 flex items-center gap-2 overflow-x-auto border"
+          className="rounded-xl px-4 py-2.5 flex items-center gap-2 overflow-x-auto border"
           style={{ background: "var(--card-bg)", borderColor: "var(--card-border)" }}
         >
           <div className="flex items-center gap-1.5 flex-shrink-0 mr-2">
-            <div className="w-2 h-2 rounded-full animate-pulse" style={{ background: "var(--mansa-green)" }} />
-            <span className="text-xs font-semibold" style={{ color: "var(--mansa-green)" }}>Signaux HF</span>
+            <div className="w-2 h-2 rounded-full animate-pulse" style={{ background: "#EF4444" }} />
+            <span className="text-xs font-semibold" style={{ color: "#EF4444" }}>LIVE HF</span>
           </div>
           {HF_ALERTS.map((a) => {
             const Icon = a.icon;
             return (
-              <div
+              <a
                 key={a.country}
-                className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg flex-shrink-0 text-[11px] font-medium"
-                style={{ background: `color-mix(in srgb, ${a.color} 10%, transparent)`, color: a.color }}
+                href="/signals"
+                className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg flex-shrink-0 text-[11px] font-medium transition-all hover:scale-105 cursor-pointer"
+                style={{ background: `color-mix(in srgb, ${a.color} 10%, transparent)`, color: a.color, textDecoration: "none" }}
               >
                 <span>{a.flag}</span>
                 <Icon size={10} />
                 <span>{a.country}</span>
                 <span className="opacity-80 font-normal">{a.msg}</span>
-              </div>
+              </a>
             );
           })}
-          <a href="/signals" className="ml-auto flex-shrink-0 text-xs hover:underline"
+          <a href="/signals" className="ml-auto flex-shrink-0 text-xs flex items-center gap-1 hover:underline"
              style={{ color: "var(--mansa-green)" }}>
-            Voir tous →
+            Tous les signaux <TrendingUp size={10} />
           </a>
         </div>
 
@@ -209,10 +258,27 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* ── Data sources strip ── */}
+        {/* ── Bottom: top movers + KPI grid ── */}
+        <div className="grid grid-cols-12 gap-4">
+          <div className="col-span-4">
+            <TopCountriesTable
+              data={heatmap?.data ?? []}
+              indicator={heatmap?.indicator_name ?? indicator}
+              isLoading={heatmapLoading}
+            />
+          </div>
+          <div className="col-span-8">
+            <MacroKPIGrid />
+          </div>
+        </div>
+
+        {/* ── Sources actives ── */}
         <div className="rounded-xl px-4 py-3 border" style={{ background: "var(--card-bg)", borderColor: "var(--card-border)" }}>
           <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-[10px] font-semibold" style={{ color: "var(--text-muted)" }}>Sources actives :</span>
+            <div className="flex items-center gap-1.5 mr-1">
+              <div className="w-1.5 h-1.5 rounded-full" style={{ background: "var(--mansa-green)" }} />
+              <span className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: "var(--text-muted)" }}>Sources intégrées</span>
+            </div>
             {[
               { label: "IMF WEO",        cls: "source-badge-imf"      },
               { label: "World Bank",     cls: "source-badge-wb"       },
@@ -231,20 +297,6 @@ export default function DashboardPage() {
             ].map((s) => (
               <span key={s.label} className={s.cls}>{s.label}</span>
             ))}
-          </div>
-        </div>
-
-        {/* ── Bottom: top movers + KPI grid ── */}
-        <div className="grid grid-cols-12 gap-4">
-          <div className="col-span-4">
-            <TopCountriesTable
-              data={heatmap?.data ?? []}
-              indicator={heatmap?.indicator_name ?? indicator}
-              isLoading={heatmapLoading}
-            />
-          </div>
-          <div className="col-span-8">
-            <MacroKPIGrid />
           </div>
         </div>
       </div>
