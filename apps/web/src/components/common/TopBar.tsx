@@ -299,7 +299,6 @@ export function TopBar() {
             </div>
             <div className="text-xs text-left hidden sm:block">
               <div className="font-medium" style={{ color: "var(--text-secondary)" }}>{displayName}</div>
-              <div className="truncate max-w-[100px]" style={{ color: "var(--text-muted)" }}>{email || "—"}</div>
             </div>
           </button>
 

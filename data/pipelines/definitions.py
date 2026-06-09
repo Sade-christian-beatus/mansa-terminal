@@ -19,22 +19,42 @@ from worldbank_pipeline import worldbank_wdi_indicators, worldbank_wdi_to_databa
 # Jobs — Groupes d'assets à exécuter ensemble
 # ============================================================
 
+# daily_job et weekly_job référençaient des groupes d'assets inexistants (fx_daily,
+# commodities, google_trends, conflict_data) → erreur au démarrage Dagster.
+# Corrigés : daily et weekly pointent vers les assets disponibles (IMF + WB)
+# jusqu'à ce que les pipelines Phase 2 soient implémentés.
+
 daily_job = define_asset_job(
     name="daily_data_refresh",
-    description="Mise à jour quotidienne : FX rates, prix commodités",
-    selection=AssetSelection.groups("fx_daily", "commodities"),
+    description="Mise à jour quotidienne : IMF WEO + World Bank WDI (fallback Phase 1)",
+    selection=AssetSelection.assets(
+        "imf_weo_all_indicators",
+        "imf_weo_to_database",
+        "worldbank_wdi_indicators",
+        "worldbank_wdi_to_database",
+    ),
 )
 
 weekly_job = define_asset_job(
     name="weekly_data_refresh",
-    description="Mise à jour hebdomadaire : Google Trends, ACLED",
-    selection=AssetSelection.groups("google_trends", "conflict_data"),
+    description="Mise à jour hebdomadaire : IMF WEO + World Bank WDI",
+    selection=AssetSelection.assets(
+        "imf_weo_all_indicators",
+        "imf_weo_to_database",
+        "worldbank_wdi_indicators",
+        "worldbank_wdi_to_database",
+    ),
 )
 
 monthly_job = define_asset_job(
     name="monthly_data_refresh",
-    description="Mise à jour mensuelle : IMF WEO, World Bank WDI, BCEAO/BEAC",
-    selection=AssetSelection.groups("imf_tier1", "worldbank_tier1"),
+    description="Mise à jour mensuelle : IMF WEO, World Bank WDI",
+    selection=AssetSelection.assets(
+        "imf_weo_all_indicators",
+        "imf_weo_to_database",
+        "worldbank_wdi_indicators",
+        "worldbank_wdi_to_database",
+    ),
 )
 
 full_refresh_job = define_asset_job(

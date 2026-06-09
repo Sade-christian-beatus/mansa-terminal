@@ -133,7 +133,7 @@ function ProgressBar({ value, max = 100, color }: { value: number; max?: number;
 /* ─── Page principale ───────────────────────────────────── */
 export default function ClimatePage() {
   const [exportOpen, setExportOpen] = useState(false);
-  const [activeTab,  setActiveTab]  = useState<"overview" | "disasters" | "water" | "energy">("overview");
+  const [activeTab,  setActiveTab]  = useState<"overview" | "esg" | "disasters" | "water" | "energy">("overview");
 
   const { data: climateData, isLoading: climateLoading } = useQuery({
     queryKey: ["climate-indicators"],
@@ -206,22 +206,46 @@ export default function ClimatePage() {
     return rows;
   };
 
+  /* ── ESG Scorecard data (simulé — sera lié à la DB) ── */
+  const ESG_SCORES = [
+    { country: "Maroc",          flag: "🇲🇦", e: 62, s: 55, g: 64, total: 60, trend: "+3" },
+    { country: "Kenya",          flag: "🇰🇪", e: 58, s: 52, g: 56, total: 55, trend: "+2" },
+    { country: "Afrique du Sud", flag: "🇿🇦", e: 38, s: 61, g: 68, total: 55, trend: "-1" },
+    { country: "Sénégal",        flag: "🇸🇳", e: 53, s: 49, g: 54, total: 52, trend: "+4" },
+    { country: "Rwanda",         flag: "🇷🇼", e: 56, s: 57, g: 72, total: 62, trend: "+5" },
+    { country: "Ghana",          flag: "🇬🇭", e: 50, s: 53, g: 58, total: 54, trend: "+1" },
+    { country: "Égypte",         flag: "🇪🇬", e: 44, s: 50, g: 48, total: 47, trend: "0"  },
+    { country: "Nigeria",        flag: "🇳🇬", e: 36, s: 44, g: 42, total: 41, trend: "-2" },
+  ];
+
   return (
-    <div className="space-y-6 animate-fade-in">
+    <div className="space-y-5 animate-fade-in">
       {/* ── Header ── */}
-      <div className="flex items-start justify-between">
-        <div>
-          <h1 className="text-2xl font-bold flex items-center gap-3" style={{ color: "var(--text-primary)" }}>
-            <Leaf size={22} className="text-emerald-400" />
-            Climat & ESG
-          </h1>
-          <p className="text-sm mt-1" style={{ color: "var(--text-muted)" }}>
-            CO₂ · Électricité · Renouvelables · Catastrophes (EM-DAT) · Stress hydrique (WRI) · Énergie (EIA)
-          </p>
+      <div className="rounded-2xl px-6 py-5 relative overflow-hidden"
+           style={{ background: "var(--card-bg)", border: "1px solid var(--card-border)" }}>
+        <div className="absolute -top-8 -right-8 w-36 h-36 rounded-full opacity-5"
+             style={{ background: "radial-gradient(circle, #10B981, transparent)" }} />
+        <div className="flex items-start justify-between gap-4 flex-wrap">
+          <div>
+            <div className="flex items-center gap-2 mb-1.5">
+              <Leaf size={14} className="text-emerald-400" />
+              <span className="text-[10px] font-bold uppercase tracking-widest text-emerald-400">
+                ESG · Climate Intelligence
+              </span>
+            </div>
+            <h1 className="text-2xl font-bold" style={{ color: "var(--text-primary)" }}>
+              Climat & ESG
+            </h1>
+            <p className="text-sm mt-1" style={{ color: "var(--text-muted)" }}>
+              CO₂ · Électricité · Renouvelables · EM-DAT · Stress hydrique · EIA · ESG Scorecard investisseurs
+            </p>
+          </div>
+          <button onClick={() => setExportOpen(true)}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-sm"
+            style={{ background: "var(--input-bg)", borderColor: "var(--card-border)", color: "var(--text-muted)" }}>
+            <Download size={14} /> Exporter
+          </button>
         </div>
-        <button onClick={() => setExportOpen(true)} className="mansa-btn-ghost text-sm flex items-center gap-2">
-          <Download size={14} /> Exporter
-        </button>
       </div>
 
       {/* ── KPI continentaux ── */}
@@ -243,10 +267,11 @@ export default function ClimatePage() {
       {/* ── Tabs ── */}
       <div className="flex items-center gap-1 border-b" style={{ borderColor: "var(--bg-border)" }}>
         {([
-          { id: "overview",  label: "Vue générale",     icon: Leaf },
+          { id: "overview",  label: "Vue générale",        icon: Leaf },
+          { id: "esg",       label: "ESG Scorecard",       icon: TrendingUp },
           { id: "disasters", label: "Catastrophes EM-DAT", icon: AlertTriangle },
-          { id: "water",     label: "Stress hydrique",  icon: Droplets },
-          { id: "energy",    label: "Mix énergétique",  icon: Zap },
+          { id: "water",     label: "Stress hydrique",     icon: Droplets },
+          { id: "energy",    label: "Mix énergétique",     icon: Zap },
         ] as const).map(({ id, label, icon: Icon }) => (
           <button
             key={id}
@@ -372,6 +397,117 @@ export default function ClimatePage() {
             </div>
           )}
         </>
+      )}
+
+      {/* ── Tab: ESG Scorecard ── */}
+      {activeTab === "esg" && (
+        <div className="space-y-5">
+          {/* Explainer */}
+          <div className="rounded-2xl px-5 py-4 flex items-start gap-3"
+               style={{ background: "color-mix(in srgb, #10B981 8%, var(--card-bg))", border: "1px solid color-mix(in srgb, #10B981 25%, transparent)" }}>
+            <Leaf size={16} className="text-emerald-400 flex-shrink-0 mt-0.5" />
+            <div>
+              <p className="text-sm font-semibold text-emerald-400 mb-1">MANSA ESG Score — Méthodologie</p>
+              <p className="text-xs leading-relaxed" style={{ color: "var(--text-secondary)" }}>
+                Score composite 0–100 calculé à partir de 3 piliers : <strong>E</strong> (Environnement) — émissions CO₂, renouvelables, stress hydrique ·
+                <strong> S</strong> (Social) — accès électricité, IDH, sécurité alimentaire ·
+                <strong> G</strong> (Gouvernance) — indice Banque Mondiale, transparence budgétaire.
+                Sources : Banque Mondiale WDI · IRENA · WRI · PNUD · Transparency International.
+              </p>
+            </div>
+          </div>
+
+          {/* Leaderboard */}
+          <div className="grid grid-cols-3 gap-4">
+            {[
+              { rank: 1, ...ESG_SCORES[ESG_SCORES.reduce((bi, c, i, a) => c.total > a[bi].total ? i : bi, 0)] },
+              { rank: 2, ...ESG_SCORES.sort((a, b) => b.total - a.total)[1] },
+              { rank: 3, ...ESG_SCORES.sort((a, b) => b.total - a.total)[2] },
+            ].map((c) => (
+              <div key={c.country} className="rounded-2xl p-4 text-center"
+                   style={{ background: "var(--card-bg)", border: "1px solid var(--card-border)" }}>
+                <p className="text-xs font-bold mb-1"
+                   style={{ color: c.rank === 1 ? "#FFD700" : c.rank === 2 ? "#C0C0C0" : "#CD7F32" }}>
+                  #{c.rank} MEILLEUR SCORE ESG
+                </p>
+                <p className="text-3xl mb-1">{c.flag}</p>
+                <p className="text-sm font-bold" style={{ color: "var(--text-primary)" }}>{c.country}</p>
+                <p className="text-2xl font-bold font-mono mt-1"
+                   style={{ color: c.rank === 1 ? "#10B981" : c.rank === 2 ? "#3B82F6" : "#F59E0B" }}>
+                  {c.total}
+                </p>
+              </div>
+            ))}
+          </div>
+
+          {/* Table */}
+          <div className="rounded-2xl overflow-hidden"
+               style={{ background: "var(--card-bg)", border: "1px solid var(--card-border)" }}>
+            <div className="grid grid-cols-[2fr_1fr_1fr_1fr_1fr_1fr] gap-4 px-4 py-2.5 text-[10px] font-bold uppercase tracking-wider"
+                 style={{ background: "var(--sidebar-bg)", color: "var(--text-muted)", borderBottom: "1px solid var(--bg-border)" }}>
+              <span>Pays</span>
+              <span className="text-center text-emerald-400">E (Env.)</span>
+              <span className="text-center text-blue-400">S (Social)</span>
+              <span className="text-center text-purple-400">G (Gouv.)</span>
+              <span className="text-center" style={{ color: "var(--mansa-green)" }}>Score ESG</span>
+              <span className="text-center">Tendance</span>
+            </div>
+            {[...ESG_SCORES].sort((a, b) => b.total - a.total).map((c, i) => (
+              <div key={c.country}
+                   className="grid grid-cols-[2fr_1fr_1fr_1fr_1fr_1fr] gap-4 px-4 py-3 items-center border-b text-sm"
+                   style={{ borderColor: "var(--bg-border)" }}>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-muted font-mono w-5">{i + 1}</span>
+                  <span className="text-base">{c.flag}</span>
+                  <span className="font-medium" style={{ color: "var(--text-primary)" }}>{c.country}</span>
+                </div>
+                {/* E bar */}
+                <div className="flex items-center gap-2 justify-center">
+                  <div className="w-16 h-1.5 rounded-full overflow-hidden" style={{ background: "var(--bg-border)" }}>
+                    <div className="h-full rounded-full bg-emerald-400" style={{ width: `${c.e}%` }} />
+                  </div>
+                  <span className="text-xs font-mono text-emerald-400 w-6">{c.e}</span>
+                </div>
+                {/* S bar */}
+                <div className="flex items-center gap-2 justify-center">
+                  <div className="w-16 h-1.5 rounded-full overflow-hidden" style={{ background: "var(--bg-border)" }}>
+                    <div className="h-full rounded-full bg-blue-400" style={{ width: `${c.s}%` }} />
+                  </div>
+                  <span className="text-xs font-mono text-blue-400 w-6">{c.s}</span>
+                </div>
+                {/* G bar */}
+                <div className="flex items-center gap-2 justify-center">
+                  <div className="w-16 h-1.5 rounded-full overflow-hidden" style={{ background: "var(--bg-border)" }}>
+                    <div className="h-full rounded-full bg-purple-400" style={{ width: `${c.g}%` }} />
+                  </div>
+                  <span className="text-xs font-mono text-purple-400 w-6">{c.g}</span>
+                </div>
+                {/* Total */}
+                <div className="text-center">
+                  <span className="text-sm font-bold font-mono"
+                        style={{ color: c.total >= 55 ? "#10B981" : c.total >= 45 ? "#F59E0B" : "#EF4444" }}>
+                    {c.total}
+                  </span>
+                  <div className="w-full h-1 rounded-full mt-1 overflow-hidden" style={{ background: "var(--bg-border)" }}>
+                    <div className="h-full rounded-full transition-all"
+                         style={{ width: `${c.total}%`, background: c.total >= 55 ? "#10B981" : c.total >= 45 ? "#F59E0B" : "#EF4444" }} />
+                  </div>
+                </div>
+                {/* Trend */}
+                <div className="text-center">
+                  <span className="text-xs font-mono font-semibold"
+                        style={{ color: c.trend.startsWith("+") ? "#10B981" : c.trend === "0" ? "var(--text-muted)" : "#EF4444" }}>
+                    {c.trend === "0" ? "→" : c.trend.startsWith("+") ? `↑ ${c.trend}` : `↓ ${c.trend}`}
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <p className="text-xs" style={{ color: "var(--text-muted)" }}>
+            MANSA ESG Score v1.0 · Sources : Banque Mondiale WDI · IRENA · WRI Aqueduct · PNUD IDH · Transparency International CPI · MANSA Terminal · Mise à jour : juin 2025
+          </p>
+        </div>
       )}
 
       {/* ── Tab: Catastrophes EM-DAT ── */}

@@ -72,8 +72,8 @@ class Settings(BaseSettings):
 
     # Anthropic
     ANTHROPIC_API_KEY: str = ""
-    ANTHROPIC_MODEL_ID: str = "claude-sonnet-4-5"
-    ANTHROPIC_MAX_TOKENS: int = 2000
+    ANTHROPIC_MODEL_ID: str = "claude-sonnet-4-6"
+    ANTHROPIC_MAX_TOKENS: int = 4096
 
     # Observabilité
     SENTRY_DSN: str = ""

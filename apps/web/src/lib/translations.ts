@@ -3,7 +3,7 @@ import type { Locale } from "./lang-store";
 const translations = {
   // ── Sidebar ──────────────────────────────────────────────────────────
   nav_dashboard:      { fr: "Tableau de bord",  en: "Dashboard"        },
-  nav_ai:             { fr: "IA Analyst",        en: "AI Analyst"       },
+  nav_ai:             { fr: "MANSA IA",          en: "MANSA AI"         },
   nav_countries:      { fr: "Analyse pays",      en: "Country Analysis" },
   nav_indicators:     { fr: "Indicateurs",       en: "Indicators"       },
   nav_markets:        { fr: "Marchés",           en: "Markets"          },
@@ -17,11 +17,11 @@ const translations = {
   theme_dark:         { fr: "Mode sombre",       en: "Dark mode"        },
   theme_light:        { fr: "Mode clair",        en: "Light mode"       },
   meai_label:      { fr: "MEAI Index",      en: "MEAI Index" },
-  meai_desc:       { fr: "MANSA Economic Activity Index — disponible en Phase 3", en: "MANSA Economic Activity Index — available in Phase 3" },
+  meai_desc:       { fr: "Baromètre macroéconomique africain composite", en: "Africa macro composite barometer" },
 
   // ── TopBar ────────────────────────────────────────────────────────────
   topbar_search:   { fr: "Rechercher un pays, un indicateur...", en: "Search country, indicator..." },
-  topbar_data:     { fr: "Données : FMI · 2024",                en: "Data: IMF · 2024" },
+  topbar_data:     { fr: "Données live · IMF · World Bank",    en: "Live data · IMF · World Bank" },
   topbar_logout:   { fr: "Se déconnecter",                       en: "Sign out" },
 
   // ── Dashboard ─────────────────────────────────────────────────────────
