@@ -91,7 +91,7 @@ export default function IndicatorsPage() {
   const [selectedCountry,setSelectedCountry]= useState<string | null>(null);
   const [region,         setRegion]         = useState("Toutes");
   const [search,         setSearch]         = useState("");
-  const [chartType,      setChartType]      = useState<"line" | "bar">("area");
+  const [chartType,      setChartType]      = useState<"line" | "bar" | "area">("area");
   const [exportOpen,     setExportOpen]     = useState(false);
 
   const indMeta = INDICATORS.find((i) => i.code === selectedInd)!;
