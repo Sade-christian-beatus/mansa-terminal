@@ -14,6 +14,8 @@ const translations = {
   nav_help:           { fr: "Aide",              en: "Help"             },
   nav_notifications:  { fr: "Notifications",     en: "Notifications"    },
   nav_profile:        { fr: "Mon profil",        en: "My Profile"       },
+  nav_news:           { fr: "Actualités",        en: "News"             },
+  nav_dictionary:     { fr: "Dictionnaire",      en: "Dictionary"       },
   theme_dark:         { fr: "Mode sombre",       en: "Dark mode"        },
   theme_light:        { fr: "Mode clair",        en: "Light mode"       },
   meai_label:      { fr: "MEAI Index",      en: "MEAI Index" },

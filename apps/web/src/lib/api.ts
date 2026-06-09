@@ -134,23 +134,50 @@ export const climateApi = {
 };
 
 // ── Streaming SSE AI Analyst ────────────────────────────────────────────
+
+/** Récupère un token Supabase valide, en rafraîchissant si nécessaire. */
+async function _getFreshToken(): Promise<string | null> {
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session) return null;
+
+  // Si le token expire dans moins de 60 secondes, on rafraîchit proactivement
+  const expiresAt = (session as { expires_at?: number }).expires_at ?? 0;
+  const expiresInMs = expiresAt * 1000 - Date.now();
+  if (expiresInMs < 60_000) {
+    const { data: { session: refreshed } } = await supabase.auth.refreshSession();
+    return refreshed?.access_token ?? null;
+  }
+  return session.access_token ?? null;
+}
+
 export async function* streamAIQuery(
   question: string
 ): AsyncGenerator<{ type: string; content?: string; query_id?: string }> {
   const streamBase = IS_BROWSER && IS_PROD ? "/api/backend" : `${API_URL}/api`;
 
-  // Récupérer le token Supabase pour le streaming fetch (pas Axios)
-  const { data: { session } } = await supabase.auth.getSession();
+  // Toujours obtenir un token frais (auto-refresh si proche de l'expiration)
+  const token = await _getFreshToken();
   const headers: Record<string, string> = { "Content-Type": "application/json" };
-  if (session?.access_token) {
-    headers["Authorization"] = `Bearer ${session.access_token}`;
-  }
+  if (token) headers["Authorization"] = `Bearer ${token}`;
 
-  const response = await fetch(`${streamBase}/ai/query`, {
+  let response = await fetch(`${streamBase}/ai/query`, {
     method: "POST",
     headers,
     body: JSON.stringify({ question }),
   });
+
+  // Si 401, forcer un refresh de session et réessayer une fois
+  if (response.status === 401) {
+    const { data: { session: refreshed } } = await supabase.auth.refreshSession();
+    if (refreshed?.access_token) {
+      headers["Authorization"] = `Bearer ${refreshed.access_token}`;
+      response = await fetch(`${streamBase}/ai/query`, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({ question }),
+      });
+    }
+  }
 
   if (!response.ok) throw new Error(`AI API error: ${response.status}`);
 
