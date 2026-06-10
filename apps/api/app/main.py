@@ -18,7 +18,7 @@ from sentry_sdk.integrations.sqlalchemy import SqlalchemyIntegration
 
 from app.core.config import settings
 from app.core.limiter import limiter
-from app.routers import auth, health, macro, countries, ai_analyst, billing, markets, climate, news, alerts
+from app.routers import auth, health, macro, countries, ai_analyst, billing, markets, climate, news, alerts, acled
 
 
 # ---- Logging structuré (JSON en prod, standard en dev) ----
@@ -116,6 +116,7 @@ app.include_router(markets.router,    prefix="/api/markets",   tags=["Markets"])
 app.include_router(climate.router,    prefix="/api/climate",   tags=["Climate"])
 app.include_router(news.router,       prefix="/api/news",      tags=["News"])
 app.include_router(alerts.router,     prefix="/api/alerts",    tags=["Alerts"])
+app.include_router(acled.router,      prefix="/api/acled",     tags=["Conflicts"])
 
 
 @app.get("/", tags=["Root"])

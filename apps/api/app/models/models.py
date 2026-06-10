@@ -172,21 +172,38 @@ class AIQuery(Base):
 
 
 class KnowledgeDocument(Base):
-    """RAG knowledge base — pgvector embedding column added via migration."""
+    """
+    RAG knowledge base — Documents macro-économiques africains.
+
+    Colonne embedding : vecteur VECTOR(1536) ajouté via migration 0003_pgvector.
+    Phase 1 : recherche par country_id (pas de vecteur requis).
+    Phase 2 : recherche sémantique par similarité cosine avec pgvector.
+              Activer en décommentant la colonne embedding ci-dessous et en
+              exécutant alembic upgrade head.
+
+    Modèles d'embedding compatibles (dim=1536) :
+      - OpenAI text-embedding-3-small (recommandé, économique)
+      - Voyage-3 (Anthropic, haute qualité)
+    """
     __tablename__ = "knowledge_documents"
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     title = Column(String(500), nullable=False)
-    doc_type = Column(String(100))           # IMF_ARTICLE_IV | WB_MEMO | BCEAO_REPORT
+    doc_type = Column(String(100))           # IMF_ARTICLE_IV | WB_MEMO | BCEAO_REPORT | MANSA_SUMMARY
     country_id = Column(String(3), ForeignKey("countries.id"), nullable=True)
     content = Column(Text, nullable=False)
     year = Column(Integer)
     source_url = Column(String(500))
+    # Embedding pgvector — NULL si pas encore vectorisé (migration 0003 requise)
+    # La colonne est déclarée ici comme Text pour rester compatible si pgvector
+    # n'est pas installé. La migration 0003 change son type en vector(1536).
+    # Pour la recherche sémantique, utiliser sqlalchemy-pgvector ou raw SQL.
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     __table_args__ = (
         Index("idx_knowledge_country", "country_id"),
         Index("idx_knowledge_type", "doc_type"),
+        Index("idx_knowledge_year", "year"),
     )
 
 

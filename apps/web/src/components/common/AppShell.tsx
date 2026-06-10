@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { Sidebar } from "./Sidebar";
 import { TopBar } from "./TopBar";
@@ -14,6 +14,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const router     = useRouter();
   const hydrate    = useAuthStore((s) => s.hydrate);
   const theme      = useThemeStore((s) => s.theme);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+
   const isAuthPage       = pathname?.startsWith("/auth");
   const isOnboardingPage = pathname?.startsWith("/onboarding");
 
@@ -35,6 +37,22 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     document.documentElement.setAttribute("data-theme", theme);
   }, [theme]);
 
+  // Fermer la sidebar sur changement de route (mobile)
+  useEffect(() => {
+    setSidebarOpen(false);
+  }, [pathname]);
+
+  // Fermer avec Escape
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setSidebarOpen(false);
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, []);
+
+  const toggleSidebar = useCallback(() => setSidebarOpen(o => !o), []);
+
   if (isAuthPage || isOnboardingPage) {
     return (
       <div className="min-h-screen flex items-center justify-center"
@@ -46,10 +64,29 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="flex h-screen overflow-hidden" style={{ background: "var(--bg-primary)" }}>
-      <Sidebar />
-      <div className="flex flex-col flex-1 overflow-hidden">
-        <TopBar />
-        <main className="flex-1 overflow-y-auto p-6" style={{ background: "var(--bg-primary)" }}>
+
+      {/* ── Overlay mobile ── */}
+      {sidebarOpen && (
+        <div
+          className="fixed inset-0 z-40 bg-black/50 md:hidden"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
+
+      {/* ── Sidebar — cachée sur mobile, slide-in si sidebarOpen ── */}
+      <div className={`
+        fixed md:relative inset-y-0 left-0 z-50 flex-shrink-0
+        transform transition-transform duration-300 ease-in-out
+        md:translate-x-0 md:flex
+        ${sidebarOpen ? "translate-x-0 flex" : "-translate-x-full hidden md:flex"}
+      `}>
+        <Sidebar onClose={() => setSidebarOpen(false)} />
+      </div>
+
+      {/* ── Contenu principal ── */}
+      <div className="flex flex-col flex-1 overflow-hidden min-w-0">
+        <TopBar onMenuClick={toggleSidebar} />
+        <main className="flex-1 overflow-y-auto p-4 md:p-6" style={{ background: "var(--bg-primary)" }}>
           {children}
         </main>
       </div>
