@@ -1,6 +1,6 @@
 """pgvector — colonne embedding sur knowledge_documents
 
-Revision ID: 0003_pgvector_knowledge_embeddings
+Revision ID: 0003_add_pgvector
 Revises: 0002_add_token_version
 Create Date: 2025-06-10
 
@@ -20,7 +20,7 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision = "0003_pgvector_knowledge_embeddings"
+revision = "0003_add_pgvector"
 down_revision = "0002_add_token_version"
 branch_labels = None
 depends_on = None
