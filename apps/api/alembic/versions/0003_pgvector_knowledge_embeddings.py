@@ -26,11 +26,33 @@ branch_labels = None
 depends_on = None
 
 
+def _pgvector_available() -> bool:
+    """
+    Vérifie si l'extension pgvector est disponible sur ce serveur PostgreSQL.
+    Retourne False en CI (postgres:16 standard) et True en prod (pgvector installé).
+    """
+    conn = op.get_bind()
+    result = conn.execute(
+        sa.text("SELECT count(*) FROM pg_available_extensions WHERE name = 'vector'")
+    )
+    return (result.scalar() or 0) > 0
+
+
 def upgrade() -> None:
-    # 1. Activer l'extension pgvector (idempotent — ne plante pas si déjà présente)
+    # 1. Index composite country_id + date (toujours disponible, sans pgvector)
+    op.execute("""
+        CREATE INDEX IF NOT EXISTS idx_knowledge_country_created
+        ON knowledge_documents (country_id, created_at DESC);
+    """)
+
+    # 2. pgvector — extension + colonne embedding (optionnel : skippé si non disponible)
+    #    En CI (postgres:16 standard) : skippé.
+    #    En production (pgvector installé) : activé.
+    if not _pgvector_available():
+        return  # pgvector non disponible — colonne embedding ignorée
+
     op.execute("CREATE EXTENSION IF NOT EXISTS vector;")
 
-    # 2. Ajouter la colonne embedding (nullable — les docs sans embedding gardent NULL)
     op.execute("""
         ALTER TABLE knowledge_documents
         ADD COLUMN IF NOT EXISTS embedding vector(1536);
@@ -45,18 +67,15 @@ def upgrade() -> None:
     #     WITH (lists = 10);
     # """)
 
-    # 4. Index pour filtrage country_id + similarité (composite)
-    op.execute("""
-        CREATE INDEX IF NOT EXISTS idx_knowledge_country_created
-        ON knowledge_documents (country_id, created_at DESC);
-    """)
-
 
 def downgrade() -> None:
     # Supprimer l'index composite
     op.execute("DROP INDEX IF EXISTS idx_knowledge_country_created;")
 
-    # Supprimer la colonne embedding
+    # Supprimer la colonne embedding (seulement si pgvector était activé)
+    if not _pgvector_available():
+        return
+
     op.execute("""
         ALTER TABLE knowledge_documents
         DROP COLUMN IF EXISTS embedding;
