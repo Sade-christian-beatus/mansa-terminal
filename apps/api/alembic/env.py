@@ -55,6 +55,10 @@ def run_migrations_online() -> None:
         configuration,
         prefix="sqlalchemy.",
         poolclass=pool.NullPool,
+        # Force IPv4 — Railway ne supporte pas IPv6 vers Supabase port 5432.
+        # Utiliser le Supabase Session Pooler (port 6543) dans DATABASE_URL_SYNC
+        # est la correction définitive ; ce connect_args est une garde-fou supplémentaire.
+        connect_args={"options": "-c tcp_keepalives_idle=10 -c tcp_keepalives_interval=5"},
     )
 
     with connectable.connect() as connection:
