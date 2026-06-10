@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import {
   Globe2, Sparkles, BarChart3, TrendingUp, Zap,
-  ArrowRight, Check, ChevronLeft,
+  ArrowRight, Check, ChevronLeft, GitFork, ShieldAlert,
 } from "lucide-react";
 
 /* ── Persist l'état onboarding ── */
@@ -80,6 +80,38 @@ const SCREENS = [
   },
   {
     id: 4,
+    icon: GitFork,
+    iconColor: "#8B5CF6",
+    iconBg: "rgba(139,92,246,0.12)",
+    badge: "Analytics avancés",
+    title: "Corrélation inter-pays",
+    subtitle: "27 pays · 8 indicateurs · Scatter plot interactif",
+    desc: "Explorez les corrélations entre indicateurs macroéconomiques sur 27 pays africains. Détectez les patterns cachés : croissance vs. dette, inflation vs. investissement.",
+    visual: "correlation",
+    features: [
+      "Coefficient de Pearson calculé en temps réel",
+      "Filtres par région : UEMOA, CEMAC, Afrique",
+      "Scatter plot zoomable avec drapeaux pays",
+    ],
+  },
+  {
+    id: 5,
+    icon: ShieldAlert,
+    iconColor: "#EF4444",
+    iconBg: "rgba(239,68,68,0.12)",
+    badge: "Sécurité & Risques",
+    title: "Risques conflictuels ACLED",
+    subtitle: "15 pays · Données 2024 · Niveaux critique / élevé / moyen",
+    desc: "Intégrez le risque géopolitique à votre analyse. Visualisez les zones de conflit actives, les groupes armés et l'impact sur la stabilité économique — depuis les données ACLED.",
+    visual: "conflicts",
+    features: [
+      "15 pays africains avec niveaux de risque",
+      "Types de conflits : milices, jihadistes, intercommunautaires",
+      "Corrélation risque sécuritaire · prime de risque pays",
+    ],
+  },
+  {
+    id: 6,
     icon: Zap,
     iconColor: "#0ea5a0",
     iconBg: "rgba(14,165,160,0.12)",
@@ -178,6 +210,63 @@ function ScreenVisual({ type, color }: { type: string; color: string }) {
         <span style={{ color: "#0ea5a0" }}>MANSA AI · </span>
         La dette publique du Sénégal a progressé de 48.2% à 76.3% du PIB entre 2015 et 2024…
       </div>
+    </div>
+  );
+
+  if (type === "correlation") return (
+    <div className="w-64 h-44 relative">
+      {/* Axes */}
+      <div className="absolute bottom-6 left-6 right-4 h-px" style={{ background: "rgba(255,255,255,0.15)" }} />
+      <div className="absolute bottom-6 left-6 top-2 w-px" style={{ background: "rgba(255,255,255,0.15)" }} />
+      {/* Axis labels */}
+      <span className="absolute bottom-1 left-1/2 text-[9px]" style={{ color: "#64748B", transform: "translateX(-50%)" }}>Croissance PIB →</span>
+      <span className="absolute left-0 top-1/2 text-[9px]" style={{ color: "#64748B", transform: "translateY(-50%) rotate(-90deg)", writingMode: "vertical-rl" }}>Inflation →</span>
+      {/* Trend line */}
+      <svg className="absolute inset-0 w-full h-full" style={{ overflow: "visible" }}>
+        <line x1="30" y1="155" x2="230" y2="15" stroke={color} strokeWidth="1.5" strokeDasharray="4 3" opacity="0.5" />
+      </svg>
+      {/* Data points */}
+      {[
+        { x: 55, y: 120, flag: "🇳🇬", size: 14 },
+        { x: 90, y: 90,  flag: "🇰🇪", size: 12 },
+        { x: 120, y: 70, flag: "🇷🇼", size: 12 },
+        { x: 150, y: 55, flag: "🇪🇹", size: 13 },
+        { x: 80, y: 105, flag: "🇸🇳", size: 11 },
+        { x: 170, y: 40, flag: "🇲🇦", size: 12 },
+        { x: 60, y: 130, flag: "🇨🇩", size: 11 },
+        { x: 200, y: 25, flag: "🇲🇺", size: 11 },
+      ].map((pt, i) => (
+        <div key={i} className="absolute" style={{ left: pt.x, top: pt.y, transform: "translate(-50%,-50%)", fontSize: pt.size }}>
+          {pt.flag}
+        </div>
+      ))}
+      {/* r label */}
+      <div className="absolute top-3 right-3 px-2 py-1 rounded-lg text-[10px] font-mono font-bold"
+           style={{ background: `color-mix(in srgb, ${color} 15%, transparent)`, color, border: `1px solid ${color}` }}>
+        r = 0.72
+      </div>
+    </div>
+  );
+
+  if (type === "conflicts") return (
+    <div className="w-64 space-y-2">
+      {[
+        { country: "🇸🇩 Soudan",     risk: "CRITIQUE", color: "#EF4444", width: "95%", events: "4,820" },
+        { country: "🇪🇹 Éthiopie",   risk: "ÉLEVÉ",    color: "#F97316", width: "78%", events: "2,341" },
+        { country: "🇲🇱 Mali",        risk: "ÉLEVÉ",    color: "#F97316", width: "65%", events: "1,876" },
+        { country: "🇳🇬 Nigéria",    risk: "MOYEN",    color: "#F59E0B", width: "52%", events: "1,203" },
+        { country: "🇲🇿 Mozambique", risk: "MOYEN",    color: "#F59E0B", width: "38%", events: "654" },
+      ].map((row) => (
+        <div key={row.country} className="px-3 py-2 rounded-xl" style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)" }}>
+          <div className="flex items-center justify-between mb-1.5">
+            <span className="text-[10px] font-medium" style={{ color: "#CBD5E1" }}>{row.country}</span>
+            <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full" style={{ color: row.color, background: `${row.color}22` }}>{row.risk}</span>
+          </div>
+          <div className="h-1 rounded-full" style={{ background: "rgba(255,255,255,0.08)" }}>
+            <div className="h-full rounded-full" style={{ width: row.width, background: row.color, opacity: 0.8 }} />
+          </div>
+        </div>
+      ))}
     </div>
   );
 
