@@ -20,6 +20,7 @@ PyJWT==2.10.1            # JWT tokens (import: jwt)
 
 # === HTTP ===
 httpx==0.28.1            # Client HTTP async pour les pipelines et tests
+feedparser==6.0.11       # Parse des flux RSS/Atom pour le router news
 
 # === RATE LIMITING ===
 slowapi==0.1.9           # Rate limiting middleware pour FastAPI

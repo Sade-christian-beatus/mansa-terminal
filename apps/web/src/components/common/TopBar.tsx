@@ -2,11 +2,13 @@
 
 import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
-import { Bell, X, Sun, Moon, UserCircle2, LogOut, Settings } from "lucide-react";
+import { Bell, X, Sun, Moon, UserCircle2, LogOut, Settings, AlertTriangle } from "lucide-react";
 import { useAuthStore } from "@/lib/auth-store";
 import { useLangStore } from "@/lib/lang-store";
 import { useThemeStore } from "@/lib/theme-store";
 import { t } from "@/lib/translations";
+import { useQuery } from "@tanstack/react-query";
+import { macroApi, alertsApi } from "@/lib/api";
 
 const NOTIFS = [
   { id: 1, title: "FMI WEO mis à jour",        desc: "Nouvelles projections macro Q1 2025",           time: "2h",  dot: "bg-[#00D4AA]",  unread: true  },
@@ -32,6 +34,24 @@ export function TopBar() {
   const initials    = displayName.split(" ").map((w: string) => w[0]).join("").slice(0, 2).toUpperCase();
   const unreadCount = NOTIFS.filter((n) => n.unread).length;
 
+  const { data: freshness } = useQuery({
+    queryKey: ["data-freshness"],
+    queryFn: () => macroApi.getFreshness(),
+    staleTime: 5 * 60 * 1000,
+    retry: false,
+  });
+
+  const { data: alertsData } = useQuery({
+    queryKey: ["macro-alerts-count"],
+    queryFn: () => alertsApi.getMacroAlerts({ severity: "critical,high", limit: 5 }),
+    staleTime: 10 * 60 * 1000,
+    retry: false,
+  });
+
+  const criticalCount = alertsData?.summary?.critical ?? 0;
+  const highCount     = alertsData?.summary?.high ?? 0;
+  const totalAlerts   = criticalCount + highCount;
+
   useEffect(() => {
     const handler = (e: MouseEvent) => {
       if (notifRef.current && !notifRef.current.contains(e.target as Node)) setNotifOpen(false);
@@ -46,14 +66,45 @@ export function TopBar() {
       className="h-14 px-6 flex items-center justify-between flex-shrink-0 z-30 relative border-b transition-colors duration-200"
       style={{ background: "var(--topbar-bg)", borderColor: "var(--topbar-border)" }}
     >
-      {/* ── Titre de page / Breadcrumb (espace gauche) ── */}
-      <div className="flex items-center gap-2">
+      {/* ── Indicateur de fraîcheur des données ── */}
+      <div className="flex items-center gap-3">
         <div className="flex items-center gap-1.5">
-          <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ background: "var(--mansa-green)" }} />
+          <span
+            className="w-1.5 h-1.5 rounded-full"
+            style={{
+              background: freshness?.is_live ? "var(--mansa-green)" : "#F59E0B",
+              animation: freshness?.is_live ? "pulse 2s infinite" : "none",
+            }}
+          />
           <span className="text-xs font-medium" style={{ color: "var(--text-muted)" }}>
-            Données live · IMF · Banque Mondiale
+            {freshness?.is_live
+              ? `Données live · ${freshness.sources?.[0]?.source ?? "IMF"} · ${
+                  freshness.last_updated
+                    ? new Date(freshness.last_updated).toLocaleDateString("fr-FR", {
+                        day: "numeric", month: "short",
+                      })
+                    : "À jour"
+                }`
+              : "Données démo · Lancez le pipeline Dagster"}
           </span>
         </div>
+
+        {/* Badge alertes critiques */}
+        {totalAlerts > 0 && (
+          <Link
+            href="/alerts"
+            className="flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold transition-opacity hover:opacity-80"
+            style={{
+              background: criticalCount > 0 ? "rgba(239,68,68,0.12)" : "rgba(245,158,11,0.12)",
+              color: criticalCount > 0 ? "#ef4444" : "#F59E0B",
+              border: `1px solid ${criticalCount > 0 ? "rgba(239,68,68,0.25)" : "rgba(245,158,11,0.25)"}`,
+            }}
+            title="Voir les alertes macro"
+          >
+            <AlertTriangle size={9} />
+            {totalAlerts} alerte{totalAlerts > 1 ? "s" : ""}
+          </Link>
+        )}
       </div>
 
       {/* ── Côté droit ── */}

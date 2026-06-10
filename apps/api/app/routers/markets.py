@@ -1,9 +1,12 @@
 """
 MANSA Terminal — Router Markets (Phase 2)
-Taux de change, indices boursiers africains, données FX
+Taux de change temps réel via Frankfurter (ECB), indices boursiers africains
 """
+import logging
 from datetime import date, timedelta
 from typing import Annotated
+
+import httpx
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, desc
@@ -12,7 +15,12 @@ from app.core.database import get_db
 from app.core.dependencies import require_active_subscription
 from app.models.models import User, FXRate, Country
 
+logger = logging.getLogger(__name__)
 router = APIRouter()
+
+# ── Cache FX en mémoire (TTL 15 min) ────────────────────────────────────────
+_fx_cache: dict = {"data": None, "fetched_at": None}
+FX_CACHE_TTL = 900  # 15 minutes
 
 # ── Données statiques de référence (fallback si DB vide) ─────────────────────
 
@@ -119,20 +127,71 @@ INDICES_DATA = [
 ]
 
 
+async def _fetch_live_fx_rates() -> dict[str, float]:
+    """
+    Récupère les taux de change USD depuis l'API Frankfurter (ECB).
+    Retourne {code: usd_rate} ou {} si indisponible.
+    XOF/XAF sont des parités fixes EUR — calculées depuis EUR/USD.
+    """
+    import time
+    now = time.time()
+    if _fx_cache["data"] and _fx_cache["fetched_at"] and now - _fx_cache["fetched_at"] < FX_CACHE_TTL:
+        return _fx_cache["data"]
+
+    # Devises à taux flottant + EUR pour dériver XOF/XAF
+    symbols = "EUR,NGN,ZAR,KES,EGP,MAD,GHS,ETB,TZS"
+    try:
+        async with httpx.AsyncClient(timeout=6.0) as client:
+            resp = await client.get(
+                f"https://api.frankfurter.app/latest?from=USD&to={symbols}"
+            )
+            resp.raise_for_status()
+            data = resp.json()
+            rates: dict[str, float] = data.get("rates", {})
+
+        # XOF et XAF = parité fixe EUR/655.957
+        # 1 EUR = 655.957 XOF → 1 USD = rates["EUR"] * 655.957 XOF (inverse)
+        if "EUR" in rates:
+            usd_eur = rates["EUR"]          # EUR per 1 USD
+            xof_per_usd = 655.957 / (1 / usd_eur)  # = 655.957 * usd_eur? no
+            # 1 USD = X EUR, 1 EUR = 655.957 XOF → 1 USD = X * 655.957 XOF
+            xof_rate = usd_eur * 655.957
+            rates["XOF"] = round(xof_rate, 2)
+            rates["XAF"] = round(xof_rate, 2)
+
+        _fx_cache["data"] = rates
+        _fx_cache["fetched_at"] = now
+        logger.info("FX rates fetched live from Frankfurter: %d currencies", len(rates))
+        return rates
+
+    except Exception as exc:
+        logger.warning("Frankfurter API indisponible: %s", exc)
+        return {}
+
+
 @router.get("/fx")
 async def get_fx_rates(
     current_user: Annotated[User, Depends(require_active_subscription)],
     db: AsyncSession = Depends(get_db),
 ):
-    """Taux de change USD pour les 10 principales monnaies africaines."""
+    """
+    Taux de change USD pour les 10 principales monnaies africaines.
+    Données live via Frankfurter (ECB) — fallback statique si indisponible.
+    XOF/XAF : parité fixe EUR/655.957.
+    """
     today = date.today()
-    result = await db.execute(
+
+    # 1. Tenter les taux live (Frankfurter / ECB)
+    live_rates = await _fetch_live_fx_rates()
+    is_live = bool(live_rates)
+
+    # 2. Consulter aussi la DB pour les taux parallèles historiques
+    db_result = await db.execute(
         select(FXRate)
         .where(FXRate.date >= today - timedelta(days=7))
         .order_by(FXRate.date.desc())
     )
-    db_rates = result.scalars().all()
-
+    db_rates = db_result.scalars().all()
     db_by_currency: dict[str, FXRate] = {}
     for r in db_rates:
         if r.quote_currency not in db_by_currency:
@@ -144,28 +203,43 @@ async def get_fx_rates(
         fallback = FX_FALLBACK[code]
         db_row = db_by_currency.get(code)
 
+        # Taux officiel : live > DB > fallback
+        if code in live_rates:
+            rate_official = round(live_rates[code], 4)
+        elif db_row:
+            rate_official = db_row.rate_official
+        else:
+            rate_official = fallback["rate_official"]
+
+        # Taux parallèle : DB > fallback (ratio appliqué au taux live)
+        fallback_spread = (fallback["rate_parallel"] - fallback["rate_official"]) / fallback["rate_official"]
+        if db_row and db_row.rate_parallel:
+            rate_parallel = db_row.rate_parallel
+        else:
+            rate_parallel = round(rate_official * (1 + fallback_spread), 4)
+
         output.append({
             "currency_code": code,
             "currency_name": meta["name"],
             "countries": meta["countries"],
             "peg": meta["peg"],
-            "rate_official": db_row.rate_official if db_row else fallback["rate_official"],
-            "rate_parallel": db_row.rate_parallel if db_row else fallback["rate_parallel"],
-            "spread_pct": (
-                round((db_row.rate_parallel - db_row.rate_official) / db_row.rate_official * 100, 2)
-                if db_row and db_row.rate_parallel and db_row.rate_official
-                else round(
-                    (fallback["rate_parallel"] - fallback["rate_official"])
-                    / fallback["rate_official"] * 100, 2
-                )
-            ),
+            "rate_official": rate_official,
+            "rate_parallel": rate_parallel,
+            "spread_pct": round((rate_parallel - rate_official) / rate_official * 100, 2),
             "change_7d": fallback["change_7d"],
             "change_30d": fallback["change_30d"],
-            "as_of": db_row.date.isoformat() if db_row else today.isoformat(),
-            "source": "MANSA / Banques centrales",
+            "as_of": today.isoformat(),
+            "source": "ECB via Frankfurter" if code in live_rates else "MANSA Fallback",
+            "is_live": code in live_rates,
         })
 
-    return {"base": "USD", "as_of": today.isoformat(), "rates": output}
+    return {
+        "base": "USD",
+        "as_of": today.isoformat(),
+        "is_live": is_live,
+        "source": "Frankfurter API (ECB)" if is_live else "Données de référence MANSA",
+        "rates": output,
+    }
 
 
 @router.get("/indices")

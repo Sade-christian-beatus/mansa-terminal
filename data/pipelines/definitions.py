@@ -14,6 +14,7 @@ from dagster import (
 
 from imf_pipeline import imf_weo_all_indicators, imf_weo_to_database
 from worldbank_pipeline import worldbank_wdi_indicators, worldbank_wdi_to_database
+from rag_pipeline import knowledge_base_seed
 
 # ============================================================
 # Jobs — Groupes d'assets à exécuter ensemble
@@ -117,6 +118,8 @@ defs = Definitions(
         imf_weo_to_database,
         worldbank_wdi_indicators,
         worldbank_wdi_to_database,
+        # RAG Knowledge Base — seed initial + future indexation PDF
+        knowledge_base_seed,
         # Phase 2 : budget_scrapers, bceao_data, beac_data
         # Phase 3 : nasa_nightlights, imf_portwatch, google_trends, meai
     ],

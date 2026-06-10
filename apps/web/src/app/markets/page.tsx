@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 import { marketsApi } from "@/lib/api";
 import { ExportModal } from "@/components/common/ExportModal";
+import { DataSourceBadge } from "@/components/common/DataSourceBadge";
 import type { ExportRow } from "@/lib/export-utils";
 import {
   LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid,
@@ -528,6 +529,11 @@ export default function MarketsPage() {
           </p>
         </div>
         <div className="flex items-center gap-3">
+          <DataSourceBadge
+            isLive={(fxData as any)?.is_live ?? false}
+            source={(fxData as any)?.is_live ? "ECB / Frankfurter" : undefined}
+            lastUpdated={(fxData as any)?.as_of}
+          />
           <button onClick={() => refetchFx()} className="p-1.5 rounded-lg border transition-colors"
                   style={{ background: "var(--input-bg)", borderColor: "var(--input-border)", color: "var(--text-muted)" }}>
             <RefreshCw size={13} className={fetchingFx ? "animate-spin" : ""} />
