@@ -18,7 +18,7 @@ from sentry_sdk.integrations.sqlalchemy import SqlalchemyIntegration
 
 from app.core.config import settings
 from app.core.limiter import limiter
-from app.routers import auth, health, macro, countries, ai_analyst, billing, markets, climate, news, alerts
+from app.routers import auth, health, macro, countries, ai_analyst, billing, markets, climate, news, alerts, acled
 
 
 # ---- Logging structuré (JSON en prod, standard en dev) ----
@@ -81,6 +81,38 @@ app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 
+# ---- Rate limit middleware par route pattern ----
+@app.middleware("http")
+async def route_rate_limit_headers(request: Request, call_next) -> Response:
+    """
+    Ajoute les headers X-RateLimit-* pour transparence client.
+    Les limites réelles sont appliquées par slowapi sur les routes individuelles.
+    Ici on expose les limites attendues par endpoint pour les clients API.
+    """
+    response = await call_next(request)
+    path = request.url.path
+
+    # Communiquer les limites par type de route
+    if "/api/ai" in path:
+        response.headers["X-RateLimit-Policy"] = "20/hour"
+    elif "/api/auth" in path:
+        response.headers["X-RateLimit-Policy"] = "10/minute"
+    elif "/api/macro/export" in path:
+        response.headers["X-RateLimit-Policy"] = "20/hour"
+    elif "/api/markets" in path:
+        response.headers["X-RateLimit-Policy"] = "60/minute"
+    elif "/api/news" in path:
+        response.headers["X-RateLimit-Policy"] = "30/minute"
+    elif "/api/macro" in path:
+        response.headers["X-RateLimit-Policy"] = "120/minute"
+    elif "/api/acled" in path:
+        response.headers["X-RateLimit-Policy"] = "60/minute"
+    else:
+        response.headers["X-RateLimit-Policy"] = "200/minute"
+
+    return response
+
+
 # ---- Request ID middleware ----
 @app.middleware("http")
 async def request_id_middleware(request: Request, call_next) -> Response:
@@ -116,6 +148,7 @@ app.include_router(markets.router,    prefix="/api/markets",   tags=["Markets"])
 app.include_router(climate.router,    prefix="/api/climate",   tags=["Climate"])
 app.include_router(news.router,       prefix="/api/news",      tags=["News"])
 app.include_router(alerts.router,     prefix="/api/alerts",    tags=["Alerts"])
+app.include_router(acled.router,      prefix="/api/acled",     tags=["Conflicts"])
 
 
 @app.get("/", tags=["Root"])

@@ -2,6 +2,9 @@
 MANSA Terminal — Dagster Definitions
 Orchestrateur central de tous les pipelines de données
 """
+import logging
+import os
+
 from dagster import (
     Definitions,
     ScheduleDefinition,
@@ -10,7 +13,11 @@ from dagster import (
     sensor,
     RunRequest,
     SensorEvaluationContext,
+    run_failure_sensor,
+    RunFailureSensorContext,
 )
+
+logger = logging.getLogger(__name__)
 
 from imf_pipeline import imf_weo_all_indicators, imf_weo_to_database
 from worldbank_pipeline import worldbank_wdi_indicators, worldbank_wdi_to_database
@@ -107,6 +114,40 @@ def data_freshness_sensor(context: SensorEvaluationContext):
     return []
 
 
+@run_failure_sensor(monitor_all_code_locations=True)
+def pipeline_failure_alert(context: RunFailureSensorContext):
+    """
+    Alerte sur les échecs de pipeline.
+    Notifie via Sentry et/ou email en production.
+    Configurer : SENTRY_DSN + SMTP dans .env
+    """
+    run_id   = context.dagster_run.run_id
+    job_name = context.dagster_run.job_name
+    error    = context.failure_event.message if context.failure_event else "Erreur inconnue"
+
+    logger.error(
+        "MANSA Pipeline FAILURE | job=%s run=%s | %s",
+        job_name, run_id, error
+    )
+
+    # Sentry capture
+    sentry_dsn = os.getenv("SENTRY_DSN", "")
+    if sentry_dsn:
+        try:
+            import sentry_sdk
+            sentry_sdk.init(dsn=sentry_dsn)
+            with sentry_sdk.push_scope() as scope:
+                scope.set_tag("pipeline", job_name)
+                scope.set_tag("run_id", run_id)
+                scope.set_context("dagster", {"job": job_name, "run_id": run_id})
+                sentry_sdk.capture_message(
+                    f"Pipeline échoué : {job_name} — {error[:200]}",
+                    level="error",
+                )
+        except Exception as sentry_err:
+            logger.warning("Sentry notification failed: %s", sentry_err)
+
+
 # ============================================================
 # Definitions — Point d'entrée Dagster
 # ============================================================
@@ -128,5 +169,5 @@ defs = Definitions(
         weekly_schedule,
         monthly_schedule,
     ],
-    sensors=[data_freshness_sensor],
+    sensors=[data_freshness_sensor, pipeline_failure_alert],
 )

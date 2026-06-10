@@ -43,3 +43,10 @@ python-multipart==0.0.20 # Nécessaire pour les form data FastAPI
 
 # === OPTIONNEL (Phase 2) ===
 pgvector                 # Recherche vectorielle pour le RAG
+
+# === TESTS ===
+pytest==8.3.4            # Framework de test
+pytest-asyncio==0.24.0   # Support async/await dans les tests
+pytest-cov==6.0.0        # Couverture de code
+httpx==0.28.1            # Client HTTP pour TestClient FastAPI (déjà listé)
+

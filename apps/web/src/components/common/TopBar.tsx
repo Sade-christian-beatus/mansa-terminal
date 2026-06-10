@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
-import { Bell, X, Sun, Moon, UserCircle2, LogOut, Settings, AlertTriangle } from "lucide-react";
+import { Bell, X, Sun, Moon, UserCircle2, LogOut, Settings, AlertTriangle, Menu } from "lucide-react";
 import { useAuthStore } from "@/lib/auth-store";
 import { useLangStore } from "@/lib/lang-store";
 import { useThemeStore } from "@/lib/theme-store";
@@ -18,7 +18,11 @@ const NOTIFS = [
   { id: 5, title: "MANSA Research",             desc: "Nouveau rapport : AfCFTA — État d'avancement", time: "2j",  dot: "bg-teal-400",   unread: false },
 ];
 
-export function TopBar() {
+interface TopBarProps {
+  onMenuClick?: () => void;
+}
+
+export function TopBar({ onMenuClick }: TopBarProps) {
   const { email, fullName, logout } = useAuthStore();
   const locale = useLangStore((s) => s.locale);
   const { theme, toggle } = useThemeStore();
@@ -66,8 +70,20 @@ export function TopBar() {
       className="h-14 px-6 flex items-center justify-between flex-shrink-0 z-30 relative border-b transition-colors duration-200"
       style={{ background: "var(--topbar-bg)", borderColor: "var(--topbar-border)" }}
     >
+      {/* ── Bouton hamburger — mobile uniquement ── */}
+      {onMenuClick && (
+        <button
+          onClick={onMenuClick}
+          className="md:hidden p-2 rounded-lg mr-2 transition-colors"
+          style={{ color: "var(--text-muted)" }}
+          aria-label="Ouvrir le menu"
+        >
+          <Menu size={20} />
+        </button>
+      )}
+
       {/* ── Indicateur de fraîcheur des données ── */}
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-3 flex-1 min-w-0">
         <div className="flex items-center gap-1.5">
           <span
             className="w-1.5 h-1.5 rounded-full"

@@ -127,6 +127,138 @@ INDICES_DATA = [
 ]
 
 
+# ── Cache commodités (TTL 30 min) ───────────────────────────────────────────
+_commodities_cache: dict = {"data": None, "fetched_at": None}
+COMMODITIES_CACHE_TTL = 1800  # 30 minutes
+
+# ── Cache indices boursiers (TTL 15 min) ─────────────────────────────────────
+_indices_cache: dict = {"data": None, "fetched_at": None}
+INDICES_CACHE_TTL = 900  # 15 minutes
+
+# Métadonnées commodités africaines stratégiques
+COMMODITIES_META = [
+    {"code": "PCOILBRENTSPOT", "name": "Pétrole Brent",   "unit": "USD/baril", "icon": "🛢️",  "relevance": "Exportateurs: NGA, AGO, DZA, LBY, GAB"},
+    {"code": "PCOILWTICO",     "name": "Pétrole WTI",     "unit": "USD/baril", "icon": "⛽",   "relevance": "Référence marché spot"},
+    {"code": "PGOLD",          "name": "Or",               "unit": "USD/t oz",  "icon": "🥇",  "relevance": "Exportateurs: ZAF, GHA, MLI, TZA, BFA"},
+    {"code": "PCOCO",          "name": "Cacao",            "unit": "USD/tonne", "icon": "🍫",  "relevance": "CIV (40% world), GHA — recettes export majeures"},
+    {"code": "PCOFFOTM",       "name": "Café",             "unit": "USD/kg",    "icon": "☕",  "relevance": "ETH, UGA, TZA, CMR — revenus agricoles"},
+    {"code": "PNGASHHH",       "name": "Gaz naturel",      "unit": "USD/MBTU",  "icon": "🔥",  "relevance": "DZA, NGA, MOZ, SEN (Sangomar) — production croissante"},
+    {"code": "PWHEAMT",        "name": "Blé",              "unit": "USD/tonne", "icon": "🌾",  "relevance": "Importateurs nets — impact inflation alimentaire"},
+    {"code": "PCOPP",          "name": "Cuivre",           "unit": "USD/tonne", "icon": "🔶",  "relevance": "ZMB, COD — recettes d'exportation"},
+    {"code": "PCOTTIND",       "name": "Coton",            "unit": "USD/kg",    "icon": "🧵",  "relevance": "MLI, BFA, BEN, TCD — revenus paysans"},
+    {"code": "PIORECR",        "name": "Minerai de fer",   "unit": "USD/tonne", "icon": "⚙️",  "relevance": "MRT, ZAF, GUI — exportations minières"},
+]
+
+# Fallback prix commodités (31 mai 2025 approx.)
+COMMODITIES_FALLBACK = {
+    "PCOILBRENTSPOT": {"value": 74.2,  "change_1m": -3.2, "change_ytd": -8.5},
+    "PCOILWTICO":     {"value": 70.5,  "change_1m": -3.5, "change_ytd": -9.1},
+    "PGOLD":          {"value": 3320.0,"change_1m": 2.1,  "change_ytd": 25.4},
+    "PCOCO":          {"value": 7450.0,"change_1m": -5.2, "change_ytd": 42.3},
+    "PCOFFOTM":       {"value": 4.15,  "change_1m": 8.3,  "change_ytd": 65.2},
+    "PNGASHHH":       {"value": 3.45,  "change_1m": 12.1, "change_ytd": 18.7},
+    "PWHEAMT":        {"value": 198.0, "change_1m": -1.8, "change_ytd": -12.3},
+    "PCOPP":          {"value": 9320.0,"change_1m": 1.4,  "change_ytd": 7.8},
+    "PCOTTIND":       {"value": 0.68,  "change_1m": -2.3, "change_ytd": -5.1},
+    "PIORECR":        {"value": 105.0, "change_1m": 3.2,  "change_ytd": -8.4},
+}
+
+# Indices boursiers africains — tickers Yahoo Finance (disponibles)
+INDICES_TICKERS = {
+    "JSE Top 40":   {"ticker": "^J200.JO", "flag": "🇿🇦", "country": "ZAF", "exchange": "Johannesburg Stock Exchange", "currency": "ZAR"},
+    "EGX 30":       {"ticker": "^CASE.CA", "flag": "🇪🇬", "country": "EGY", "exchange": "Egyptian Exchange",           "currency": "EGP"},
+    "MASI":         {"ticker": "^MASI.CS", "flag": "🇲🇦", "country": "MAR", "exchange": "Bourse de Casablanca",        "currency": "MAD"},
+}
+
+
+async def _fetch_live_commodities() -> dict[str, float]:
+    """
+    Récupère les prix spot des commodités africaines stratégiques
+    via l'API publique de la Banque Mondiale (Pink Sheet).
+    Cache 30 minutes.
+    """
+    import time
+    now = time.time()
+    if _commodities_cache["data"] and _commodities_cache["fetched_at"] and now - _commodities_cache["fetched_at"] < COMMODITIES_CACHE_TTL:
+        return _commodities_cache["data"]
+
+    # WB Commodity Prices API : mrv=2 pour avoir la valeur la plus récente
+    codes = [m["code"] for m in COMMODITIES_META]
+    results: dict[str, float] = {}
+
+    async with httpx.AsyncClient(timeout=10.0) as client:
+        for code in codes:
+            try:
+                resp = await client.get(
+                    f"https://api.worldbank.org/v2/en/indicator/{code}?format=json&mrv=2&frequency=M"
+                )
+                if resp.status_code == 200:
+                    data = resp.json()
+                    # WB API : [metadata, [datapoints]]
+                    if len(data) == 2 and data[1]:
+                        for point in data[1]:
+                            if point.get("value") is not None:
+                                results[code] = float(point["value"])
+                                break
+            except Exception as exc:
+                logger.debug("WB commodity %s fetch failed: %s", code, exc)
+
+    if results:
+        _commodities_cache["data"] = results
+        _commodities_cache["fetched_at"] = now
+        logger.info("Commodities fetched live from World Bank: %d/%d", len(results), len(codes))
+
+    return results
+
+
+async def _fetch_live_indices() -> dict[str, dict]:
+    """
+    Récupère les indices boursiers africains via l'API non officielle Yahoo Finance.
+    Disponible sans clé API. Cache 15 minutes.
+    """
+    import time
+    now = time.time()
+    if _indices_cache["data"] and _indices_cache["fetched_at"] and now - _indices_cache["fetched_at"] < INDICES_CACHE_TTL:
+        return _indices_cache["data"]
+
+    results: dict[str, dict] = {}
+    headers = {"User-Agent": "Mozilla/5.0 (compatible; MANSA-Terminal/1.0)"}
+
+    async with httpx.AsyncClient(timeout=8.0, headers=headers) as client:
+        for name, meta in INDICES_TICKERS.items():
+            try:
+                ticker = meta["ticker"]
+                resp = await client.get(
+                    f"https://query1.finance.yahoo.com/v8/finance/chart/{ticker}?interval=1d&range=5d"
+                )
+                if resp.status_code == 200:
+                    body = resp.json()
+                    result = body.get("chart", {}).get("result", [])
+                    if result:
+                        q = result[0].get("indicators", {}).get("quote", [{}])[0]
+                        closes = q.get("close", [])
+                        closes = [c for c in closes if c is not None]
+                        if len(closes) >= 2:
+                            current = closes[-1]
+                            prev    = closes[-2]
+                            results[name] = {
+                                "value":     round(current, 2),
+                                "change_1d": round((current - prev) / prev * 100, 2),
+                                "is_live":   True,
+                            }
+                        elif len(closes) == 1:
+                            results[name] = {"value": round(closes[0], 2), "change_1d": 0.0, "is_live": True}
+            except Exception as exc:
+                logger.debug("Yahoo Finance index %s fetch failed: %s", name, exc)
+
+    if results:
+        _indices_cache["data"] = results
+        _indices_cache["fetched_at"] = now
+        logger.info("Indices fetched live from Yahoo Finance: %d/%d", len(results), len(INDICES_TICKERS))
+
+    return results
+
+
 async def _fetch_live_fx_rates() -> dict[str, float]:
     """
     Récupère les taux de change USD depuis l'API Frankfurter (ECB).
@@ -242,12 +374,70 @@ async def get_fx_rates(
     }
 
 
+@router.get("/commodities")
+async def get_commodities(
+    current_user: Annotated[User, Depends(require_active_subscription)],
+):
+    """
+    Prix spot des commodités africaines stratégiques.
+    Live via API publique Banque Mondiale (Pink Sheet) — fallback statique.
+    """
+    live = await _fetch_live_commodities()
+    is_live = bool(live)
+
+    output = []
+    for meta in COMMODITIES_META:
+        code     = meta["code"]
+        fallback = COMMODITIES_FALLBACK[code]
+        value    = live.get(code, fallback["value"])
+        output.append({
+            "code":       code,
+            "name":       meta["name"],
+            "unit":       meta["unit"],
+            "icon":       meta["icon"],
+            "value":      round(value, 4),
+            "change_1m":  fallback["change_1m"],
+            "change_ytd": fallback["change_ytd"],
+            "relevance":  meta["relevance"],
+            "source":     "World Bank Pink Sheet" if code in live else "MANSA Fallback",
+            "is_live":    code in live,
+        })
+
+    return {
+        "commodities": output,
+        "is_live":     is_live,
+        "source":      "World Bank Commodity Price Data" if is_live else "Données de référence MANSA",
+        "note":        "Données mensuelles — Pink Sheet Banque Mondiale",
+    }
+
+
 @router.get("/indices")
 async def get_market_indices(
     current_user: Annotated[User, Depends(require_active_subscription)],
 ):
-    """Indices boursiers africains (BRVM, JSE, NSE, EGX, MASI, GSE)."""
-    return {"indices": INDICES_DATA, "note": "Données indicatives — flux temps réel Phase 3"}
+    """
+    Indices boursiers africains.
+    Live pour JSE, EGX30, MASI via Yahoo Finance — fallback statique pour les autres.
+    """
+    live_indices = await _fetch_live_indices()
+
+    merged = []
+    for item in INDICES_DATA:
+        name = item["name"]
+        live = live_indices.get(name)
+        merged.append({
+            **item,
+            "value":     live["value"]     if live else item["value"],
+            "change_1d": live["change_1d"] if live else item["change_1d"],
+            "is_live":   live["is_live"]   if live else False,
+            "source":    "Yahoo Finance"   if live else "MANSA Fallback",
+        })
+
+    return {
+        "indices": merged,
+        "is_live": bool(live_indices),
+        "note":    "JSE/EGX/MASI : données live Yahoo Finance · BRVM/NSE/GSE : indicatifs",
+    }
 
 
 @router.get("/currencies")

@@ -20,11 +20,17 @@ import {
   Map,
   Bell,
   GitBranch,
+  GitFork,
+  ShieldAlert,
 } from "lucide-react";
 import { useLangStore } from "@/lib/lang-store";
 import { t } from "@/lib/translations";
 
-export function Sidebar() {
+interface SidebarProps {
+  onClose?: () => void;
+}
+
+export function Sidebar({ onClose }: SidebarProps) {
   const pathname = usePathname();
   const locale   = useLangStore((s) => s.locale);
 
@@ -68,7 +74,7 @@ export function Sidebar() {
 
   return (
     <aside
-      className="w-64 flex flex-col flex-shrink-0 border-r transition-colors duration-200"
+      className="w-64 flex flex-col flex-shrink-0 border-r transition-colors duration-200 h-full"
       style={{ background: "var(--sidebar-bg)", borderColor: "var(--sidebar-border)" }}
     >
       {/* ── Logo ── */}
@@ -197,6 +203,38 @@ export function Sidebar() {
             }
           >
             NEW
+          </span>
+        </Link>
+
+        <Link
+          href="/correlation"
+          className="flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-150"
+          style={isActive("/correlation") ? activeStyle : inactiveStyle}
+          onMouseEnter={hoverIn}
+          onMouseLeave={hoverOut}
+        >
+          <GitFork size={17} strokeWidth={isActive("/correlation") ? 2.2 : 1.8} />
+          <span className="text-sm font-medium flex-1">Corrélation</span>
+        </Link>
+
+        <Link
+          href="/conflicts"
+          className="flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-150"
+          style={isActive("/conflicts") ? activeStyle : inactiveStyle}
+          onMouseEnter={hoverIn}
+          onMouseLeave={hoverOut}
+        >
+          <ShieldAlert size={17} strokeWidth={isActive("/conflicts") ? 2.2 : 1.8} />
+          <span className="text-sm font-medium flex-1">Conflits</span>
+          <span
+            className="text-[10px] px-1.5 py-0.5 rounded-md font-bold"
+            style={
+              isActive("/conflicts")
+                ? { background: `color-mix(in srgb, #EF4444 20%, transparent)`, color: "#EF4444" }
+                : { background: "var(--bg-border)", color: "var(--text-muted)" }
+            }
+          >
+            ACLED
           </span>
         </Link>
 

@@ -131,8 +131,16 @@ export const aiApi = {
 
 // ── Helpers Markets ──────────────────────────────────────────────────────
 export const marketsApi = {
-  getFxRates: () => api.get("/markets/fx"),
-  getIndices:  () => api.get("/markets/indices"),
+  getFxRates:      () => api.get("/markets/fx"),
+  getIndices:      () => api.get("/markets/indices"),
+  getCommodities:  () => api.get("/markets/commodities"),
+};
+
+// ── Helpers Conflicts (ACLED) ─────────────────────────────────────────────
+export const conflictsApi = {
+  getEvents:    (params?: { risk_level?: string; region?: string; sort_by?: string; limit?: number }) =>
+    api.get("/acled/events", { params }),
+  getHotspots:  () => api.get("/acled/hotspots"),
 };
 
 // ── Helpers Climate ──────────────────────────────────────────────────────
