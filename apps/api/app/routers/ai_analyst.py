@@ -40,19 +40,76 @@ DAILY_LIMITS: dict[str, int] = {
 MONTHLY_LIMIT_STARTER = 50
 QUESTION_MAX_LEN = 2_000   # caractères
 
-# ── Pays africains pour extraction automatique ──────────────────────────────
+# ── Pays africains pour extraction automatique (54 pays UA) ─────────────────
 AFRICAN_COUNTRIES = {
-    "nigeria": "NGA", "south africa": "ZAF",
-    "kenya": "KEN", "ghana": "GHA", "egypt": "EGY", "morocco": "MAR",
-    "senegal": "SEN", "sénégal": "SEN", "côte d'ivoire": "CIV",
-    "ivory coast": "CIV", "cameroon": "CMR", "cameroun": "CMR",
-    "ethiopia": "ETH", "éthiopie": "ETH", "tanzania": "TZA",
-    "rwanda": "RWA", "uganda": "UGA", "zambia": "ZMB", "angola": "AGO",
-    "mozambique": "MOZ", "togo": "TGO", "mali": "MLI", "niger": "NER",
-    "burkina faso": "BFA", "benin": "BEN", "bénin": "BEN",
-    "waemu": "WAEMU", "uemoa": "WAEMU", "cemac": "CEMAC",
-    "west africa": "WAFR", "afrique de l'ouest": "WAFR",
-    "east africa": "EAFR", "afrique de l'est": "EAFR",
+    # Afrique de l'Ouest
+    "nigeria": "NGA", "nigéria": "NGA",
+    "ghana": "GHA",
+    "côte d'ivoire": "CIV", "cote d'ivoire": "CIV", "ivory coast": "CIV",
+    "senegal": "SEN", "sénégal": "SEN",
+    "mali": "MLI",
+    "burkina faso": "BFA", "burkina": "BFA",
+    "guinea": "GIN", "guinée": "GIN", "guinea conakry": "GIN",
+    "benin": "BEN", "bénin": "BEN",
+    "niger": "NER",
+    "togo": "TGO",
+    "sierra leone": "SLE",
+    "guinea-bissau": "GNB", "guinée-bissau": "GNB",
+    "liberia": "LBR", "libéria": "LBR",
+    "gambia": "GMB", "gambie": "GMB",
+    "cape verde": "CPV", "cabo verde": "CPV", "cap-vert": "CPV",
+    "mauritania": "MRT", "mauritanie": "MRT",
+    # Afrique de l'Est
+    "ethiopia": "ETH", "éthiopie": "ETH",
+    "kenya": "KEN",
+    "tanzania": "TZA", "tanzanie": "TZA",
+    "uganda": "UGA", "ouganda": "UGA",
+    "rwanda": "RWA",
+    "somalia": "SOM", "somalie": "SOM",
+    "sudan": "SDN", "soudan": "SDN",
+    "south sudan": "SSD", "soudan du sud": "SSD",
+    "eritrea": "ERI", "érythrée": "ERI",
+    "djibouti": "DJI",
+    "comoros": "COM", "comores": "COM",
+    "seychelles": "SYC",
+    "burundi": "BDI",
+    # Afrique Centrale
+    "democratic republic of congo": "COD", "drc": "COD", "rdc": "COD",
+    "congo kinshasa": "COD", "rép. dém. congo": "COD",
+    "cameroon": "CMR", "cameroun": "CMR",
+    "chad": "TCD", "tchad": "TCD",
+    "central african republic": "CAF", "rca": "CAF", "centrafrique": "CAF",
+    "congo": "COG", "republic of congo": "COG", "congo brazzaville": "COG",
+    "gabon": "GAB",
+    "equatorial guinea": "GNQ", "guinée équatoriale": "GNQ",
+    "sao tome": "STP", "são tomé": "STP",
+    # Afrique Australe
+    "south africa": "ZAF", "afrique du sud": "ZAF",
+    "mozambique": "MOZ",
+    "zimbabwe": "ZWE",
+    "zambia": "ZMB", "zambie": "ZMB",
+    "madagascar": "MDG",
+    "angola": "AGO",
+    "malawi": "MWI",
+    "botswana": "BWA",
+    "namibia": "NAM", "namibie": "NAM",
+    "lesotho": "LSO",
+    "eswatini": "SWZ", "swaziland": "SWZ",
+    "mauritius": "MUS", "île maurice": "MUS",
+    # Afrique du Nord
+    "egypt": "EGY", "égypte": "EGY",
+    "morocco": "MAR", "maroc": "MAR",
+    "algeria": "DZA", "algérie": "DZA",
+    "tunisia": "TUN", "tunisie": "TUN",
+    "libya": "LBY", "libye": "LBY",
+    # Zones régionales
+    "waemu": "WAEMU", "uemoa": "WAEMU",
+    "cemac": "CEMAC",
+    "west africa": "WAFR", "afrique de l'ouest": "WAFR", "afrique occidentale": "WAFR",
+    "east africa": "EAFR", "afrique de l'est": "EAFR", "afrique orientale": "EAFR",
+    "sub-saharan africa": "SSA", "afrique subsaharienne": "SSA",
+    "north africa": "NAFR", "afrique du nord": "NAFR",
+    "southern africa": "SAFR", "afrique australe": "SAFR",
 }
 
 # ── System prompt (hardened) ────────────────────────────────────────────────
@@ -139,74 +196,183 @@ def extract_countries(text: str) -> list[str]:
     return found
 
 
+# ── Indicateurs injectés dans le contexte IA ───────────────────────────────
+CONTEXT_INDICATORS = [
+    "NGDP_RPCH",      # Croissance PIB réel (%)
+    "PCPIPCH",        # Inflation IPC (%)
+    "GGXCNL_NGDP",    # Solde budgétaire % PIB
+    "GGXWDG_NGDP",    # Dette publique % PIB
+    "BCA_NGDPD",      # Compte courant % PIB
+    "NGDPDPC",        # PIB/habitant USD
+    "LUR",            # Taux de chômage (%)
+    "GGR_NGDP",       # Recettes % PIB
+    "GGX_NGDP",       # Dépenses % PIB
+    "NGDPD",          # PIB nominal USD
+    "GGXONLB_NGDP",   # Solde primaire % PIB
+    "BX_KLT_DINV_WD_GD_ZS",  # IDE entrants % PIB
+]
+
+# Pays UEMOA et CEMAC pour les agrégats régionaux
+WAEMU_COUNTRIES = ["SEN", "CIV", "MLI", "BFA", "NER", "TGO", "BEN", "GNB"]
+CEMAC_COUNTRIES = ["CMR", "TCD", "CAF", "COG", "GAB", "GNQ"]
+# Top 10 économies africaines pour contexte général
+TOP10_AFRICA = ["NGA", "ZAF", "EGY", "DZA", "MAR", "ETH", "KEN", "GHA", "CIV", "TZA"]
+
+
 async def get_relevant_context(
     question: str,
     countries: list[str],
     db: AsyncSession,
 ) -> str:
     """
-    RAG simplifié — récupère les documents pertinents de la knowledge base.
-    Retourne un fallback statique si la base est vide.
+    RAG enrichi — injecte les données macro de la MANSA DB + documents KB.
+    Couvre les pays individuels, les zones UEMOA/CEMAC et un contexte Afrique général.
     SECURITY: le contenu est encapsulé dans des balises XML pour l'isoler
     du reste du prompt (technique recommandée Anthropic pour RAG sécurisé).
     """
+    from sqlalchemy import func as sqlfunc
+    from app.models.models import DataIngestionLog
+
     context_parts: list[str] = []
 
-    # 1. Données macro récentes pour les pays mentionnés
-    if countries:
-        country_filter = [c for c in countries if len(c) == 3
-                          and c not in ("WAEMU", "CEMAC", "WAFR", "EAFR")]
-        if country_filter:
-            result = await db.execute(
-                select(MacroIndicator)
-                .where(
-                    MacroIndicator.country_id.in_(country_filter),
-                    MacroIndicator.indicator_code.in_([
-                        "NGDP_RPCH", "PCPIPCH", "GGXCNL_NGDP",
-                        "GGXWDG_NGDP", "BCA_NGDPD", "NGDPDPC"
-                    ]),
-                    MacroIndicator.period >= "2022",
-                )
-                .order_by(
-                    MacroIndicator.country_id,
-                    MacroIndicator.indicator_code,
-                    MacroIndicator.period.desc(),
-                )
-                .limit(60)
+    # ── 1. Données macro par pays mentionnés ──────────────────────────────
+    country_filter = [c for c in countries if len(c) == 3
+                      and c not in ("WAEMU", "CEMAC", "WAFR", "EAFR", "SSA", "NAFR", "SAFR")]
+    if country_filter:
+        result = await db.execute(
+            select(MacroIndicator)
+            .where(
+                MacroIndicator.country_id.in_(country_filter),
+                MacroIndicator.indicator_code.in_(CONTEXT_INDICATORS),
+                MacroIndicator.period >= "2021",
             )
-            indicators = result.scalars().all()
-            if indicators:
-                lines = [
-                    f"  {ind.country_id} | {ind.indicator_code} | "
-                    f"{ind.period}: {ind.value:.2f} ({ind.source})"
-                    for ind in indicators
-                ]
-                context_parts.append(
-                    "Données macro récentes (MANSA Database):\n" + "\n".join(lines)
-                )
+            .order_by(
+                MacroIndicator.country_id,
+                MacroIndicator.indicator_code,
+                MacroIndicator.period.desc(),
+            )
+            .limit(120)
+        )
+        indicators = result.scalars().all()
+        if indicators:
+            lines = [
+                f"  {ind.country_id} | {ind.indicator_code} | "
+                f"{ind.period}: {ind.value:.2f} ({ind.unit or ''}) [{ind.source}]"
+                for ind in indicators
+            ]
+            context_parts.append(
+                "=== Données macro MANSA Database (pays mentionnés) ===\n" + "\n".join(lines)
+            )
 
-    # 2. Documents de la knowledge base
-    if countries:
+    # ── 2. Agrégats UEMOA si zone mentionnée ─────────────────────────────
+    if "WAEMU" in countries:
+        waemu_result = await db.execute(
+            select(
+                MacroIndicator.indicator_code,
+                sqlfunc.avg(MacroIndicator.value).label("avg_val"),
+                sqlfunc.count(MacroIndicator.country_id).label("n_countries"),
+            )
+            .where(
+                MacroIndicator.country_id.in_(WAEMU_COUNTRIES),
+                MacroIndicator.indicator_code.in_(CONTEXT_INDICATORS),
+                MacroIndicator.period == "2024",
+            )
+            .group_by(MacroIndicator.indicator_code)
+        )
+        waemu_rows = waemu_result.fetchall()
+        if waemu_rows:
+            lines = [
+                f"  {r.indicator_code}: moyenne UEMOA = {r.avg_val:.2f} (sur {r.n_countries} pays)"
+                for r in waemu_rows
+            ]
+            context_parts.append(
+                "=== Agrégats zone UEMOA 2024 (8 pays XOF) ===\n" + "\n".join(lines)
+            )
+
+    # ── 3. Agrégats CEMAC si zone mentionnée ─────────────────────────────
+    if "CEMAC" in countries:
+        cemac_result = await db.execute(
+            select(
+                MacroIndicator.indicator_code,
+                sqlfunc.avg(MacroIndicator.value).label("avg_val"),
+                sqlfunc.count(MacroIndicator.country_id).label("n_countries"),
+            )
+            .where(
+                MacroIndicator.country_id.in_(CEMAC_COUNTRIES),
+                MacroIndicator.indicator_code.in_(CONTEXT_INDICATORS),
+                MacroIndicator.period == "2024",
+            )
+            .group_by(MacroIndicator.indicator_code)
+        )
+        cemac_rows = cemac_result.fetchall()
+        if cemac_rows:
+            lines = [
+                f"  {r.indicator_code}: moyenne CEMAC = {r.avg_val:.2f} (sur {r.n_countries} pays)"
+                for r in cemac_rows
+            ]
+            context_parts.append(
+                "=== Agrégats zone CEMAC 2024 (6 pays XAF) ===\n" + "\n".join(lines)
+            )
+
+    # ── 4. Contexte Afrique général si aucun pays spécifique ─────────────
+    if not country_filter and "WAEMU" not in countries and "CEMAC" not in countries:
+        general_result = await db.execute(
+            select(MacroIndicator)
+            .where(
+                MacroIndicator.country_id.in_(TOP10_AFRICA),
+                MacroIndicator.indicator_code.in_(["NGDP_RPCH", "PCPIPCH", "GGXWDG_NGDP"]),
+                MacroIndicator.period == "2024",
+            )
+            .order_by(MacroIndicator.country_id, MacroIndicator.indicator_code)
+            .limit(40)
+        )
+        general = general_result.scalars().all()
+        if general:
+            lines = [
+                f"  {ind.country_id} | {ind.indicator_code}: {ind.value:.2f} (2024)"
+                for ind in general
+            ]
+            context_parts.append(
+                "=== Vue d'ensemble Afrique — Top 10 économies 2024 ===\n" + "\n".join(lines)
+            )
+
+    # ── 5. Documents de la knowledge base ────────────────────────────────
+    kb_filter = [c for c in countries if len(c) == 3
+                 and c not in ("WAEMU", "CEMAC", "WAFR", "EAFR", "SSA", "NAFR", "SAFR")]
+    if kb_filter:
         docs_result = await db.execute(
             select(KnowledgeDocument)
-            .where(KnowledgeDocument.country_id.in_(
-                [c for c in countries if len(c) == 3]
-            ))
+            .where(KnowledgeDocument.country_id.in_(kb_filter))
             .order_by(KnowledgeDocument.year.desc())
             .limit(3)
         )
         docs = docs_result.scalars().all()
         for doc in docs:
-            # Tronquer le contenu pour limiter les tokens
             safe_content = doc.content[:1_200].replace("</document>", "[/document]")
             context_parts.append(
-                f"Document: {doc.title} ({doc.year}) — {doc.doc_type}\n{safe_content}"
+                f"=== Document KB: {doc.title} ({doc.year}) — {doc.doc_type} ===\n{safe_content}"
             )
+
+    # ── 6. Fraîcheur des données ──────────────────────────────────────────
+    freshness_result = await db.execute(
+        select(DataIngestionLog.source, DataIngestionLog.completed_at)
+        .where(DataIngestionLog.status == "success")
+        .order_by(DataIngestionLog.completed_at.desc())
+        .limit(2)
+    )
+    fresh_rows = freshness_result.fetchall()
+    if fresh_rows:
+        fresh_lines = [
+            f"  {r.source}: dernière ingestion {r.completed_at.strftime('%Y-%m-%d') if r.completed_at else 'N/A'}"
+            for r in fresh_rows
+        ]
+        context_parts.append(
+            "=== Fraîcheur des données MANSA ===\n" + "\n".join(fresh_lines)
+        )
 
     if not context_parts:
         return FALLBACK_CONTEXT
 
-    # Encapsuler dans des délimiteurs XML → isole le contexte des instructions
     joined = "\n\n".join(context_parts)
     return f"<context>\n{joined}\n</context>"
 

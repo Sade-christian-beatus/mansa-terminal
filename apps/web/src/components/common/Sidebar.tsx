@@ -17,6 +17,9 @@ import {
   Activity,
   Newspaper,
   BookOpen,
+  Map,
+  Bell,
+  GitBranch,
 } from "lucide-react";
 import { useLangStore } from "@/lib/lang-store";
 import { t } from "@/lib/translations";
@@ -133,6 +136,62 @@ export function Sidebar() {
             className="text-[10px] px-1.5 py-0.5 rounded-md font-bold"
             style={
               isActive("/meai")
+                ? { background: `color-mix(in srgb, var(--mansa-green) 20%, transparent)`, color: "var(--mansa-green)" }
+                : { background: "var(--bg-border)", color: "var(--text-muted)" }
+            }
+          >
+            NEW
+          </span>
+        </Link>
+
+        {/* ── Séparateur + Régions UEMOA/CEMAC + Alertes + Scénarios ── */}
+        <div className="my-3 mx-1 border-t" style={{ borderColor: "var(--sidebar-border)" }} />
+
+        <Link
+          href="/regions"
+          className="flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-150"
+          style={isActive("/regions") ? activeStyle : inactiveStyle}
+          onMouseEnter={hoverIn}
+          onMouseLeave={hoverOut}
+        >
+          <Map size={17} strokeWidth={isActive("/regions") ? 2.2 : 1.8} />
+          <span className="text-sm font-medium flex-1">Régions</span>
+          <span
+            className="text-[10px] px-1.5 py-0.5 rounded-md font-bold"
+            style={
+              isActive("/regions")
+                ? { background: `color-mix(in srgb, var(--mansa-green) 20%, transparent)`, color: "var(--mansa-green)" }
+                : { background: "var(--bg-border)", color: "var(--text-muted)" }
+            }
+          >
+            UEMOA
+          </span>
+        </Link>
+
+        <Link
+          href="/alerts"
+          className="flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-150"
+          style={isActive("/alerts") ? activeStyle : inactiveStyle}
+          onMouseEnter={hoverIn}
+          onMouseLeave={hoverOut}
+        >
+          <Bell size={17} strokeWidth={isActive("/alerts") ? 2.2 : 1.8} />
+          <span className="text-sm font-medium flex-1">Alertes</span>
+        </Link>
+
+        <Link
+          href="/scenarios"
+          className="flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-150"
+          style={isActive("/scenarios") ? activeStyle : inactiveStyle}
+          onMouseEnter={hoverIn}
+          onMouseLeave={hoverOut}
+        >
+          <GitBranch size={17} strokeWidth={isActive("/scenarios") ? 2.2 : 1.8} />
+          <span className="text-sm font-medium flex-1">Scénarios</span>
+          <span
+            className="text-[10px] px-1.5 py-0.5 rounded-md font-bold"
+            style={
+              isActive("/scenarios")
                 ? { background: `color-mix(in srgb, var(--mansa-green) 20%, transparent)`, color: "var(--mansa-green)" }
                 : { background: "var(--bg-border)", color: "var(--text-muted)" }
             }

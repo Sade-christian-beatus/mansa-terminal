@@ -12,17 +12,56 @@ import {
   Tooltip, ResponsiveContainer, ReferenceLine, Area, AreaChart,
 } from "recharts";
 import { ExportModal } from "@/components/common/ExportModal";
+import { DataSourceBadge } from "@/components/common/DataSourceBadge";
 import type { ExportRow } from "@/lib/export-utils";
 
-/* ── Catalogue indicateurs macro ── */
+/* ── Catalogue complet des indicateurs macro (FMI WEO + Banque Mondiale) ── */
 const INDICATORS = [
-  { code: "NGDP_RPCH",    label: "Croissance du PIB réel",    unit: "%",    description: "Variation annuelle du PIB en volume (prix constants). Source : FMI WEO." },
-  { code: "PCPIPCH",      label: "Inflation (IPC)",           unit: "%",    description: "Variation annuelle de l'indice des prix à la consommation. Source : FMI WEO." },
-  { code: "GGXCNL_NGDP", label: "Solde budgétaire",          unit: "% PIB",description: "Solde global des administrations publiques en % du PIB. Source : FMI WEO." },
-  { code: "GGXWDG_NGDP", label: "Dette publique",            unit: "% PIB",description: "Dette brute des administrations publiques en % du PIB. Source : FMI WEO." },
-  { code: "BCA_NGDPD",   label: "Compte courant",             unit: "% PIB",description: "Solde du compte courant de la balance des paiements en % du PIB. Source : FMI WEO." },
-  { code: "NGDPDPC",     label: "PIB par habitant",           unit: "USD",  description: "PIB nominal par habitant en dollars américains courants. Source : FMI WEO." },
-  { code: "LUR",         label: "Taux de chômage",            unit: "%",    description: "Part de la population active sans emploi. Source : FMI WEO / ILO." },
+  // ── Secteur réel ──────────────────────────────────────────────────────────
+  { code: "NGDP_RPCH",    cat: "Secteur réel",   label: "Croissance PIB réel",       unit: "%",      description: "Variation annuelle du PIB en volume (prix constants). Source : FMI WEO." },
+  { code: "NGDPD",        cat: "Secteur réel",   label: "PIB nominal",               unit: "Mds USD",description: "PIB courant en milliards de dollars américains. Source : FMI WEO." },
+  { code: "PPPGDP",       cat: "Secteur réel",   label: "PIB en PPA",                unit: "Mds USD",description: "PIB à parité de pouvoir d'achat. Source : FMI WEO." },
+  { code: "NGDPDPC",      cat: "Secteur réel",   label: "PIB par habitant",          unit: "USD",    description: "PIB nominal par habitant en dollars courants. Source : FMI WEO." },
+  { code: "PPPPC",        cat: "Secteur réel",   label: "PIB/hab. PPA",              unit: "USD",    description: "PIB par habitant à parité de pouvoir d'achat. Source : FMI WEO." },
+  { code: "LP",           cat: "Secteur réel",   label: "Population",                unit: "M hab.", description: "Population totale en millions d'habitants. Source : FMI WEO." },
+  { code: "LUR",          cat: "Secteur réel",   label: "Taux de chômage",           unit: "%",      description: "Part de la population active sans emploi. Source : FMI WEO / ILO." },
+  { code: "LE",           cat: "Secteur réel",   label: "Emploi total",              unit: "M pers.",description: "Nombre total de personnes occupées en millions. Source : FMI WEO." },
+  // ── Fiscal ────────────────────────────────────────────────────────────────
+  { code: "GGR_NGDP",     cat: "Fiscal",         label: "Recettes publiques",        unit: "% PIB",  description: "Recettes totales des administrations publiques en % du PIB. Source : FMI WEO." },
+  { code: "GGX_NGDP",     cat: "Fiscal",         label: "Dépenses publiques",        unit: "% PIB",  description: "Dépenses totales des administrations publiques en % du PIB. Source : FMI WEO." },
+  { code: "GGXCNL_NGDP",  cat: "Fiscal",         label: "Solde budgétaire",          unit: "% PIB",  description: "Solde global des administrations publiques (FMI). Source : FMI WEO." },
+  { code: "GGXONLB_NGDP", cat: "Fiscal",         label: "Solde primaire",            unit: "% PIB",  description: "Solde budgétaire hors service de la dette. Source : FMI WEO." },
+  { code: "GGXWDG_NGDP",  cat: "Fiscal",         label: "Dette publique brute",      unit: "% PIB",  description: "Dette brute des administrations publiques (périmètre FMI). Source : FMI WEO." },
+  { code: "GGXWDN_NGDP",  cat: "Fiscal",         label: "Dette publique nette",      unit: "% PIB",  description: "Dette nette des administrations publiques. Source : FMI WEO." },
+  { code: "DS_REV",        cat: "Fiscal",         label: "Service dette/recettes",    unit: "%",      description: "Service de la dette en % des recettes fiscales. Source : FMI WEO." },
+  { code: "GGSB_NPGDP",   cat: "Fiscal",         label: "Solde structurel",          unit: "% PIB pot.",description: "Solde budgétaire ajusté du cycle. Source : FMI WEO." },
+  // ── Monétaire & inflation ─────────────────────────────────────────────────
+  { code: "PCPIPCH",       cat: "Monétaire",      label: "Inflation IPC",             unit: "%",      description: "Variation annuelle de l'indice des prix à la consommation. Source : FMI WEO." },
+  { code: "PCPIE",         cat: "Monétaire",      label: "Inflation core",            unit: "%",      description: "Inflation hors alimentation et énergie. Source : FMI WEO." },
+  { code: "PCPIEPCH",      cat: "Monétaire",      label: "Inflation fin de période",  unit: "%",      description: "Inflation IPC en fin de période (décembre/décembre). Source : FMI WEO." },
+  { code: "FM_LIPY",       cat: "Monétaire",      label: "Masse monétaire M2",        unit: "% cro.", description: "Taux de croissance de la masse monétaire M2. Source : FMI WEO." },
+  { code: "FPOLM_FFRATE",  cat: "Monétaire",      label: "Taux directeur",            unit: "%",      description: "Taux directeur de la banque centrale. Source : FMI WEO." },
+  { code: "FPOLM_FCSCPI",  cat: "Monétaire",      label: "Taux de crédit privé",      unit: "%",      description: "Taux d'intérêt sur les prêts au secteur privé. Source : FMI WEO." },
+  // ── Secteur externe ───────────────────────────────────────────────────────
+  { code: "BCA_NGDPD",     cat: "Externe",        label: "Compte courant",            unit: "% PIB",  description: "Solde du compte courant de la balance des paiements. Source : FMI BOP." },
+  { code: "BCA",           cat: "Externe",        label: "Compte courant (Mds USD)",  unit: "Mds USD",description: "Solde du compte courant en milliards de dollars. Source : FMI BOP." },
+  { code: "BX_KLT_DINV_WD_GD_ZS", cat: "Externe", label: "IDE entrants",             unit: "% PIB",  description: "Investissements directs étrangers nets reçus en % du PIB. Source : Banque Mondiale WDI." },
+  { code: "RI_IMP_M",      cat: "Externe",        label: "Réserves (mois imports)",   unit: "mois",   description: "Réserves de change en mois d'importations. Source : FMI WEO." },
+  { code: "EXTD_TOTAL_GDP",cat: "Externe",        label: "Dette extérieure",          unit: "% PIB",  description: "Dette extérieure totale (publique + privée) en % du PIB. Source : Banque Mondiale WDI." },
+  { code: "REM_GDP",       cat: "Externe",        label: "Envois de fonds",           unit: "% PIB",  description: "Transferts des migrants en % du PIB. Source : Banque Mondiale WDI." },
+  { code: "TX_VAL_MRCH_XD_WD",cat: "Externe",    label: "Export merchandise",        unit: "Mds USD",description: "Exportations de marchandises en dollars. Source : Banque Mondiale WDI." },
+  { code: "TM_VAL_MRCH_XD_WD",cat: "Externe",    label: "Import merchandise",        unit: "Mds USD",description: "Importations de marchandises en dollars. Source : Banque Mondiale WDI." },
+  // ── Social & développement ────────────────────────────────────────────────
+  { code: "SP_DYN_LE00_IN",cat: "Social",         label: "Espérance de vie",          unit: "ans",    description: "Espérance de vie à la naissance. Source : Banque Mondiale WDI." },
+  { code: "SP_POP_TOTL",   cat: "Social",         label: "Population totale",         unit: "M hab.", description: "Population totale. Source : Banque Mondiale WDI." },
+  { code: "SE_ADT_LITR_ZS",cat: "Social",         label: "Taux d'alphabétisation",    unit: "%",      description: "Taux d'alphabétisation des adultes. Source : UNESCO/Banque Mondiale WDI." },
+  { code: "EG_ELC_ACCS_ZS",cat: "Social",         label: "Accès à l'électricité",     unit: "%",      description: "Part de la population ayant accès à l'électricité. Source : Banque Mondiale WDI." },
+  { code: "IT_NET_USER_ZS", cat: "Social",         label: "Utilisateurs Internet",     unit: "%",      description: "Part de la population utilisant Internet. Source : Banque Mondiale WDI." },
+  { code: "SH_DYN_MORT",   cat: "Social",         label: "Mortalité infantile",       unit: "/1000",  description: "Mortalité des moins de 5 ans pour 1000 naissances vivantes. Source : Banque Mondiale WDI." },
+  // ── Énergie & Climat ──────────────────────────────────────────────────────
+  { code: "EG_USE_PCAP_KG_OE",cat: "Énergie",     label: "Conso. énergie/hab.",       unit: "kg éq. pétrole",description: "Consommation d'énergie par habitant. Source : Banque Mondiale WDI." },
+  { code: "EN_ATM_CO2E_PC", cat: "Énergie",       label: "Émissions CO₂/hab.",        unit: "t CO₂",  description: "Émissions de CO₂ par habitant. Source : Banque Mondiale WDI." },
+  { code: "EG_FEC_RNEW_ZS", cat: "Énergie",       label: "Énergie renouvelable",      unit: "% conso.",description: "Part des renouvelables dans la consommation finale d'énergie. Source : Banque Mondiale WDI." },
 ];
 
 const REGIONS: { value: string; label: string }[] = [
@@ -180,8 +219,21 @@ export default function IndicatorsPage() {
   const [selectedCountry,setSelectedCountry]= useState<string | null>(null);
   const [region,         setRegion]         = useState("Toutes");
   const [search,         setSearch]         = useState("");
+  const [indSearch,      setIndSearch]      = useState("");
+  const [indCat,         setIndCat]         = useState("Tous");
   const [chartType,      setChartType]      = useState<"line" | "bar" | "area">("area");
   const [exportOpen,     setExportOpen]     = useState(false);
+
+  const IND_CATS = useMemo(() => ["Tous", ...Array.from(new Set(INDICATORS.map((i) => i.cat)))], []);
+
+  const filteredInds = useMemo(() =>
+    INDICATORS.filter((i) => {
+      const q = indSearch.toLowerCase();
+      const matchSearch = !indSearch || i.label.toLowerCase().includes(q) || i.code.toLowerCase().includes(q);
+      const matchCat = indCat === "Tous" || i.cat === indCat;
+      return matchSearch && matchCat;
+    }), [indSearch, indCat]
+  );
 
   const indMeta = INDICATORS.find((i) => i.code === selectedInd)!;
 
@@ -269,9 +321,12 @@ export default function IndicatorsPage() {
             <BarChart3 size={22} style={{ color: "var(--mansa-green)" }} />
             Indicateurs macroéconomiques
           </h1>
-          <p className="text-sm mt-1" style={{ color: "var(--text-muted)" }}>
-            {countries.length || 54} pays · FMI WEO · Banque Mondiale WDI · Séries 2010–2025
-          </p>
+          <div className="flex items-center gap-2 mt-1 flex-wrap">
+            <p className="text-sm" style={{ color: "var(--text-muted)" }}>
+              {countries.length || 54} pays · {INDICATORS.length} indicateurs · FMI WEO · Banque Mondiale WDI
+            </p>
+            <DataSourceBadge isLive={!!countryMacro && !isDemoData} size="sm" />
+          </div>
         </div>
         <div className="flex items-center gap-2">
           <button onClick={() => refetch()} className="p-2 rounded-lg border transition-colors mansa-btn-ghost">
@@ -283,21 +338,70 @@ export default function IndicatorsPage() {
         </div>
       </div>
 
-      {/* ── Sélecteur indicateur ── */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2">
-        {INDICATORS.map((ind) => (
-          <button
-            key={ind.code}
-            onClick={() => setSelectedInd(ind.code)}
-            className="px-3 py-2 rounded-xl border text-xs font-medium transition-all text-left"
-            style={selectedInd === ind.code
-              ? { background: "color-mix(in srgb, var(--mansa-green) 12%, var(--card-bg))", borderColor: "color-mix(in srgb, var(--mansa-green) 40%, transparent)", color: "var(--mansa-green)" }
-              : { background: "var(--card-bg)", borderColor: "var(--card-border)", color: "var(--text-muted)" }
-            }
-          >
-            {ind.label}
-          </button>
-        ))}
+      {/* ── Sélecteur indicateur : recherche + catégories + liste ── */}
+      <div className="mansa-card rounded-2xl p-4 space-y-3">
+        <div className="flex items-center gap-3 flex-wrap">
+          {/* Barre de recherche indicateur */}
+          <div className="flex items-center gap-2 rounded-lg px-3 py-1.5 border flex-1 min-w-[200px]"
+               style={{ background: "var(--input-bg)", borderColor: "var(--input-border)" }}>
+            <Search size={12} style={{ color: "var(--text-muted)" }} />
+            <input
+              type="text"
+              value={indSearch}
+              onChange={(e) => setIndSearch(e.target.value)}
+              placeholder="Rechercher un indicateur (ex: PIB, inflation…)"
+              className="bg-transparent text-xs focus:outline-none w-full"
+              style={{ color: "var(--text-secondary)" }}
+            />
+            {indSearch && (
+              <button onClick={() => setIndSearch("")} className="text-xs" style={{ color: "var(--text-muted)" }}>✕</button>
+            )}
+          </div>
+          <span className="text-xs" style={{ color: "var(--text-muted)" }}>
+            {filteredInds.length} / {INDICATORS.length} indicateurs
+          </span>
+        </div>
+
+        {/* Onglets catégories */}
+        <div className="flex gap-1.5 flex-wrap">
+          {IND_CATS.map((cat) => (
+            <button
+              key={cat}
+              onClick={() => setIndCat(cat)}
+              className="px-3 py-1 rounded-full text-xs font-medium border transition-all"
+              style={indCat === cat
+                ? { background: "var(--mansa-green)", borderColor: "var(--mansa-green)", color: "#000" }
+                : { background: "var(--card-bg)", borderColor: "var(--card-border)", color: "var(--text-muted)" }
+              }
+            >
+              {cat}
+            </button>
+          ))}
+        </div>
+
+        {/* Liste indicateurs filtrée */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-1.5 max-h-48 overflow-y-auto pr-1">
+          {filteredInds.map((ind) => (
+            <button
+              key={ind.code}
+              onClick={() => setSelectedInd(ind.code)}
+              className="px-3 py-2 rounded-xl border text-xs font-medium transition-all text-left"
+              style={selectedInd === ind.code
+                ? { background: "color-mix(in srgb, var(--mansa-green) 12%, var(--card-bg))", borderColor: "color-mix(in srgb, var(--mansa-green) 40%, transparent)", color: "var(--mansa-green)" }
+                : { background: "var(--card-bg)", borderColor: "var(--card-border)", color: "var(--text-muted)" }
+              }
+              title={`${ind.code} · ${ind.description}`}
+            >
+              <span className="block truncate">{ind.label}</span>
+              <span className="block text-[9px] mt-0.5 opacity-60 font-mono">{ind.code}</span>
+            </button>
+          ))}
+          {filteredInds.length === 0 && (
+            <p className="col-span-5 text-xs text-center py-4" style={{ color: "var(--text-muted)" }}>
+              Aucun indicateur ne correspond à la recherche.
+            </p>
+          )}
+        </div>
       </div>
 
       {/* ── Description indicateur ── */}

@@ -104,6 +104,14 @@ export const macroApi = {
 
   getHeatmap: (indicator: string, year: number) =>
     api.get("/macro/heatmap/africa", { params: { indicator, year } }),
+
+  getFreshness: () => api.get("/macro/freshness"),
+
+  getExport: (params?: { sources?: string; year_from?: number; year_to?: number }) =>
+    api.get("/macro/export", { params }),
+
+  getRegion: (zone: "UEMOA" | "CEMAC" | "SSA", year?: number) =>
+    api.get(`/macro/regions/${zone}`, { params: { year } }),
 };
 
 // ── Helpers AI Analyst ──────────────────────────────────────────────────
@@ -131,6 +139,18 @@ export const marketsApi = {
 export const climateApi = {
   getIndicators: (year?: number) => api.get("/climate/indicators", { params: { year } }),
   getSummary:    () => api.get("/climate/summary"),
+};
+
+// ── Helpers News ─────────────────────────────────────────────────────────
+export const newsApi = {
+  getFeed: (params?: { limit?: number; category?: string }) =>
+    api.get("/news/feed", { params }),
+};
+
+// ── Helpers Alerts ───────────────────────────────────────────────────────
+export const alertsApi = {
+  getMacroAlerts: (params?: { severity?: string; year?: number; limit?: number }) =>
+    api.get("/alerts/macro", { params }),
 };
 
 // ── Streaming SSE AI Analyst ────────────────────────────────────────────

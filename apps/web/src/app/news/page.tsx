@@ -14,8 +14,12 @@ import {
   Clock,
   Tag,
   ChevronRight,
+  RefreshCw,
 } from "lucide-react";
 import { useLangStore } from "@/lib/lang-store";
+import { useQuery } from "@tanstack/react-query";
+import { newsApi } from "@/lib/api";
+import { DataSourceBadge } from "@/components/common/DataSourceBadge";
 
 // ── Types ────────────────────────────────────────────────────────────────────
 interface NewsArticle {
@@ -342,14 +346,69 @@ function ArticleCard({ article, featured = false }: { article: NewsArticle; feat
   );
 }
 
+// ── Helpers RSS ──────────────────────────────────────────────────────────────
+function formatRelative(iso: string): string {
+  try {
+    const diff = Date.now() - new Date(iso).getTime();
+    const h = Math.floor(diff / 3600000);
+    if (h < 1) return "Il y a moins d'1h";
+    if (h < 24) return `Il y a ${h}h`;
+    const d = Math.floor(diff / 86400000);
+    return d === 1 ? "Hier" : `Il y a ${d} jours`;
+  } catch { return ""; }
+}
+
+function mapCategory(raw: string): NewsCategory {
+  const map: Record<string, NewsCategory> = {
+    macro: "macro", macroéconomie: "macro",
+    marchés: "marches", marches: "marches", markets: "marches",
+    politique: "politique", politics: "politique",
+    climat: "climat", climate: "climat",
+    énergie: "energie", energie: "energie", energy: "energie",
+    tech: "tech", fintech: "tech",
+    développement: "macro", commerce: "macro", actualité: "macro",
+  };
+  return map[raw?.toLowerCase()] ?? "macro";
+}
+
 // ── Page principale ──────────────────────────────────────────────────────────
 export default function NewsPage() {
   const locale = useLangStore((s) => s.locale);
   const [activeCategory, setActiveCategory] = useState<NewsCategory | "all">("all");
   const [search, setSearch] = useState("");
 
+  // Tenter de charger les actualités live depuis le backend RSS
+  const { data: liveData, refetch, isFetching } = useQuery({
+    queryKey: ["news-feed"],
+    queryFn: () => newsApi.getFeed({ limit: 30 }),
+    staleTime: 15 * 60 * 1000,
+    retry: false,
+  });
+
+  // Normaliser les articles live en format NewsArticle local
+  const liveArticles: NewsArticle[] = useMemo(() => {
+    if (!liveData?.articles?.length) return [];
+    return liveData.articles.map((a: any, i: number) => ({
+      id: a.id ?? i,
+      title: a.title ?? "",
+      summary: a.summary ?? "",
+      source: a.source ?? "Source inconnue",
+      sourceUrl: a.url ?? "#",
+      date: a.published_at?.split("T")[0] ?? "",
+      dateRelative: a.published_at ? formatRelative(a.published_at) : "",
+      category: mapCategory(a.category),
+      region: a.region ?? "Afrique",
+      countries: [],
+      readTime: Math.max(1, Math.round((a.summary?.length ?? 200) / 200)),
+      featured: a.is_featured ?? false,
+    }));
+  }, [liveData]);
+
+  const articles = liveArticles.length > 0 ? liveArticles : ARTICLES;
+  const isLive = liveData?.is_live ?? false;
+
   const filtered = useMemo(() => {
-    let list = ARTICLES;
+    let list = articles;
     if (activeCategory !== "all") list = list.filter((a) => a.category === activeCategory);
     if (search.trim()) {
       const q = search.toLowerCase();
@@ -362,7 +421,7 @@ export default function NewsPage() {
       );
     }
     return list;
-  }, [activeCategory, search]);
+  }, [activeCategory, search, articles]);
 
   const featured = filtered.filter((a) => a.featured);
   const regular  = filtered.filter((a) => !a.featured);
@@ -393,20 +452,32 @@ export default function NewsPage() {
             </div>
           </div>
 
-          {/* Barre de recherche */}
-          <div
-            className="flex items-center gap-2 rounded-xl px-3 py-2 w-72"
-            style={{ background: "var(--input-bg)", border: "1px solid var(--input-border)" }}
-          >
-            <Search size={14} style={{ color: "var(--text-muted)", flexShrink: 0 }} />
-            <input
-              type="text"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder={locale === "fr" ? "Rechercher une actualité..." : "Search news..."}
-              className="bg-transparent text-sm focus:outline-none w-full"
-              style={{ color: "var(--text-primary)" }}
-            />
+          {/* Recherche + badge live */}
+          <div className="flex items-center gap-2">
+            <DataSourceBadge isLive={isLive} source={isLive ? "RSS" : undefined} />
+            <button
+              onClick={() => refetch()}
+              disabled={isFetching}
+              className="p-2 rounded-lg transition-all"
+              title="Actualiser"
+              style={{ background: "var(--input-bg)", border: "1px solid var(--input-border)", color: "var(--text-muted)" }}
+            >
+              <RefreshCw size={13} className={isFetching ? "animate-spin" : ""} />
+            </button>
+            <div
+              className="flex items-center gap-2 rounded-xl px-3 py-2 w-64"
+              style={{ background: "var(--input-bg)", border: "1px solid var(--input-border)" }}
+            >
+              <Search size={14} style={{ color: "var(--text-muted)", flexShrink: 0 }} />
+              <input
+                type="text"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder={locale === "fr" ? "Rechercher une actualité..." : "Search news..."}
+                className="bg-transparent text-sm focus:outline-none w-full"
+                style={{ color: "var(--text-primary)" }}
+              />
+            </div>
           </div>
         </div>
 
