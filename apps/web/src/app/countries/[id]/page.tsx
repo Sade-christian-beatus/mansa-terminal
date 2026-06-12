@@ -6,13 +6,14 @@ import {
   LineChart, Line, XAxis, YAxis, CartesianGrid,
   Tooltip, ResponsiveContainer,
 } from "recharts";
-import { ArrowLeft, TrendingUp, TrendingDown, Download, Shield } from "lucide-react";
-import { macroApi } from "@/lib/api";
+import { ArrowLeft, TrendingUp, TrendingDown, Download, Shield, BarChart3, RefreshCw } from "lucide-react";
+import { macroApi, forecastApi, type BatchForecastResult, type ForecastResult } from "@/lib/api";
 import { ErrorCard } from "@/components/common/ErrorCard";
 import { CATALOG_BY_ID } from "@/lib/indicator-catalog";
 import { ExportModal } from "@/components/common/ExportModal";
 import type { ExportRow } from "@/lib/export-utils";
 import { useState } from "react";
+import ForecastChart from "@/components/ForecastChart";
 
 /* ── Types ───────────────────────────────────────────── */
 const INDICATOR_COLORS: Record<string, string> = {
@@ -343,12 +344,117 @@ const COUNTRY_PROFILES: Record<string, CountryProfile> = {
   MRT:{ capital:"Nouakchott",     languages:["Arabe","Pulaar","Wolof","Soninké"],         area_km2:1_030_700,population_m:4.7, phone_code:"+222", currency:"Ouguiya",         currency_code:"MRU", tld:".mr", major_cities:["Nouakchott","Nouadhibou","Kaédi","Zouerate","Rosso"], independence:"1960" },
 };
 
+const FORECAST_INDS = "NGDP_RPCH,PCPIPCH,GGXWDG_NGDP,GGXCNL_NGDP,BCA_NGDPD";
+
+function ForecastSection({ countryId }: { countryId: string }) {
+  const [horizon, setHorizon] = useState(3);
+  const [data, setData] = useState<BatchForecastResult | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [loaded, setLoaded] = useState(false);
+
+  async function load() {
+    setLoading(true); setError(null);
+    try {
+      const res = await forecastApi.getBatch(countryId, { indicators: FORECAST_INDS, horizon });
+      setData(res); setLoaded(true);
+    } catch (e: any) {
+      setError(e?.response?.data?.detail || e?.message || "Erreur");
+    } finally { setLoading(false); }
+  }
+
+  if (!loaded && !loading) {
+    return (
+      <div className="mansa-card rounded-xl p-8 text-center space-y-3">
+        <BarChart3 size={28} className="mx-auto" style={{ color: "var(--text-muted)" }} />
+        <p className="text-sm" style={{ color: "var(--text-muted)" }}>
+          Prévisions ARIMA 1–5 ans pour {countryId}
+        </p>
+        <button onClick={load}
+          className="mx-auto flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium"
+          style={{ background: "var(--mansa-green)", color: "#000" }}>
+          Charger les prévisions
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center gap-3 flex-wrap">
+        <span className="text-xs font-medium" style={{ color: "var(--text-muted)" }}>Horizon :</span>
+        {[1, 2, 3, 5].map((h) => (
+          <button key={h} onClick={() => setHorizon(h)}
+            className="text-xs px-2.5 py-1 rounded-lg font-mono font-medium transition-colors"
+            style={horizon === h
+              ? { background: "var(--mansa-green)", color: "#000" }
+              : { background: "var(--bg-border)", color: "var(--text-muted)" }}>
+            {h}a
+          </button>
+        ))}
+        <button onClick={load}
+          className="ml-auto flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg"
+          style={{ background: "var(--bg-border)", color: "var(--text-muted)" }}>
+          <RefreshCw size={11} className={loading ? "animate-spin" : ""} />
+          Actualiser
+        </button>
+      </div>
+
+      {error && (
+        <div className="rounded-xl p-3 text-xs flex items-center gap-2"
+             style={{ background: "rgba(239,68,68,0.1)", color: "#EF4444", border: "1px solid rgba(239,68,68,0.2)" }}>
+          {error}
+        </div>
+      )}
+
+      {loading && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {[1,2,3,4,5].map((i) => (
+            <div key={i} className="mansa-card rounded-xl p-4 h-56 skeleton" />
+          ))}
+        </div>
+      )}
+
+      {!loading && data && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {Object.entries(data.forecasts).map(([code, fc]) => {
+            if ("error" in fc) return (
+              <div key={code} className="mansa-card rounded-xl p-4 flex flex-col items-center justify-center min-h-[180px]">
+                <p className="text-xs" style={{ color: "var(--text-muted)" }}>{code}</p>
+                <p className="text-[10px] mt-1" style={{ color: "var(--text-muted)" }}>{fc.error}</p>
+              </div>
+            );
+            return (
+              <div key={code} className="mansa-card rounded-xl p-4">
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-xs font-semibold" style={{ color: "var(--text-primary)" }}>
+                    {(fc as ForecastResult).indicator_name}
+                  </p>
+                  <span className="text-[9px] font-mono px-1.5 py-0.5 rounded"
+                        style={{ background: "var(--bg-border)", color: "var(--text-muted)" }}>
+                    {(fc as ForecastResult).model}
+                  </span>
+                </div>
+                <ForecastChart result={fc as ForecastResult} height={180} />
+              </div>
+            );
+          })}
+        </div>
+      )}
+      <p className="text-[10px]" style={{ color: "var(--text-muted)" }}>
+        ARIMA(1,1,1) ou Holt ES · Intervalles de confiance 80%/95% · Données IMF WEO
+      </p>
+    </div>
+  );
+}
+
 /* ── Page principale ─────────────────────────────────── */
 export default function CountryDetailPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
   const countryId = id.toUpperCase();
   const [exportOpen, setExportOpen] = useState(false);
+  const [dataTab, setDataTab] = useState<"historique" | "previsions">("historique");
 
   const { data: countries } = useQuery({
     queryKey: ["countries"],
@@ -619,34 +725,50 @@ export default function CountryDetailPage() {
         </div>
       )}
 
-      {/* Graphiques */}
+      {/* Graphiques — tabs Historique / Prévisions */}
       <div>
-        <h2 className="text-xs font-semibold uppercase tracking-wider mb-4" style={{ color: "var(--text-muted)" }}>
-          Séries temporelles 2015–2024
-        </h2>
-        {isLoading && !isUsingFallback ? (
-          <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
-            {Array.from({ length: 6 }).map((_, i) => <div key={i} className="mansa-card rounded-xl p-4 h-52 skeleton" />)}
-          </div>
-        ) : Object.values(effectiveMacro?.indicators ?? {}).some((pts) => (pts as []).length > 0) ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {Object.entries(effectiveMacro?.indicators ?? {}).map(([code, pts]) =>
-              (pts as { period: string; value: number }[]).length > 0 ? (
-                <IndicatorChart key={code} code={code} points={pts as { period: string; value: number }[]} />
-              ) : null
-            )}
-          </div>
-        ) : (
-          <div className="mansa-card rounded-xl p-8 text-center">
-            <p className="text-sm font-medium mb-1" style={{ color: "var(--text-muted)" }}>
-              Aucune série temporelle disponible pour ce pays.
-            </p>
-            <p className="text-xs" style={{ color: "var(--text-muted)" }}>
-              Les données macro-fiscales sont chargées par les pipelines Dagster (IMF WEO · World Bank WDI).
-              Lancez <code className="text-[#00D4AA] bg-[#00D4AA]/10 px-1 rounded">dagster job execute -j full_historical_refresh</code> pour les charger.
-            </p>
-          </div>
+        <div className="flex items-center gap-1 border-b mb-4" style={{ borderColor: "var(--bg-border)" }}>
+          {([
+            { id: "historique",  label: "Historique 2015–2024" },
+            { id: "previsions",  label: "Prévisions" },
+          ] as const).map(({ id: tid, label }) => (
+            <button key={tid} onClick={() => setDataTab(tid)}
+              className="px-4 py-2 text-sm font-medium border-b-2 transition-colors -mb-px"
+              style={dataTab === tid
+                ? { borderBottomColor: "var(--mansa-green)", color: "var(--mansa-green)" }
+                : { borderBottomColor: "transparent", color: "var(--text-muted)" }}>
+              {label}
+            </button>
+          ))}
+        </div>
+
+        {dataTab === "historique" && (
+          isLoading && !isUsingFallback ? (
+            <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
+              {Array.from({ length: 6 }).map((_, i) => <div key={i} className="mansa-card rounded-xl p-4 h-52 skeleton" />)}
+            </div>
+          ) : Object.values(effectiveMacro?.indicators ?? {}).some((pts) => (pts as []).length > 0) ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {Object.entries(effectiveMacro?.indicators ?? {}).map(([code, pts]) =>
+                (pts as { period: string; value: number }[]).length > 0 ? (
+                  <IndicatorChart key={code} code={code} points={pts as { period: string; value: number }[]} />
+                ) : null
+              )}
+            </div>
+          ) : (
+            <div className="mansa-card rounded-xl p-8 text-center">
+              <p className="text-sm font-medium mb-1" style={{ color: "var(--text-muted)" }}>
+                Aucune série temporelle disponible pour ce pays.
+              </p>
+              <p className="text-xs" style={{ color: "var(--text-muted)" }}>
+                Les données macro-fiscales sont chargées par les pipelines Dagster (IMF WEO · World Bank WDI).
+                Lancez <code className="text-[#00D4AA] bg-[#00D4AA]/10 px-1 rounded">dagster job execute -j full_historical_refresh</code> pour les charger.
+              </p>
+            </div>
+          )
         )}
+
+        {dataTab === "previsions" && <ForecastSection countryId={countryId} />}
       </div>
 
       <p className="text-xs pb-4" style={{ color: "var(--text-muted)" }}>
