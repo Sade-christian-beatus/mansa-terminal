@@ -18,10 +18,10 @@ def upgrade() -> None:
     # No-op: ensures the migration chain is intact after the 0004 repair.
     # Adds a composite index on macro_indicators for forecast queries if missing.
     op.execute("""
-        CREATE INDEX IF NOT EXISTS idx_macroindicator_country_code_date
-        ON macro_indicators (country_id, indicator_code, date DESC);
+        CREATE INDEX IF NOT EXISTS idx_macroindicator_country_code_ts
+        ON macro_indicators (country_id, indicator_code, timestamp DESC);
     """)
 
 
 def downgrade() -> None:
-    op.execute("DROP INDEX IF EXISTS idx_macroindicator_country_code_date;")
+    op.execute("DROP INDEX IF EXISTS idx_macroindicator_country_code_ts;")
