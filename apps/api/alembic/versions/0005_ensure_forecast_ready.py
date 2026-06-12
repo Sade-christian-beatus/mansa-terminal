@@ -17,9 +17,10 @@ depends_on = None
 def upgrade() -> None:
     # No-op: ensures the migration chain is intact after the 0004 repair.
     # Adds a composite index on macro_indicators for forecast queries if missing.
+    # Uses 'timestamp' column (not 'date') as defined in 0001_initial.py
     op.execute("""
         CREATE INDEX IF NOT EXISTS idx_macroindicator_country_code_date
-        ON macro_indicators (country_id, indicator_code, date DESC);
+        ON macro_indicators (country_id, indicator_code, timestamp DESC);
     """)
 
 
