@@ -21,6 +21,7 @@ interface Message {
   sources?: string[];
   error?: boolean;
   errorCode?: number;
+  isDemo?: boolean;
 }
 
 
@@ -305,42 +306,23 @@ export default function MansaAIPage() {
     setInput("");
     setIsLoading(true);
 
-    const streamSource = async function*() {
-      try {
-        yield* streamAIQuery(question);
-      } catch {
-        // Backend indisponible → mode démonstration
-        yield* simulateDemoStream(question);
-      }
-    };
-
     try {
       let fullContent = "";
-      for await (const chunk of streamSource()) {
-        if (chunk.type === "text" && chunk.content) {
-          fullContent += chunk.content;
-          setMessages((prev) =>
-            prev.map((m) => m.id === assistantId ? { ...m, content: fullContent } : m)
-          );
-        } else if (chunk.type === "done") {
-          setMessages((prev) =>
-            prev.map((m) => m.id === assistantId ? { ...m, isStreaming: false } : m)
-          );
-        } else if (chunk.type === "error") {
-          // Erreur auth (401/403) → afficher l'erreur normalement
-          const errText = chunk.content ?? "Erreur inconnue du service IA.";
-          // Fallback démo si c'est une erreur réseau
-          if (errText.includes("Session") || errText.includes("session") || errText.includes("401") || errText.includes("auth")) {
-            let demoContent = "";
-            for await (const demoChunk of simulateDemoStream(question)) {
-              if (demoChunk.type === "text") {
-                demoContent += demoChunk.content;
-                setMessages((prev) =>
-                  prev.map((m) => m.id === assistantId ? { ...m, content: demoContent } : m)
-                );
-              }
-            }
-          } else {
+      try {
+        // Tentative connexion backend réel
+        for await (const chunk of streamAIQuery(question)) {
+          if (chunk.type === "text" && chunk.content) {
+            fullContent += chunk.content;
+            setMessages((prev) =>
+              prev.map((m) => m.id === assistantId ? { ...m, content: fullContent } : m)
+            );
+          } else if (chunk.type === "done") {
+            setMessages((prev) =>
+              prev.map((m) => m.id === assistantId ? { ...m, isStreaming: false } : m)
+            );
+          } else if (chunk.type === "error") {
+            // Erreur retournée par le backend dans le stream SSE
+            const errText = chunk.content ?? "Erreur du service IA.";
             setMessages((prev) =>
               prev.map((m) =>
                 m.id === assistantId
@@ -350,19 +332,64 @@ export default function MansaAIPage() {
             );
           }
         }
-      }
-    } catch (err) {
-      // Toute erreur non gérée → mode démo
-      let demoContent = "";
-      for await (const demoChunk of simulateDemoStream(question)) {
-        if (demoChunk.type === "text") {
-          demoContent += demoChunk.content;
+      } catch (err: unknown) {
+        // Distinguer erreur API (status connu) vs erreur réseau
+        const status = (err as { status?: number }).status;
+
+        if (status === 401) {
           setMessages((prev) =>
-            prev.map((m) => m.id === assistantId ? { ...m, content: demoContent } : m)
+            prev.map((m) =>
+              m.id === assistantId
+                ? { ...m, content: "Session expirée. Reconnectez-vous pour utiliser MANSA AI.", isStreaming: false, error: true, errorCode: 401 }
+                : m
+            )
           );
+          return;
+        }
+        if (status === 402) {
+          setMessages((prev) =>
+            prev.map((m) =>
+              m.id === assistantId
+                ? { ...m, content: "Abonnement requis pour accéder à MANSA AI.", isStreaming: false, error: true, errorCode: 402 }
+                : m
+            )
+          );
+          return;
+        }
+        if (status === 429) {
+          const msg = (err as Error).message || "Quota journalier atteint.";
+          setMessages((prev) =>
+            prev.map((m) =>
+              m.id === assistantId
+                ? { ...m, content: msg, isStreaming: false, error: true, errorCode: 429 }
+                : m
+            )
+          );
+          return;
+        }
+        if (status && status >= 400 && status < 500) {
+          // Autre erreur client connue — afficher sans démo
+          setMessages((prev) =>
+            prev.map((m) =>
+              m.id === assistantId
+                ? { ...m, content: (err as Error).message, isStreaming: false, error: true, errorCode: status }
+                : m
+            )
+          );
+          return;
+        }
+
+        // Erreur réseau (backend indisponible) → mode démonstration
+        let demoContent = "";
+        for await (const demoChunk of simulateDemoStream(question)) {
+          if (demoChunk.type === "text") {
+            demoContent += demoChunk.content;
+            setMessages((prev) =>
+              prev.map((m) => m.id === assistantId ? { ...m, content: demoContent, isDemo: true } : m)
+            );
+          }
         }
       }
-      void err; // suppress unused warning
     } finally {
       setIsLoading(false);
       setMessages((prev) =>
@@ -534,15 +561,26 @@ export default function MansaAIPage() {
                             → Se reconnecter
                           </a>
                         )}
-                        {message.errorCode === 403 && (
+                        {(message.errorCode === 402 || message.errorCode === 403) && (
                           <a href="/billing" className="text-xs mt-1 block underline" style={{ color: "var(--mansa-green)" }}>
                             → Voir les plans d&apos;abonnement
                           </a>
+                        )}
+                        {message.errorCode === 429 && (
+                          <p className="text-xs mt-1" style={{ color: "var(--text-muted)" }}>
+                            Réessayez demain ou passez à un plan supérieur.
+                          </p>
                         )}
                       </div>
                     </div>
                   ) : (
                     <>
+                      {message.isDemo && (
+                        <div className="flex items-center gap-1.5 mb-2 px-2 py-1 rounded text-[10px] font-medium w-fit"
+                             style={{ background: "rgba(234,179,8,0.12)", color: "#eab308", border: "1px solid rgba(234,179,8,0.25)" }}>
+                          ⚡ Mode démonstration — backend indisponible
+                        </div>
+                      )}
                       <div className="prose prose-invert prose-sm max-w-none
                                       prose-headings:font-semibold
                                       prose-code:text-[#0ea5a0]

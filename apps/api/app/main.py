@@ -18,7 +18,7 @@ from sentry_sdk.integrations.sqlalchemy import SqlalchemyIntegration
 
 from app.core.config import settings
 from app.core.limiter import limiter
-from app.routers import auth, health, macro, countries, ai_analyst, billing, markets, climate, news, alerts, acled
+from app.routers import auth, health, macro, countries, ai_analyst, billing, markets, climate, news, alerts, acled, public_api
 
 
 # ---- Logging structuré (JSON en prod, standard en dev) ----
@@ -69,11 +69,18 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title=settings.APP_NAME,
     version=settings.APP_VERSION,
-    debug=False,                                          # jamais True en prod
+    description=(
+        "**MANSA Terminal** — Africa's Macro-Fiscal Intelligence Platform\n\n"
+        "API publique pour économistes, data scientists et institutions.\n\n"
+        "**Authentification** : `Authorization: Bearer mansa_xxx`\n\n"
+        "Obtenez votre clé sur [mansa.ai/profile](https://mansa-terminal.vercel.app/profile)."
+    ),
+    debug=False,
     lifespan=lifespan,
-    docs_url="/docs" if settings.APP_ENV != "production" else None,
-    redoc_url="/redoc" if settings.APP_ENV != "production" else None,
-    openapi_url="/openapi.json" if settings.APP_ENV != "production" else None,
+    # Swagger accessible en production pour la doc publique de l'API
+    docs_url="/docs",
+    redoc_url="/redoc",
+    openapi_url="/openapi.json",
 )
 
 # ---- Rate limiting ----
@@ -149,6 +156,7 @@ app.include_router(climate.router,    prefix="/api/climate",   tags=["Climate"])
 app.include_router(news.router,       prefix="/api/news",      tags=["News"])
 app.include_router(alerts.router,     prefix="/api/alerts",    tags=["Alerts"])
 app.include_router(acled.router,      prefix="/api/acled",     tags=["Conflicts"])
+app.include_router(public_api.router, prefix="/api",           tags=["API Keys", "Public Data"])
 
 
 @app.get("/", tags=["Root"])

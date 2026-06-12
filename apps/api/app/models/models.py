@@ -208,6 +208,33 @@ class KnowledgeDocument(Base):
 
 
 # ============================================================
+# API KEYS (Public API)
+# ============================================================
+
+class APIKey(Base):
+    """Clés d'API pour accès programmatique à la plateforme MANSA."""
+    __tablename__ = "api_keys"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
+    name = Column(String(100), nullable=False)           # Label donné par l'user (ex: "Mon script R")
+    key_hash = Column(String(64), unique=True, nullable=False)  # SHA-256 de la clé brute
+    key_prefix = Column(String(12), nullable=False)     # Premiers chars pour affichage (mansa_xxxx)
+    scopes = Column(JSONB, default=list)                # ["read:macro", "read:countries", ...]
+    last_used_at = Column(DateTime(timezone=True))
+    expires_at = Column(DateTime(timezone=True))        # NULL = pas d'expiration
+    is_active = Column(Boolean, nullable=False, default=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    user = relationship("User")
+
+    __table_args__ = (
+        Index("idx_apikey_user", "user_id"),
+        Index("idx_apikey_hash", "key_hash"),
+    )
+
+
+# ============================================================
 # PIPELINE MONITORING
 # ============================================================
 
