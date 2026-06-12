@@ -211,6 +211,51 @@ export const bulkExportApi = {
   },
 };
 
+// ── Helpers Forecasting ──────────────────────────────────────────────────
+export interface ForecastPoint {
+  year:     number;
+  value:    number;
+  lower_80: number;
+  upper_80: number;
+  lower_95: number;
+  upper_95: number;
+}
+export interface HistoricalPoint { year: number; value: number; }
+export interface ForecastResult {
+  country_id:         string;
+  indicator_code:     string;
+  indicator_name:     string;
+  unit:               string | null;
+  model:              string;
+  horizon_years:      number;
+  n_observations:     number;
+  last_historical_year: number;
+  historical:         HistoricalPoint[];
+  forecast:           ForecastPoint[];
+  generated_at:       string;
+}
+export interface BatchForecastResult {
+  country_id:    string;
+  horizon_years: number;
+  generated_at:  string;
+  forecasts:     Record<string, ForecastResult | { error: string }>;
+}
+
+export const forecastApi = {
+  getIndicator: (
+    countryId: string,
+    indicatorCode: string,
+    params?: { horizon?: number; from_year?: number }
+  ): Promise<ForecastResult> =>
+    api.get(`/forecast/${countryId}/${indicatorCode}`, { params }),
+
+  getBatch: (
+    countryId: string,
+    params?: { indicators?: string; horizon?: number }
+  ): Promise<BatchForecastResult> =>
+    api.get(`/forecast/batch/${countryId}`, { params }),
+};
+
 // ── Streaming SSE AI Analyst ────────────────────────────────────────────
 
 /** Récupère un token Supabase valide, en rafraîchissant si nécessaire. */

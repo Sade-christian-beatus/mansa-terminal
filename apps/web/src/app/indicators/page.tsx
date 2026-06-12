@@ -6,7 +6,8 @@ import {
   BarChart3, Search, Filter, TrendingUp, TrendingDown, Download,
   Globe2, Activity, Minus, RefreshCw, ChevronDown,
 } from "lucide-react";
-import { macroApi } from "@/lib/api";
+import { macroApi, forecastApi, type ForecastResult } from "@/lib/api";
+import ForecastChart from "@/components/ForecastChart";
 import {
   LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid,
   Tooltip, ResponsiveContainer, ReferenceLine, Area, AreaChart,
@@ -225,6 +226,11 @@ export default function IndicatorsPage() {
   const [chartType,      setChartType]      = useState<"line" | "bar" | "area">("area");
   const [exportOpen,     setExportOpen]     = useState(false);
   const [bulkExportOpen, setBulkExportOpen] = useState(false);
+  const [chartTab,       setChartTab]       = useState<"historique" | "previsions">("historique");
+  const [fcData,         setFcData]         = useState<ForecastResult | null>(null);
+  const [fcLoading,      setFcLoading]      = useState(false);
+  const [fcError,        setFcError]        = useState<string | null>(null);
+  const [fcHorizon,      setFcHorizon]      = useState(3);
 
   const IND_CATS = useMemo(() => ["Tous", ...Array.from(new Set(INDICATORS.map((i) => i.cat)))], []);
 
@@ -393,7 +399,7 @@ export default function IndicatorsPage() {
           {filteredInds.map((ind) => (
             <button
               key={ind.code}
-              onClick={() => setSelectedInd(ind.code)}
+              onClick={() => { setSelectedInd(ind.code); setFcData(null); setChartTab("historique"); }}
               className="px-3 py-2 rounded-xl border text-xs font-medium transition-all text-left"
               style={selectedInd === ind.code
                 ? { background: "color-mix(in srgb, var(--mansa-green) 12%, var(--card-bg))", borderColor: "color-mix(in srgb, var(--mansa-green) 40%, transparent)", color: "var(--mansa-green)" }
@@ -468,7 +474,7 @@ export default function IndicatorsPage() {
               effectiveCountries.map((c) => (
                 <button
                   key={c.id}
-                  onClick={() => setSelectedCountry(c.id)}
+                  onClick={() => { setSelectedCountry(c.id); setFcData(null); }}
                   className="w-full flex items-center gap-2.5 px-3 py-2.5 transition-all text-left border-b"
                   style={{
                     borderColor: "var(--bg-border)",
@@ -555,49 +561,134 @@ export default function IndicatorsPage() {
               </div>
             </div>
 
-            {macroLoading ? (
-              <div className="h-64 skeleton rounded-xl" />
-            ) : chartData.length === 0 ? (
-              <div className="h-64 flex items-center justify-center rounded-xl"
-                   style={{ background: "var(--bg-border)" }}>
-                <div className="text-center">
-                  <Globe2 size={32} className="mx-auto mb-2" style={{ color: "var(--text-muted)", opacity: 0.4 }} />
-                  <p className="text-sm" style={{ color: "var(--text-muted)" }}>
-                    Aucune donnée disponible pour cet indicateur.
-                  </p>
-                  <p className="text-xs mt-1" style={{ color: "var(--text-muted)", opacity: 0.7 }}>
-                    Lancez le pipeline Dagster pour importer les données IMF WEO.
+            {/* Onglets Historique / Prévisions */}
+            <div className="flex items-center gap-1 border-b mb-4" style={{ borderColor: "var(--bg-border)" }}>
+              {([
+                { id: "historique", label: "Historique" },
+                { id: "previsions", label: "Prévisions ARIMA" },
+              ] as const).map(({ id: tid, label }) => (
+                <button key={tid} onClick={() => {
+                  setChartTab(tid);
+                  if (tid === "previsions" && !fcData && activeCountry) {
+                    setFcLoading(true); setFcError(null);
+                    forecastApi.getIndicator(activeCountry, selectedInd, { horizon: fcHorizon })
+                      .then((r) => setFcData(r))
+                      .catch((e: any) => setFcError(e?.response?.data?.detail || e?.message || "Erreur"))
+                      .finally(() => setFcLoading(false));
+                  }
+                }}
+                  className="px-3 py-2 text-xs font-medium border-b-2 transition-colors -mb-px"
+                  style={chartTab === tid
+                    ? { borderBottomColor: "var(--mansa-green)", color: "var(--mansa-green)" }
+                    : { borderBottomColor: "transparent", color: "var(--text-muted)" }}>
+                  {label}
+                </button>
+              ))}
+              {chartTab === "previsions" && (
+                <div className="ml-auto flex items-center gap-1.5">
+                  {[1, 2, 3, 5].map((h) => (
+                    <button key={h} onClick={() => {
+                      setFcHorizon(h); setFcData(null);
+                      if (activeCountry) {
+                        setFcLoading(true); setFcError(null);
+                        forecastApi.getIndicator(activeCountry, selectedInd, { horizon: h })
+                          .then((r) => setFcData(r))
+                          .catch((e: any) => setFcError(e?.response?.data?.detail || e?.message || "Erreur"))
+                          .finally(() => setFcLoading(false));
+                      }
+                    }}
+                      className="text-[10px] px-2 py-0.5 rounded font-mono"
+                      style={fcHorizon === h
+                        ? { background: "var(--mansa-green)", color: "#000" }
+                        : { background: "var(--bg-border)", color: "var(--text-muted)" }}>
+                      {h}a
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {chartTab === "historique" && (
+              macroLoading ? (
+                <div className="h-64 skeleton rounded-xl" />
+              ) : chartData.length === 0 ? (
+                <div className="h-64 flex items-center justify-center rounded-xl"
+                     style={{ background: "var(--bg-border)" }}>
+                  <div className="text-center">
+                    <Globe2 size={32} className="mx-auto mb-2" style={{ color: "var(--text-muted)", opacity: 0.4 }} />
+                    <p className="text-sm" style={{ color: "var(--text-muted)" }}>
+                      Aucune donnée disponible pour cet indicateur.
+                    </p>
+                    <p className="text-xs mt-1" style={{ color: "var(--text-muted)", opacity: 0.7 }}>
+                      Lancez le pipeline Dagster pour importer les données IMF WEO.
+                    </p>
+                  </div>
+                </div>
+              ) : chartType === "area" ? (
+                <ResponsiveContainer width="100%" height={260}>
+                  <AreaChart data={chartData} margin={{ top: 5, right: 10, left: -10, bottom: 0 }}>
+                    <defs>
+                      <linearGradient id="indGrad" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#00D4AA" stopOpacity={0.3} />
+                        <stop offset="95%" stopColor="#00D4AA" stopOpacity={0} />
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" stroke="var(--bg-border)" />
+                    <XAxis dataKey="year" tick={{ fontSize: 10, fill: "var(--text-muted)" }} />
+                    <YAxis tick={{ fontSize: 10, fill: "var(--text-muted)" }} />
+                    <Tooltip content={<CustomTooltip unit={indMeta.unit} />} />
+                    <ReferenceLine y={0} stroke="var(--text-muted)" strokeDasharray="4 4" />
+                    <Area type="monotone" dataKey="value" stroke="#00D4AA" strokeWidth={2} fill="url(#indGrad)" dot={{ r: 3, fill: "#00D4AA" }} activeDot={{ r: 5 }} />
+                  </AreaChart>
+                </ResponsiveContainer>
+              ) : (
+                <ResponsiveContainer width="100%" height={260}>
+                  <BarChart data={chartData} margin={{ top: 5, right: 10, left: -10, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="var(--bg-border)" />
+                    <XAxis dataKey="year" tick={{ fontSize: 10, fill: "var(--text-muted)" }} />
+                    <YAxis tick={{ fontSize: 10, fill: "var(--text-muted)" }} />
+                    <Tooltip content={<CustomTooltip unit={indMeta.unit} />} />
+                    <ReferenceLine y={0} stroke="var(--text-muted)" strokeDasharray="4 4" />
+                    <Bar dataKey="value" fill="#00D4AA" radius={[3, 3, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              )
+            )}
+
+            {chartTab === "previsions" && (
+              fcLoading ? (
+                <div className="h-64 skeleton rounded-xl" />
+              ) : fcError ? (
+                <div className="h-40 flex items-center justify-center rounded-xl text-xs"
+                     style={{ background: "rgba(239,68,68,0.08)", color: "#EF4444", border: "1px solid rgba(239,68,68,0.2)" }}>
+                  {fcError}
+                </div>
+              ) : fcData ? (
+                <div>
+                  <ForecastChart result={fcData} height={260} showLegend />
+                  <div className="flex gap-2 mt-3 flex-wrap">
+                    {fcData.forecast.map((pt) => (
+                      <div key={pt.year} className="flex-1 min-w-[70px] rounded-lg p-2 text-center"
+                           style={{ background: "var(--bg-border)" }}>
+                        <div className="text-[9px]" style={{ color: "var(--text-muted)" }}>{pt.year}</div>
+                        <div className="text-sm font-bold font-mono mt-0.5" style={{ color: "var(--mansa-green)" }}>
+                          {pt.value.toFixed(1)}
+                        </div>
+                        <div className="text-[9px]" style={{ color: "var(--text-muted)" }}>
+                          [{pt.lower_95.toFixed(1)}, {pt.upper_95.toFixed(1)}]
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                <div className="h-48 flex items-center justify-center rounded-xl"
+                     style={{ background: "var(--bg-border)" }}>
+                  <p className="text-xs" style={{ color: "var(--text-muted)" }}>
+                    Sélectionnez l&apos;onglet Prévisions pour charger…
                   </p>
                 </div>
-              </div>
-            ) : chartType === "area" ? (
-              <ResponsiveContainer width="100%" height={260}>
-                <AreaChart data={chartData} margin={{ top: 5, right: 10, left: -10, bottom: 0 }}>
-                  <defs>
-                    <linearGradient id="indGrad" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#00D4AA" stopOpacity={0.3} />
-                      <stop offset="95%" stopColor="#00D4AA" stopOpacity={0} />
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="var(--bg-border)" />
-                  <XAxis dataKey="year" tick={{ fontSize: 10, fill: "var(--text-muted)" }} />
-                  <YAxis tick={{ fontSize: 10, fill: "var(--text-muted)" }} />
-                  <Tooltip content={<CustomTooltip unit={indMeta.unit} />} />
-                  <ReferenceLine y={0} stroke="var(--text-muted)" strokeDasharray="4 4" />
-                  <Area type="monotone" dataKey="value" stroke="#00D4AA" strokeWidth={2} fill="url(#indGrad)" dot={{ r: 3, fill: "#00D4AA" }} activeDot={{ r: 5 }} />
-                </AreaChart>
-              </ResponsiveContainer>
-            ) : (
-              <ResponsiveContainer width="100%" height={260}>
-                <BarChart data={chartData} margin={{ top: 5, right: 10, left: -10, bottom: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="var(--bg-border)" />
-                  <XAxis dataKey="year" tick={{ fontSize: 10, fill: "var(--text-muted)" }} />
-                  <YAxis tick={{ fontSize: 10, fill: "var(--text-muted)" }} />
-                  <Tooltip content={<CustomTooltip unit={indMeta.unit} />} />
-                  <ReferenceLine y={0} stroke="var(--text-muted)" strokeDasharray="4 4" />
-                  <Bar dataKey="value" fill="#00D4AA" radius={[3, 3, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
+              )
             )}
           </div>
 

@@ -44,6 +44,10 @@ python-multipart==0.0.20 # Nécessaire pour les form data FastAPI
 # === OPTIONNEL (Phase 2) ===
 pgvector                 # Recherche vectorielle pour le RAG
 
+# === FORECASTING ===
+statsmodels==0.14.4      # ARIMA, ExponentialSmoothing, seasonal decomposition
+scipy==1.14.1            # Dépendance statsmodels (calcul statistique)
+
 # === TESTS ===
 pytest==8.3.4            # Framework de test
 pytest-asyncio==0.24.0   # Support async/await dans les tests
