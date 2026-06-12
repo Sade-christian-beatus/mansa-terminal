@@ -22,6 +22,8 @@ logger = logging.getLogger(__name__)
 from imf_pipeline import imf_weo_all_indicators, imf_weo_to_database
 from worldbank_pipeline import worldbank_wdi_indicators, worldbank_wdi_to_database
 from rag_pipeline import knowledge_base_seed
+from imf_ifs_pipeline import imf_ifs_monthly_data, imf_ifs_to_database
+from central_banks_pipeline import central_banks_data, central_banks_to_database
 
 # ============================================================
 # Jobs — Groupes d'assets à exécuter ensemble
@@ -34,12 +36,16 @@ from rag_pipeline import knowledge_base_seed
 
 daily_job = define_asset_job(
     name="daily_data_refresh",
-    description="Mise à jour quotidienne : IMF WEO + World Bank WDI (fallback Phase 1)",
+    description="Mise à jour quotidienne : IMF WEO + World Bank WDI + IFS mensuel + Banques centrales",
     selection=AssetSelection.assets(
         "imf_weo_all_indicators",
         "imf_weo_to_database",
         "worldbank_wdi_indicators",
         "worldbank_wdi_to_database",
+        "imf_ifs_monthly_data",
+        "imf_ifs_to_database",
+        "central_banks_data",
+        "central_banks_to_database",
     ),
 )
 
@@ -154,14 +160,19 @@ def pipeline_failure_alert(context: RunFailureSensorContext):
 
 defs = Definitions(
     assets=[
-        # Tier 1 — Gratuit, disponible Day 1
+        # Tier 1 — IMF WEO + World Bank WDI (annuel)
         imf_weo_all_indicators,
         imf_weo_to_database,
         worldbank_wdi_indicators,
         worldbank_wdi_to_database,
-        # RAG Knowledge Base — seed initial + future indexation PDF
+        # Tier 2 — IMF IFS (mensuel haute fréquence)
+        imf_ifs_monthly_data,
+        imf_ifs_to_database,
+        # Tier 3 — Sources africaines primaires (banques centrales)
+        central_banks_data,
+        central_banks_to_database,
+        # RAG Knowledge Base
         knowledge_base_seed,
-        # Phase 2 : budget_scrapers, bceao_data, beac_data
         # Phase 3 : nasa_nightlights, imf_portwatch, google_trends, meai
     ],
     schedules=[
