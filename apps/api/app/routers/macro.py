@@ -2,11 +2,17 @@
 MANSA Terminal — Router Macro Data
 Données macro-fiscales des 54 pays africains
 """
+import csv
+import io
 from typing import Annotated, Optional
-from fastapi import APIRouter, Depends, Query, HTTPException
+
+from fastapi import APIRouter, Depends, Query, HTTPException, Request
+from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, and_, func
 from pydantic import BaseModel
+
+from app.core.limiter import limiter
 
 from app.core.database import get_db
 from app.core.dependencies import require_active_subscription
@@ -371,4 +377,169 @@ async def get_africa_heatmap(
             }
             for r in rows
         ]
+    }
+
+
+# ── ALL_INDICATORS — catalogue complet exposé dans le bulk export ───────────
+ALL_INDICATORS = {
+    **KEY_INDICATORS,
+    "NGDPD":          "GDP Nominal (Billions USD)",
+    "PPPGDP":         "GDP PPP (Billions USD)",
+    "LP":             "Population (Millions)",
+    "GGXONLB_NGDP":   "Primary Balance (% GDP)",
+    "GGR_NGDP":       "Government Revenue (% GDP)",
+    "GGX_NGDP":       "Government Expenditure (% GDP)",
+    "BX_KLT_DINV_WD_GD_ZS": "FDI Inflows (% GDP)",
+    "EXTD_TOTAL_GDP": "External Debt (% GDP)",
+    "REM_GDP":        "Remittances (% GDP)",
+    "BX_GSR_GNFS_CD": "Exports of Goods & Services (USD)",
+    "BM_GSR_GNFS_CD": "Imports of Goods & Services (USD)",
+    "FM_LIPY":        "Money Supply M2 (% GDP)",
+    "SP_DYN_LE00_IN": "Life Expectancy (years)",
+    "SE_ADT_LITR_ZS": "Adult Literacy Rate (%)",
+    "EG_ELC_ACCS_ZS": "Electricity Access (%)",
+    "EG_FEC_RNEW_ZS": "Renewable Energy Share (%)",
+    "EN_ATM_CO2E_PC":  "CO2 Emissions per Capita (t)",
+    "IT_NET_USER_ZS":  "Internet Users (%)",
+    "SH_DYN_MORT":    "Under-5 Mortality (per 1,000)",
+    "SI_POV_DDAY":    "Poverty Headcount < $2.15/day (%)",
+}
+
+
+@router.get("/bulk-export")
+@limiter.limit("10/hour")
+async def bulk_export(
+    request: Request,
+    current_user: Annotated[User, Depends(require_active_subscription)],
+    db: AsyncSession = Depends(get_db),
+    countries: Optional[str] = Query(None, description="Codes ISO3 séparés par virgule. Vide = tous les 54 pays"),
+    indicators: Optional[str] = Query(None, description="Codes indicateurs séparés par virgule. Vide = tous les indicateurs clés"),
+    from_year: int = Query(2015, ge=1990, le=2030),
+    to_year: int = Query(2025, ge=1990, le=2030),
+    format: str = Query("csv", enum=["csv", "json"]),
+    region: Optional[str] = Query(None, description="Filtrer par région. Ex: West Africa"),
+):
+    """
+    Téléchargement massif des données macro.
+    Permet d'exporter jusqu'à 50 000 lignes en CSV ou JSON.
+    Limité à 10 exports par heure.
+    """
+    # Construire le filtre pays
+    country_filter: Optional[list[str]] = None
+    if countries:
+        country_filter = [c.strip().upper() for c in countries.split(",") if c.strip()][:54]
+
+    # Si filtre région — récupérer les pays de la région
+    if region and not country_filter:
+        region_result = await db.execute(
+            select(Country.id).where(Country.region == region, Country.is_active == True)
+        )
+        country_filter = [r[0] for r in region_result.fetchall()]
+
+    # Construire le filtre indicateurs
+    indicator_filter: Optional[list[str]] = None
+    if indicators:
+        indicator_filter = [i.strip().upper() for i in indicators.split(",") if i.strip()][:50]
+    else:
+        indicator_filter = list(ALL_INDICATORS.keys())
+
+    # Requête principale
+    q = (
+        select(
+            MacroIndicator.country_id,
+            MacroIndicator.indicator_code,
+            MacroIndicator.indicator_name,
+            MacroIndicator.value,
+            MacroIndicator.unit,
+            MacroIndicator.period,
+            MacroIndicator.source,
+            Country.name_en,
+            Country.name_fr,
+            Country.region,
+        )
+        .join(Country, MacroIndicator.country_id == Country.id)
+        .where(
+            MacroIndicator.period >= str(from_year),
+            MacroIndicator.period <= str(to_year),
+        )
+        .order_by(Country.name_en, MacroIndicator.indicator_code, MacroIndicator.period)
+        .limit(50_000)
+    )
+    if country_filter:
+        q = q.where(MacroIndicator.country_id.in_(country_filter))
+    if indicator_filter:
+        q = q.where(MacroIndicator.indicator_code.in_(indicator_filter))
+
+    result = await db.execute(q)
+    rows = result.fetchall()
+
+    # ── Format CSV ───────────────────────────────────────────────────────────
+    if format == "csv":
+        buf = io.StringIO()
+        writer = csv.DictWriter(buf, fieldnames=[
+            "country_id", "country_name_en", "country_name_fr", "region",
+            "indicator_code", "indicator_name", "period", "value", "unit", "source",
+        ])
+        writer.writeheader()
+        for r in rows:
+            writer.writerow({
+                "country_id": r.country_id,
+                "country_name_en": r.name_en,
+                "country_name_fr": r.name_fr or r.name_en,
+                "region": r.region or "",
+                "indicator_code": r.indicator_code,
+                "indicator_name": r.indicator_name or ALL_INDICATORS.get(r.indicator_code, r.indicator_code),
+                "period": r.period,
+                "value": r.value,
+                "unit": r.unit or "",
+                "source": r.source or "",
+            })
+        buf.seek(0)
+        filename = f"mansa_data_{from_year}_{to_year}.csv"
+        return StreamingResponse(
+            iter([buf.getvalue()]),
+            media_type="text/csv",
+            headers={"Content-Disposition": f"attachment; filename={filename}"},
+        )
+
+    # ── Format JSON ──────────────────────────────────────────────────────────
+    return {
+        "meta": {
+            "countries": country_filter or "all",
+            "indicators": indicator_filter,
+            "from_year": from_year,
+            "to_year": to_year,
+            "total_rows": len(rows),
+            "source": "MANSA Terminal — IMF WEO + World Bank WDI",
+            "generated_at": __import__("datetime").datetime.utcnow().isoformat() + "Z",
+        },
+        "data": [
+            {
+                "country_id": r.country_id,
+                "country_name_en": r.name_en,
+                "country_name_fr": r.name_fr or r.name_en,
+                "region": r.region,
+                "indicator_code": r.indicator_code,
+                "indicator_name": r.indicator_name or ALL_INDICATORS.get(r.indicator_code, r.indicator_code),
+                "period": r.period,
+                "value": r.value,
+                "unit": r.unit,
+                "source": r.source,
+            }
+            for r in rows
+        ],
+    }
+
+
+@router.get("/catalog")
+async def get_indicators_catalog(
+    current_user: Annotated[User, Depends(require_active_subscription)],
+):
+    """Catalogue de tous les indicateurs disponibles avec code, nom et source."""
+    return {
+        "indicators": [
+            {"code": code, "name": name, "source": "IMF WEO / World Bank WDI"}
+            for code, name in ALL_INDICATORS.items()
+        ],
+        "total": len(ALL_INDICATORS),
     }

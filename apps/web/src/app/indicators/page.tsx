@@ -13,6 +13,7 @@ import {
 } from "recharts";
 import { ExportModal } from "@/components/common/ExportModal";
 import { DataSourceBadge } from "@/components/common/DataSourceBadge";
+import BulkExportModal from "@/components/BulkExportModal";
 import type { ExportRow } from "@/lib/export-utils";
 
 /* ── Catalogue complet des indicateurs macro (FMI WEO + Banque Mondiale) ── */
@@ -223,6 +224,7 @@ export default function IndicatorsPage() {
   const [indCat,         setIndCat]         = useState("Tous");
   const [chartType,      setChartType]      = useState<"line" | "bar" | "area">("area");
   const [exportOpen,     setExportOpen]     = useState(false);
+  const [bulkExportOpen, setBulkExportOpen] = useState(false);
 
   const IND_CATS = useMemo(() => ["Tous", ...Array.from(new Set(INDICATORS.map((i) => i.cat)))], []);
 
@@ -333,7 +335,14 @@ export default function IndicatorsPage() {
             <RefreshCw size={13} />
           </button>
           <button onClick={() => setExportOpen(true)} className="mansa-btn-ghost text-xs px-3 py-1.5 flex items-center gap-1.5">
-            <Download size={12} /> Exporter
+            <Download size={12} /> Exporter vue
+          </button>
+          <button
+            onClick={() => setBulkExportOpen(true)}
+            className="text-xs px-3 py-1.5 flex items-center gap-1.5 rounded-lg font-medium border transition-all"
+            style={{ background: "color-mix(in srgb, var(--mansa-green) 12%, transparent)", color: "var(--mansa-green)", borderColor: "color-mix(in srgb, var(--mansa-green) 30%, transparent)" }}
+          >
+            <Download size={12} /> Bulk Export
           </button>
         </div>
       </div>
@@ -657,6 +666,7 @@ export default function IndicatorsPage() {
         title="Exporter les données"
         subtitle={`${indMeta.label} · ${activeCountryMeta?.name_fr ?? activeCountryMeta?.name_en ?? "Pays sélectionné"}`}
       />
+      {bulkExportOpen && <BulkExportModal onClose={() => setBulkExportOpen(false)} />}
     </div>
   );
 }

@@ -161,6 +161,56 @@ export const alertsApi = {
     api.get("/alerts/macro", { params }),
 };
 
+// ── Helpers API Keys ─────────────────────────────────────────────────────
+export interface APIKeyItem {
+  id: string;
+  name: string;
+  key_prefix: string;
+  scopes: string[];
+  last_used_at: string | null;
+  expires_at: string | null;
+  is_active: boolean;
+  created_at: string;
+}
+export interface APIKeyCreated extends APIKeyItem {
+  full_key: string;
+}
+
+export const apiKeysApi = {
+  list: (): Promise<APIKeyItem[]> =>
+    api.get("/keys"),
+  create: (data: { name: string; scopes?: string[]; expires_days?: number }): Promise<APIKeyCreated> =>
+    api.post("/keys", data),
+  revoke: (keyId: string): Promise<void> =>
+    api.delete(`/keys/${keyId}`),
+};
+
+// ── Helpers Bulk Export ───────────────────────────────────────────────────
+export const bulkExportApi = {
+  getCatalog: (): Promise<{ indicators: { code: string; name: string }[]; total: number }> =>
+    api.get("/macro/catalog"),
+
+  /** Retourne une URL de téléchargement direct (CSV ou JSON). */
+  buildUrl: (params: {
+    countries?: string;
+    indicators?: string;
+    from_year?: number;
+    to_year?: number;
+    format?: "csv" | "json";
+    region?: string;
+  }): string => {
+    const base = IS_BROWSER && IS_PROD ? "/api/backend" : `${API_URL}/api`;
+    const qs = new URLSearchParams();
+    if (params.countries)  qs.set("countries",  params.countries);
+    if (params.indicators) qs.set("indicators", params.indicators);
+    if (params.from_year)  qs.set("from_year",  String(params.from_year));
+    if (params.to_year)    qs.set("to_year",    String(params.to_year));
+    if (params.format)     qs.set("format",     params.format);
+    if (params.region)     qs.set("region",     params.region);
+    return `${base}/macro/bulk-export?${qs.toString()}`;
+  },
+};
+
 // ── Streaming SSE AI Analyst ────────────────────────────────────────────
 
 /** Récupère un token Supabase valide, en rafraîchissant si nécessaire. */
@@ -207,7 +257,16 @@ export async function* streamAIQuery(
     }
   }
 
-  if (!response.ok) throw new Error(`AI API error: ${response.status}`);
+  if (!response.ok) {
+    let detail = `Erreur ${response.status}`;
+    try {
+      const body = await response.json();
+      detail = body.detail || detail;
+    } catch { /* ignore */ }
+    const err = new Error(detail) as Error & { status: number };
+    err.status = response.status;
+    throw err;
+  }
 
   const reader = response.body?.getReader();
   const decoder = new TextDecoder("utf-8", { fatal: false });
