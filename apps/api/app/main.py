@@ -65,24 +65,22 @@ def _validate_required_env() -> None:
     import logging
     _log = logging.getLogger(__name__)
 
-    # Variables qui font crasher l'app si absentes
-    hard_required = []
+    # Seul ANTHROPIC_API_KEY est strictement requis pour démarrer
     if not settings.ANTHROPIC_API_KEY:
-        hard_required.append("ANTHROPIC_API_KEY")
-    if not getattr(settings, "ANTHROPIC_MODEL_ID", None):
-        hard_required.append("ANTHROPIC_MODEL_ID")
-    if settings.APP_ENV == "production":
-        if not getattr(settings, "SUPABASE_JWT_SECRET", None):
-            hard_required.append("SUPABASE_JWT_SECRET")
-
-    if hard_required:
         raise RuntimeError(
-            f"Variables d'environnement manquantes : {', '.join(hard_required)}. "
+            "ANTHROPIC_API_KEY manquante — l'API ne peut pas démarrer sans clé Claude. "
             "Vérifiez votre fichier .env ou la configuration Railway."
         )
 
-    # Variables optionnelles — warning seulement (fonctionnalité dégradée)
+    # Variables optionnelles — warning seulement (fonctionnalité dégradée, pas de crash)
     if settings.APP_ENV == "production":
+        if not getattr(settings, "ANTHROPIC_MODEL_ID", None):
+            _log.warning("ANTHROPIC_MODEL_ID absent — le modèle par défaut sera utilisé.")
+        if not getattr(settings, "SUPABASE_JWT_SECRET", None):
+            _log.warning(
+                "SUPABASE_JWT_SECRET absent — les tokens Supabase ne seront pas vérifiés. "
+                "Ajoutez-la dans Railway pour sécuriser l'authentification."
+            )
         if not getattr(settings, "STRIPE_WEBHOOK_SECRET", None):
             _log.warning(
                 "STRIPE_WEBHOOK_SECRET absent — les webhooks Stripe seront rejetés. "
