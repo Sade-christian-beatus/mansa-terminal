@@ -34,7 +34,10 @@ def _decode_supabase_token(token: str) -> dict:
     """
     secret = settings.SUPABASE_JWT_SECRET
     if not secret:
-        # Fallback dev : accepte sans vérification de signature (jamais en prod)
+        # En production, refuser les tokens non vérifiés
+        if getattr(settings, "APP_ENV", "development") == "production":
+            return {}
+        # Dev uniquement : accepte sans vérification (ne jamais déployer sans secret)
         try:
             return pyjwt.decode(token, options={"verify_signature": False})
         except Exception:

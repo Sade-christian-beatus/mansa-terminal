@@ -38,7 +38,7 @@ PLANS = {
         "features": [
             "1 siège",
             "54 pays — indicateurs de base",
-            "AI Analyst (10 requêtes/jour)",
+            "AI Analyst (20 requêtes/jour)",
             "Export CSV",
         ],
     },
@@ -50,7 +50,7 @@ PLANS = {
         "features": [
             "5 sièges",
             "54 pays — couverture complète",
-            "AI Analyst (50 requêtes/jour)",
+            "AI Analyst (100 requêtes/jour)",
             "Accès API",
             "Export Excel/PDF",
         ],
@@ -64,7 +64,7 @@ PLANS = {
             "25 sièges",
             "Toutes les fonctionnalités Pro",
             "MEAI — Economic Activity Index",
-            "AI Analyst (200 requêtes/jour)",
+            "AI Analyst (500 requêtes/jour)",
             "Support dédié",
             "Données haute fréquence",
         ],
