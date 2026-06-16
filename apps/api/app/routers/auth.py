@@ -28,6 +28,9 @@ class SyncRequest(BaseModel):
     """Métadonnées optionnelles envoyées au moment de l'inscription."""
     full_name: str | None = None
     organization: str | None = None
+    country_of_residence: str | None = None   # ISO 3166-1 alpha-3
+    preferred_currency: str | None = None     # ISO 4217
+    preferred_language: str | None = None     # fr | en
 
 
 class UserResponse(BaseModel):
@@ -35,6 +38,9 @@ class UserResponse(BaseModel):
     email: str
     full_name: str | None
     organization: str | None
+    country_of_residence: str | None
+    preferred_currency: str | None
+    preferred_language: str | None
     is_verified: bool
 
 
@@ -88,6 +94,9 @@ async def sync_user(
             hashed_password="supabase_managed",  # Auth déléguée à Supabase
             full_name=body.full_name or user_meta.get("full_name"),
             organization=body.organization or user_meta.get("organization"),
+            country_of_residence=body.country_of_residence or user_meta.get("country_of_residence"),
+            preferred_currency=body.preferred_currency or user_meta.get("preferred_currency"),
+            preferred_language=body.preferred_language or user_meta.get("preferred_language") or "fr",
             is_active=True,
             is_verified=True,  # Supabase gère la vérification email
         )
@@ -106,17 +115,35 @@ async def sync_user(
         db.add(trial_sub)
         await db.commit()
         await db.refresh(user)
-    elif body.full_name and not user.full_name:
-        # Mettre à jour les métadonnées si manquantes
-        user.full_name = body.full_name
-        user.organization = body.organization or user.organization
-        await db.commit()
+    else:
+        # Mettre à jour les préférences si fournies
+        changed = False
+        if body.full_name and not user.full_name:
+            user.full_name = body.full_name
+            changed = True
+        if body.organization and not user.organization:
+            user.organization = body.organization
+            changed = True
+        if body.country_of_residence:
+            user.country_of_residence = body.country_of_residence
+            changed = True
+        if body.preferred_currency:
+            user.preferred_currency = body.preferred_currency
+            changed = True
+        if body.preferred_language:
+            user.preferred_language = body.preferred_language
+            changed = True
+        if changed:
+            await db.commit()
 
     return UserResponse(
         user_id=str(user.id),
         email=user.email,
         full_name=user.full_name,
         organization=user.organization,
+        country_of_residence=user.country_of_residence,
+        preferred_currency=user.preferred_currency,
+        preferred_language=user.preferred_language,
         is_verified=user.is_verified,
     )
 
@@ -131,5 +158,8 @@ async def get_me(
         email=current_user.email,
         full_name=current_user.full_name,
         organization=current_user.organization,
+        country_of_residence=current_user.country_of_residence,
+        preferred_currency=current_user.preferred_currency,
+        preferred_language=current_user.preferred_language,
         is_verified=current_user.is_verified,
     )

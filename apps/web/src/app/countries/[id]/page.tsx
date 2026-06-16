@@ -6,7 +6,18 @@ import {
   LineChart, Line, XAxis, YAxis, CartesianGrid,
   Tooltip, ResponsiveContainer,
 } from "recharts";
+import Image from "next/image";
 import { ArrowLeft, TrendingUp, TrendingDown, Download, Shield, BarChart3, RefreshCw } from "lucide-react";
+
+const ISO3_TO_ISO2: Record<string, string> = {
+  NGA:"ng", ZAF:"za", EGY:"eg", ETH:"et", KEN:"ke", TZA:"tz", MAR:"ma", GHA:"gh",
+  CIV:"ci", SEN:"sn", CMR:"cm", AGO:"ao", DZA:"dz", MOZ:"mz", ZMB:"zm", RWA:"rw",
+  TUN:"tn", UGA:"ug", LBY:"ly", SUD:"sd", MLI:"ml", BFA:"bf", MWI:"mw", MDG:"mg",
+  NER:"ne", BEN:"bj", TGO:"tg", GIN:"gn", TCD:"td", COD:"cd", COG:"cg", MUS:"mu",
+  BWA:"bw", NAM:"na", SWZ:"sz", ZWE:"zw", SOM:"so", ERI:"er", DJI:"dj", SLE:"sl",
+  LBR:"lr", GMB:"gm", GNB:"gw", CPV:"cv", GNQ:"gq", GAB:"ga", CAF:"cf", BDI:"bi",
+  COM:"km", STP:"st", SYC:"sc", LSO:"ls", MRT:"mr",
+};
 import { macroApi, forecastApi, type BatchForecastResult, type ForecastResult } from "@/lib/api";
 import { ErrorCard } from "@/components/common/ErrorCard";
 import { CATALOG_BY_ID } from "@/lib/indicator-catalog";
@@ -568,7 +579,17 @@ export default function CountryDetailPage() {
         </div>
 
         <div className="flex items-center gap-4">
-          <span className="text-5xl">{displayFlag}</span>
+          {ISO3_TO_ISO2[countryId] ? (
+            <Image
+              src={`https://flagcdn.com/w80/${ISO3_TO_ISO2[countryId]}.png`}
+              alt={displayName}
+              width={60}
+              height={40}
+              className="rounded shadow-sm"
+            />
+          ) : (
+            <span className="text-5xl">{displayFlag}</span>
+          )}
           <div>
             <h1 className="text-3xl font-bold" style={{ color: "var(--text-primary)" }}>
               {displayName}
@@ -577,9 +598,6 @@ export default function CountryDetailPage() {
               <p className="text-sm" style={{ color: "var(--text-muted)" }}>{meta.name_fr}</p>
             )}
             <div className="flex items-center gap-3 mt-2">
-              <span className="text-xs font-mono px-2 py-0.5 rounded" style={{ background: "var(--bg-border)", color: "var(--text-muted)" }}>
-                {countryId}
-              </span>
               {meta?.region && (
                 <span className="text-xs" style={{ color: "var(--text-muted)" }}>
                   {REGION_LABELS[meta.region] ?? meta.region}

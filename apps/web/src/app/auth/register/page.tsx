@@ -9,18 +9,53 @@ import { supabase } from "@/lib/supabase/client";
 import { authApi } from "@/lib/api";
 import { useAuthStore } from "@/lib/auth-store";
 
+const COUNTRIES_LIST = [
+  { code: "DZA", name: "Algérie" }, { code: "AGO", name: "Angola" }, { code: "BEN", name: "Bénin" },
+  { code: "BWA", name: "Botswana" }, { code: "BFA", name: "Burkina Faso" }, { code: "BDI", name: "Burundi" },
+  { code: "CMR", name: "Cameroun" }, { code: "CPV", name: "Cap-Vert" }, { code: "CAF", name: "Centrafrique" },
+  { code: "COM", name: "Comores" }, { code: "COG", name: "Congo (Brazzaville)" }, { code: "COD", name: "Congo (RDC)" },
+  { code: "CIV", name: "Côte d'Ivoire" }, { code: "DJI", name: "Djibouti" }, { code: "EGY", name: "Égypte" },
+  { code: "ERI", name: "Érythrée" }, { code: "SWZ", name: "Eswatini" }, { code: "ETH", name: "Éthiopie" },
+  { code: "GAB", name: "Gabon" }, { code: "GMB", name: "Gambie" }, { code: "GHA", name: "Ghana" },
+  { code: "GIN", name: "Guinée" }, { code: "GNQ", name: "Guinée équatoriale" }, { code: "GNB", name: "Guinée-Bissau" },
+  { code: "KEN", name: "Kenya" }, { code: "LSO", name: "Lesotho" }, { code: "LBR", name: "Liberia" },
+  { code: "LBY", name: "Libye" }, { code: "MDG", name: "Madagascar" }, { code: "MWI", name: "Malawi" },
+  { code: "MLI", name: "Mali" }, { code: "MAR", name: "Maroc" }, { code: "MRT", name: "Mauritanie" },
+  { code: "MUS", name: "Maurice" }, { code: "MOZ", name: "Mozambique" }, { code: "NAM", name: "Namibie" },
+  { code: "NER", name: "Niger" }, { code: "NGA", name: "Nigeria" }, { code: "RWA", name: "Rwanda" },
+  { code: "STP", name: "São Tomé-et-Príncipe" }, { code: "SEN", name: "Sénégal" }, { code: "SLE", name: "Sierra Leone" },
+  { code: "SOM", name: "Somalie" }, { code: "SUD", name: "Soudan" }, { code: "ZAF", name: "Afrique du Sud" },
+  { code: "SYC", name: "Seychelles" }, { code: "TZA", name: "Tanzanie" }, { code: "TCD", name: "Tchad" },
+  { code: "TGO", name: "Togo" }, { code: "TUN", name: "Tunisie" }, { code: "UGA", name: "Ouganda" },
+  { code: "ZMB", name: "Zambie" }, { code: "ZWE", name: "Zimbabwe" },
+  // Diaspora
+  { code: "FRA", name: "France" }, { code: "GBR", name: "Royaume-Uni" }, { code: "BEL", name: "Belgique" },
+  { code: "CHE", name: "Suisse" }, { code: "USA", name: "États-Unis" }, { code: "CAN", name: "Canada" },
+  { code: "DEU", name: "Allemagne" }, { code: "NLD", name: "Pays-Bas" }, { code: "PRT", name: "Portugal" },
+  { code: "ESP", name: "Espagne" }, { code: "CHN", name: "Chine" }, { code: "ARE", name: "Émirats arabes unis" },
+].sort((a, b) => a.name.localeCompare(b.name, "fr"));
+
+const CURRENCY_BY_COUNTRY: Record<string, string> = {
+  NGA:"NGN", ZAF:"ZAR", EGY:"EGP", ETH:"ETB", KEN:"KES", TZA:"TZS", MAR:"MAD",
+  GHA:"GHS", DZA:"DZD", TUN:"TND", LBY:"LYD", AGO:"AOA", CMR:"XAF", COD:"CDF",
+  CIV:"XOF", SEN:"XOF", MLI:"XOF", BFA:"XOF", BEN:"XOF", TGO:"XOF", NER:"XOF",
+  GNB:"XOF", MOZ:"MZN", ZMB:"ZMW", RWA:"RWF", UGA:"UGX", BWA:"BWP", NAM:"NAD",
+  ZWE:"ZWL", MUS:"MUR", SYC:"SCR", FRA:"EUR", BEL:"EUR", CHE:"CHF", GBR:"GBP",
+  USA:"USD", CAN:"CAD", ARE:"AED", CHN:"CNY", DEU:"EUR", NLD:"EUR", PRT:"EUR", ESP:"EUR",
+};
+
 export default function RegisterPage() {
   const router  = useRouter();
   const setUser = useAuthStore((s) => s.setUser);
   const [form, setForm] = useState({
-    full_name: "", email: "", organization: "", password: "",
+    full_name: "", email: "", organization: "", password: "", country_of_residence: "",
   });
   const [showPwd, setShowPwd]     = useState(false);
   const [error,   setError]       = useState<string | null>(null);
   const [success, setSuccess]     = useState(false);
   const [loading, setLoading]     = useState(false);
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) =>
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
     setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -29,6 +64,10 @@ export default function RegisterPage() {
     setLoading(true);
 
     try {
+      const preferredCurrency = form.country_of_residence
+        ? CURRENCY_BY_COUNTRY[form.country_of_residence] ?? "USD"
+        : "USD";
+
       const { data, error: authError } = await supabase.auth.signUp({
         email: form.email,
         password: form.password,
@@ -36,6 +75,9 @@ export default function RegisterPage() {
           data: {
             full_name: form.full_name,
             organization: form.organization || undefined,
+            country_of_residence: form.country_of_residence || undefined,
+            preferred_currency: preferredCurrency,
+            preferred_language: "fr",
           },
         },
       });
@@ -47,6 +89,9 @@ export default function RegisterPage() {
           const user = await authApi.sync({
             full_name: form.full_name,
             organization: form.organization || undefined,
+            country_of_residence: form.country_of_residence || undefined,
+            preferred_currency: preferredCurrency,
+            preferred_language: "fr",
           });
           setUser({ userId: user.user_id, email: user.email, fullName: user.full_name });
         } catch {
@@ -184,6 +229,24 @@ export default function RegisterPage() {
               onChange={handleChange} placeholder="Banque / Fonds / Cabinet..."
               className="mansa-input"
             />
+          </div>
+
+          <div>
+            <label className="block text-xs font-medium mb-1.5" style={{ color: "var(--text-secondary)" }}>
+              Pays de résidence{" "}
+              <span style={{ color: "var(--text-muted)" }}>(optionnel)</span>
+            </label>
+            <select
+              name="country_of_residence"
+              value={form.country_of_residence}
+              onChange={handleChange}
+              className="mansa-input"
+            >
+              <option value="">Sélectionner un pays…</option>
+              {COUNTRIES_LIST.map((c) => (
+                <option key={c.code} value={c.code}>{c.name}</option>
+              ))}
+            </select>
           </div>
 
           <div>

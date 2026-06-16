@@ -8,11 +8,11 @@ import { supabase } from "@/lib/supabase/client";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
-// En production, passer par le proxy Next.js (/api/backend → Railway)
+// En production, passer par le proxy Next.js (/api/* → Railway FastAPI)
 // pour éviter les problèmes CORS cross-domain.
 const IS_BROWSER = typeof window !== "undefined";
 const IS_PROD = process.env.NODE_ENV === "production";
-const API_BASE = IS_BROWSER && IS_PROD ? "/api/backend" : `${API_URL}/api`;
+const API_BASE = IS_BROWSER && IS_PROD ? "/api" : `${API_URL}/api`;
 
 const _api = axios.create({
   baseURL: API_BASE,
@@ -86,8 +86,13 @@ export interface AuthUser {
 
 export const authApi = {
   /** Synchronise l'utilisateur Supabase dans notre DB après signup/login. */
-  sync: (data?: { full_name?: string; organization?: string }) =>
-    api.post<AuthUser>("/auth/sync", data ?? {}),
+  sync: (data?: {
+    full_name?: string;
+    organization?: string;
+    country_of_residence?: string;
+    preferred_currency?: string;
+    preferred_language?: string;
+  }) => api.post<AuthUser>("/auth/sync", data ?? {}),
 
   me: () => api.get<AuthUser>("/auth/me"),
 };
@@ -199,7 +204,7 @@ export const bulkExportApi = {
     format?: "csv" | "json";
     region?: string;
   }): string => {
-    const base = IS_BROWSER && IS_PROD ? "/api/backend" : `${API_URL}/api`;
+    const base = IS_BROWSER && IS_PROD ? "/api" : `${API_URL}/api`;
     const qs = new URLSearchParams();
     if (params.countries)  qs.set("countries",  params.countries);
     if (params.indicators) qs.set("indicators", params.indicators);
@@ -276,7 +281,7 @@ async function _getFreshToken(): Promise<string | null> {
 export async function* streamAIQuery(
   question: string
 ): AsyncGenerator<{ type: string; content?: string; query_id?: string }> {
-  const streamBase = IS_BROWSER && IS_PROD ? "/api/backend" : `${API_URL}/api`;
+  const streamBase = IS_BROWSER && IS_PROD ? "/api" : `${API_URL}/api`;
 
   // Toujours obtenir un token frais (auto-refresh si proche de l'expiration)
   const token = await _getFreshToken();

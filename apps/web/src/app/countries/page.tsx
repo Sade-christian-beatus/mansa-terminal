@@ -7,7 +7,34 @@ import {
   Search, Globe, TrendingUp, Filter, BarChart2, X, CheckCircle2,
   Trophy, ArrowUpDown, TrendingDown,
 } from "lucide-react";
+import Image from "next/image";
 import { macroApi } from "@/lib/api";
+
+// ── ISO3 → ISO2 mapping (drapeaux flagcdn.com) ───────────────────────────────
+const ISO3_TO_ISO2: Record<string, string> = {
+  NGA:"ng", ZAF:"za", EGY:"eg", ETH:"et", KEN:"ke", TZA:"tz", MAR:"ma", GHA:"gh",
+  CIV:"ci", SEN:"sn", CMR:"cm", AGO:"ao", DZA:"dz", MOZ:"mz", ZMB:"zm", RWA:"rw",
+  TUN:"tn", UGA:"ug", LBY:"ly", SUD:"sd", MLI:"ml", BFA:"bf", MWI:"mw", MDG:"mg",
+  NER:"ne", BEN:"bj", TGO:"tg", GIN:"gn", TCD:"td", COD:"cd", COG:"cg", MUS:"mu",
+  BWA:"bw", NAM:"na", SWZ:"sz", ZWE:"zw", SOM:"so", ERI:"er", DJI:"dj", SLE:"sl",
+  LBR:"lr", GMB:"gm", GNB:"gw", CPV:"cv", GNQ:"gq", GAB:"ga", CAF:"cf", BDI:"bi",
+  COM:"km", STP:"st", SYC:"sc", LSO:"ls", MRT:"mr",
+};
+
+function CountryFlag({ iso3, size = 24 }: { iso3: string; size?: number }) {
+  const iso2 = ISO3_TO_ISO2[iso3];
+  if (!iso2) return <span className="text-2xl">🌍</span>;
+  return (
+    <Image
+      src={`https://flagcdn.com/w${size * 2}/${iso2}.png`}
+      alt={iso3}
+      width={size * 1.5}
+      height={size}
+      className="rounded-sm object-cover flex-shrink-0"
+      style={{ width: size * 1.5, height: size }}
+    />
+  );
+}
 
 // ── Types ────────────────────────────────────────────────────────────────────
 interface Country {
@@ -166,7 +193,7 @@ function ComparePanel({ picked, countries, onRemove }: {
           const isNeg = (row.value ?? 0) < 0;
           return (
             <div key={row.id} className="flex items-center gap-3">
-              <span className="text-base">{row.flag}</span>
+              <CountryFlag iso3={row.id} size={18} />
               <span className="text-xs w-28 truncate" style={{ color: "var(--text-secondary)" }}>{row.name}</span>
               <div className="flex-1 flex items-center gap-2">
                 <div className="flex-1 relative h-5 rounded" style={{ background: "var(--bg-border)" }}>
@@ -255,7 +282,9 @@ function RankingsPanel() {
             <p className="text-xs font-bold mb-1" style={{ color: medalColor(i) }}>
               #{i + 1} {i === 0 ? "🥇" : i === 1 ? "🥈" : "🥉"}
             </p>
-            <p className="text-3xl mb-1">{c.flag}</p>
+            <div className="flex justify-center mb-2">
+              <CountryFlag iso3={c.id} size={28} />
+            </div>
             <p className="text-sm font-bold" style={{ color: "var(--text-primary)" }}>{c.name}</p>
             <p className="text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>{c.region}</p>
             <p className="text-xl font-bold font-mono mt-2" style={{ color: medalColor(i) }}>
@@ -293,11 +322,8 @@ function RankingsPanel() {
                 {i < 3 ? ["🥇","🥈","🥉"][i] : `#${i + 1}`}
               </span>
               <div className="flex items-center gap-2.5 min-w-0">
-                <span className="text-xl flex-shrink-0">{c.flag}</span>
-                <div className="min-w-0">
-                  <p className="text-sm font-medium truncate" style={{ color: "var(--text-primary)" }}>{c.name}</p>
-                  <p className="text-[10px] font-mono" style={{ color: "var(--text-muted)" }}>{c.id}</p>
-                </div>
+                <CountryFlag iso3={c.id} size={20} />
+                <p className="text-sm font-medium truncate" style={{ color: "var(--text-primary)" }}>{c.name}</p>
               </div>
               <span className="text-xs" style={{ color: "var(--text-muted)" }}>{c.region}</span>
               <div className="text-right">
@@ -346,7 +372,7 @@ function CountryCard({ country, compareMode, isPicked, onToggle }: {
         }}
       >
         <div className="flex items-start justify-between mb-2">
-          <span className="text-2xl">{macro?.flag ?? country.flag_emoji ?? "🌍"}</span>
+          <CountryFlag iso3={country.id} size={22} />
           {isPicked && <CheckCircle2 size={14} className="text-emerald-400" />}
         </div>
         <div className="font-semibold text-sm leading-tight mb-1" style={{ color: isPicked ? "var(--mansa-green)" : "var(--text-primary)" }}>
@@ -370,7 +396,7 @@ function CountryCard({ country, compareMode, isPicked, onToggle }: {
   return (
     <Link href={`/countries/${country.id}`} className="mansa-card rounded-xl p-4 mansa-card-hover cursor-pointer block">
       <div className="flex items-start justify-between mb-2">
-        <span className="text-2xl">{macro?.flag ?? country.flag_emoji ?? "🌍"}</span>
+        <CountryFlag iso3={country.id} size={22} />
         {macro && (
           <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded font-mono"
                 style={{ color: growthColor, background: `${growthColor}18` }}>
@@ -382,7 +408,7 @@ function CountryCard({ country, compareMode, isPicked, onToggle }: {
         {macro?.name ?? country.name_fr ?? country.name_en}
       </div>
       <div className="flex items-center justify-between mt-auto pt-1">
-        <span className="text-xs font-mono" style={{ color: "var(--text-muted)" }}>{country.id}</span>
+        <span className="text-xs" style={{ color: "var(--text-muted)" }}>{country.region ?? ""}</span>
         {macro && (
           <span className="text-xs" style={{ color: "var(--text-muted)" }}>
             ${macro.gdp_usd >= 10 ? `${macro.gdp_usd.toFixed(0)}Mds` : `${macro.gdp_usd.toFixed(1)}Mds`}

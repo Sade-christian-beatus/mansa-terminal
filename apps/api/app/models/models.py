@@ -27,6 +27,9 @@ class User(Base):
     hashed_password = Column(String(255), nullable=False)
     full_name = Column(String(255))
     organization = Column(String(255))
+    country_of_residence = Column(String(3))   # ISO 3166-1 alpha-3 (NGA, FRA…)
+    preferred_currency = Column(String(3))     # ISO 4217 (USD, EUR, XOF…)
+    preferred_language = Column(String(5), default="fr")  # fr, en
     role = Column(String(20), nullable=False, default="analyst")
     is_active = Column(Boolean, nullable=False, default=True)
     is_verified = Column(Boolean, nullable=False, default=False)
