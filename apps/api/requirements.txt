@@ -41,6 +41,9 @@ stripe==11.4.1           # Stripe Checkout + Webhooks
 # === FORMS ===
 python-multipart==0.0.20 # Nécessaire pour les form data FastAPI
 
+# === CACHE ===
+redis[asyncio]==5.2.1    # Cache Redis pour réponses AI (TTL 1h)
+
 # === OPTIONNEL (Phase 2) ===
 pgvector                 # Recherche vectorielle pour le RAG
 

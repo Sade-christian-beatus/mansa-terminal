@@ -27,10 +27,18 @@ class IndicatorPoint(BaseModel):
     unit: str | None
     source: str
 
+class IndicatorNarrative(BaseModel):
+    value: float
+    period: str
+    narrative: str          # Phrase contextuelle générée automatiquement
+    trend: str              # "up" | "down" | "stable" | "unknown"
+    deviation_pct: float | None  # Écart % vs moyenne SSA (None si pas de référence)
+
 class CountryMacroResponse(BaseModel):
     country_id: str
     country_name: str
     indicators: dict[str, list[IndicatorPoint]]
+    narratives: dict[str, IndicatorNarrative] | None = None  # Narration pour la dernière année
 
 class CountrySummary(BaseModel):
     id: str
@@ -41,6 +49,96 @@ class CountrySummary(BaseModel):
     currency_code: str | None
     coverage_tier: int
     flag_emoji: str | None
+
+# Moyennes de référence SSA (Afrique subsaharienne) — FMI WEO 2024
+# Utilisées pour la narration automatique des anomalies
+SSA_REFERENCE_2024: dict[str, float] = {
+    "NGDP_RPCH":   3.8,   # Croissance PIB réel moyen SSA (%)
+    "PCPIPCH":    15.2,   # Inflation moyenne SSA (%)
+    "GGXCNL_NGDP": -4.2, # Solde budgétaire moyen SSA (% PIB)
+    "GGXWDG_NGDP": 57.0,  # Dette publique moyenne SSA (% PIB)
+    "BCA_NGDPD":   -3.5,  # Compte courant moyen SSA (% PIB)
+    "LUR":         6.5,   # Chômage moyen SSA (%)
+}
+
+INDICATOR_LABELS: dict[str, str] = {
+    "NGDP_RPCH":   "Croissance PIB réel",
+    "PCPIPCH":     "Inflation IPC",
+    "GGXCNL_NGDP": "Solde budgétaire",
+    "GGXWDG_NGDP": "Dette publique",
+    "BCA_NGDPD":   "Compte courant",
+    "NGDPDPC":     "PIB par habitant",
+    "LUR":         "Chômage",
+}
+
+# Seuils au-delà desquels l'écart est signalé (en points de %)
+ANOMALY_THRESHOLDS: dict[str, float] = {
+    "NGDP_RPCH":   2.0,
+    "PCPIPCH":     5.0,
+    "GGXCNL_NGDP": 2.0,
+    "GGXWDG_NGDP": 15.0,
+    "BCA_NGDPD":   3.0,
+    "LUR":         4.0,
+}
+
+
+def _build_narrative(
+    code: str,
+    series: list[IndicatorPoint],
+) -> "IndicatorNarrative | None":
+    """Génère une phrase contextuelle pour la valeur la plus récente d'un indicateur."""
+    if not series:
+        return None
+
+    # Dernière valeur disponible
+    sorted_series = sorted(series, key=lambda p: p.period, reverse=True)
+    latest = sorted_series[0]
+    if latest.value is None:
+        return None
+
+    val = latest.value
+    label = INDICATOR_LABELS.get(code, code)
+    unit = latest.unit or "%"
+
+    # Tendance YoY
+    trend = "unknown"
+    prev_year = str(int(latest.period) - 1) if latest.period.isdigit() else None
+    if prev_year:
+        prev_points = [p for p in series if p.period == prev_year and p.value is not None]
+        if prev_points:
+            prev_val = prev_points[0].value
+            diff = val - prev_val  # type: ignore[operator]
+            if abs(diff) < 0.2:
+                trend = "stable"
+            elif diff > 0:
+                trend = "up"
+            else:
+                trend = "down"
+
+    # Écart vs SSA
+    ssa_ref = SSA_REFERENCE_2024.get(code)
+    deviation_pct = None
+    deviation_note = ""
+    if ssa_ref is not None:
+        deviation_pct = round(val - ssa_ref, 2)
+        threshold = ANOMALY_THRESHOLDS.get(code, 5.0)
+        if abs(deviation_pct) >= threshold:
+            direction = "au-dessus" if deviation_pct > 0 else "en dessous"
+            deviation_note = f" — {abs(deviation_pct):.1f}pp {direction} de la moyenne SSA ({ssa_ref}%)"
+
+    # Tendance textuelle
+    trend_map = {"up": "↑ En hausse", "down": "↓ En baisse", "stable": "→ Stable", "unknown": ""}
+    trend_note = f" · {trend_map[trend]}" if trend != "unknown" else ""
+
+    narrative = f"{label} : {val:.1f}{unit}{deviation_note}{trend_note} ({latest.period})"
+    return IndicatorNarrative(
+        value=val,
+        period=latest.period,
+        narrative=narrative,
+        trend=trend,
+        deviation_pct=deviation_pct,
+    )
+
 
 # Indicateurs clés du dashboard MVP
 KEY_INDICATORS = {
@@ -130,10 +228,19 @@ async def get_country_macro(
                 source=point.source or "IMF",
             ))
 
+    # Narration automatique des indicateurs clés
+    narratives: dict[str, "IndicatorNarrative"] = {}
+    for code, series in indicators_grouped.items():
+        if code in SSA_REFERENCE_2024 or code in INDICATOR_LABELS:
+            narr = _build_narrative(code, series)
+            if narr:
+                narratives[code] = narr
+
     return CountryMacroResponse(
         country_id=country.id,
         country_name=country.name_en,
         indicators=indicators_grouped,
+        narratives=narratives if narratives else None,
     )
 
 

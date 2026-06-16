@@ -17,6 +17,7 @@ import {
   Newspaper,
   Map,
   ShieldAlert,
+  GitCompareArrows,
 } from "lucide-react";
 import { useLangStore } from "@/lib/lang-store";
 import { t } from "@/lib/translations";
@@ -125,9 +126,10 @@ export function Sidebar({ onClose }: SidebarProps) {
           </p>
           <div className="space-y-0.5">
             {[
-              { href: "/indicators", labelKey: "nav_indicators" as const, icon: BarChart2,  badge: null,    label: null },
-              { href: "/regions",    labelKey: null,                       icon: Map,        badge: "UEMOA", label: "Régions" },
-              { href: "/news",       labelKey: "nav_news"       as const, icon: Newspaper,  badge: null,    label: null },
+              { href: "/indicators", labelKey: "nav_indicators" as const, icon: BarChart2,         badge: null,    label: null },
+              { href: "/regions",    labelKey: null,                       icon: Map,               badge: "UEMOA", label: "Régions" },
+              { href: "/compare",    labelKey: null,                       icon: GitCompareArrows,  badge: null,    label: "Comparer" },
+              { href: "/news",       labelKey: "nav_news"       as const, icon: Newspaper,         badge: null,    label: null },
             ].map((item) => {
               const Icon = item.icon;
               const active = isActive(item.href);

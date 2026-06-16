@@ -9,10 +9,11 @@ Scopes disponibles : read:macro, read:countries, read:fx, read:climate
 import hashlib
 import os
 import secrets
+import time
 from datetime import datetime, timezone
 from typing import Annotated, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, status
 from pydantic import BaseModel
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -24,6 +25,20 @@ from app.core.limiter import limiter
 from app.models.models import APIKey, Country, FXRate, MacroIndicator, Subscription, User
 
 router = APIRouter()
+
+# Timestamp de démarrage pour le calcul d'uptime
+_SERVER_START_TIME = time.time()
+API_VERSION = "1.0.0"
+
+
+def _add_sla_headers(response: Response, *, limit: int, window_seconds: int = 60) -> None:
+    """Injecte les headers SLA standard dans chaque réponse de l'API publique."""
+    reset_ts = int(time.time()) + window_seconds
+    response.headers["X-RateLimit-Limit"] = str(limit)
+    response.headers["X-RateLimit-Reset"] = str(reset_ts)
+    response.headers["X-RateLimit-Window"] = f"{window_seconds}s"
+    response.headers["X-API-Version"] = API_VERSION
+
 
 # ── Constantes ──────────────────────────────────────────────────────────────
 KEY_PREFIX = "mansa_"
@@ -258,10 +273,39 @@ async def revoke_api_key(
 #  ENDPOINTS DE DONNÉES PUBLICS (auth par clé d'API)
 # ═══════════════════════════════════════════════════════════════
 
+@router.get("/v1/status", tags=["Public Data"])
+async def public_status(response: Response):
+    """
+    Statut de l'API MANSA Terminal.
+
+    Retourne la version, l'uptime et les limites de débit pour chaque endpoint.
+    Ne nécessite pas d'authentification.
+    """
+    uptime_seconds = int(time.time() - _SERVER_START_TIME)
+    hours, rem = divmod(uptime_seconds, 3600)
+    minutes, seconds = divmod(rem, 60)
+    response.headers["X-API-Version"] = API_VERSION
+    return {
+        "status": "ok",
+        "version": API_VERSION,
+        "uptime": f"{hours}h {minutes}m {seconds}s",
+        "uptime_seconds": uptime_seconds,
+        "rate_limits": {
+            "GET /v1/countries":   "120 req/min",
+            "GET /v1/indicators":  "60 req/min",
+            "GET /v1/fx":          "60 req/min",
+            "GET /v1/status":      "300 req/min (no auth)",
+        },
+        "docs": "/docs",
+        "data_coverage": "54 African countries · IMF WEO · World Bank WDI",
+    }
+
+
 @router.get("/v1/countries", tags=["Public Data"])
 @limiter.limit("120/minute")
 async def public_countries(
     request: Request,
+    response: Response,
     auth: Annotated[tuple, Depends(get_api_key_user)],
     db: AsyncSession = Depends(get_db),
     region: Optional[str] = Query(None),
@@ -280,6 +324,7 @@ async def public_countries(
     """
     user, api_key = auth
     _require_scope(api_key, "read:countries")
+    _add_sla_headers(response, limit=120)
 
     q = select(Country).where(Country.is_active == True)
     if region:
@@ -304,6 +349,7 @@ async def public_countries(
 @limiter.limit("60/minute")
 async def public_indicators(
     request: Request,
+    response: Response,
     auth: Annotated[tuple, Depends(get_api_key_user)],
     db: AsyncSession = Depends(get_db),
     countries: str = Query(..., description="Codes ISO3 séparés par virgule. Ex: NGA,KEN,SEN"),
@@ -335,6 +381,7 @@ async def public_indicators(
     """
     user, api_key = auth
     _require_scope(api_key, "read:macro")
+    _add_sla_headers(response, limit=60)
 
     country_list = [c.strip().upper() for c in countries.split(",") if c.strip()][:10]
     if not country_list:
@@ -401,6 +448,7 @@ async def public_indicators(
 @limiter.limit("60/minute")
 async def public_fx(
     request: Request,
+    response: Response,
     auth: Annotated[tuple, Depends(get_api_key_user)],
     db: AsyncSession = Depends(get_db),
     countries: Optional[str] = Query(None, description="Codes ISO3 séparés par virgule"),
@@ -410,6 +458,7 @@ async def public_fx(
     """Taux de change (USD) — officiels et parallèles quand disponibles."""
     user, api_key = auth
     _require_scope(api_key, "read:fx")
+    _add_sla_headers(response, limit=60)
 
     q = select(FXRate)
     if countries:

@@ -17,7 +17,7 @@ from typing import Annotated, AsyncIterator
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func
+from sqlalchemy import select, func, text
 from pydantic import BaseModel, field_validator
 import anthropic
 
@@ -25,6 +25,8 @@ from app.core.config import settings
 from app.core.database import get_db
 from app.core.dependencies import get_active_subscription
 from app.core.limiter import limiter
+from app.core.cache import cache_get, cache_set, make_ai_cache_key
+from app.core.embeddings import embed_text
 from app.models.models import User, Subscription, AIQuery, KnowledgeDocument, MacroIndicator
 
 router = APIRouter()
@@ -356,22 +358,55 @@ async def get_relevant_context(
                 "=== Vue d'ensemble Afrique — Top 10 économies 2024 ===\n" + "\n".join(lines)
             )
 
-    # ── 5. Documents de la knowledge base ────────────────────────────────
+    # ── 5. Documents de la knowledge base (RAG sémantique si embedding dispo) ──
     kb_filter = [c for c in countries if len(c) == 3
                  and c not in ("WAEMU", "CEMAC", "WAFR", "EAFR", "SSA", "NAFR", "SAFR")]
-    if kb_filter:
+    docs: list[KnowledgeDocument] = []
+
+    # Tentative de recherche sémantique (pgvector)
+    question_embedding = await embed_text(question)
+    if question_embedding:
+        # Vecteur PostgreSQL littéral : '[0.1,0.2,...]'
+        vec_literal = "[" + ",".join(f"{v:.6f}" for v in question_embedding) + "]"
+        try:
+            # Cosine similarity (1 - distance) — nécessite pgvector installé
+            semantic_sql = text("""
+                SELECT id FROM knowledge_documents
+                WHERE embedding IS NOT NULL
+                  AND (:countries::text[] IS NULL OR country_id = ANY(:countries::text[]))
+                ORDER BY embedding <=> CAST(:vec AS vector)
+                LIMIT 3
+            """)
+            params = {
+                "countries": kb_filter if kb_filter else None,
+                "vec": vec_literal,
+            }
+            rows = (await db.execute(semantic_sql, params)).fetchall()
+            if rows:
+                doc_ids = [r[0] for r in rows]
+                docs_result = await db.execute(
+                    select(KnowledgeDocument).where(KnowledgeDocument.id.in_(doc_ids))
+                )
+                docs = list(docs_result.scalars().all())
+        except Exception:
+            # pgvector non installé ou colonne absente — fallback
+            pass
+
+    # Fallback : recherche par country_id
+    if not docs and kb_filter:
         docs_result = await db.execute(
             select(KnowledgeDocument)
             .where(KnowledgeDocument.country_id.in_(kb_filter))
             .order_by(KnowledgeDocument.year.desc())
             .limit(3)
         )
-        docs = docs_result.scalars().all()
-        for doc in docs:
-            safe_content = doc.content[:1_200].replace("</document>", "[/document]")
-            context_parts.append(
-                f"=== Document KB: {doc.title} ({doc.year}) — {doc.doc_type} ===\n{safe_content}"
-            )
+        docs = list(docs_result.scalars().all())
+
+    for doc in docs:
+        safe_content = doc.content[:1_200].replace("</document>", "[/document]")
+        context_parts.append(
+            f"=== Document KB: {doc.title} ({doc.year}) — {doc.doc_type} ===\n{safe_content}"
+        )
 
     # ── 6. Fraîcheur des données ──────────────────────────────────────────
     freshness_result = await db.execute(
@@ -465,6 +500,23 @@ async def query_ai_analyst(
                 ),
             )
 
+    # ── Cache Redis — vérifier avant d'appeler Claude ──────────────────────
+    cache_key = make_ai_cache_key(body.question, plan_key)
+    cached_response = await cache_get(cache_key)
+    if cached_response:
+        async def _stream_cached() -> AsyncIterator[str]:
+            # Rejouer la réponse depuis le cache (streaming simulé par chunks de 50 chars)
+            text = cached_response["response"]
+            for i in range(0, len(text), 50):
+                chunk = text[i:i + 50]
+                yield f"data: {json.dumps({'type': 'text', 'content': chunk})}\n\n"
+            yield f"data: {json.dumps({'type': 'done', 'query_id': cached_response.get('query_id', ''), 'cached': True})}\n\n"
+        return StreamingResponse(
+            _stream_cached(),
+            media_type="text/event-stream",
+            headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no", "X-Cache": "HIT"},
+        )
+
     # ── Construire le prompt ────────────────────────────────────────────────
     countries = extract_countries(body.question)
     context = await get_relevant_context(body.question, countries, db)
@@ -536,15 +588,20 @@ async def query_ai_analyst(
 
         # ── Mise à jour audit log post-streaming ────────────────────────────
         duration_ms = int((time.time() - start_time) * 1000)
+        final_response = "".join(full_response)
         if pre_query is not None:
             try:
-                pre_query.response = "".join(full_response)
+                pre_query.response = final_response
                 pre_query.input_tokens = input_tokens
                 pre_query.output_tokens = output_tokens
                 pre_query.duration_ms = duration_ms
                 await db.commit()
             except Exception:
                 pass
+
+        # ── Écriture en cache Redis (TTL 1h) ────────────────────────────────
+        if final_response:
+            await cache_set(cache_key, {"response": final_response, "query_id": query_id}, ttl=3600)
 
         yield f"data: {json.dumps({'type': 'done', 'query_id': query_id})}\n\n"
 
