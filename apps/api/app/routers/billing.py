@@ -23,6 +23,52 @@ from app.core.database import get_db
 from app.core.dependencies import get_current_active_user
 from app.models.models import User, Subscription
 
+# ── Mapping ISO pays → devise Stripe ────────────────────────────────────────
+# Stripe supporte ces devises nativement pour les pays africains et mondiaux
+COUNTRY_CURRENCY: dict[str, str] = {
+    # Zone Franc CFA (XOF — Afrique de l'Ouest)
+    "BF": "xof", "BJ": "xof", "CI": "xof", "GW": "xof",
+    "ML": "xof", "NE": "xof", "SN": "xof", "TG": "xof",
+    # Zone Franc CFA (XAF — Afrique Centrale) — Stripe utilise XAF
+    "CM": "xaf", "CF": "xaf", "CG": "xaf", "GA": "xaf",
+    "GQ": "xaf", "TD": "xaf",
+    # Autres pays africains majeurs
+    "NG": "ngn",  # Nigeria — Naira
+    "KE": "kes",  # Kenya — Shilling
+    "ZA": "zar",  # Afrique du Sud — Rand
+    "MA": "mad",  # Maroc — Dirham
+    "TN": "tnd",  # Tunisie — Dinar
+    "EG": "egp",  # Égypte — Livre
+    "GH": "ghs",  # Ghana — Cedi
+    "TZ": "tzs",  # Tanzanie — Shilling
+    "UG": "ugx",  # Ouganda — Shilling
+    "RW": "rwf",  # Rwanda — Franc
+    "ET": "etb",  # Éthiopie — Birr
+    # Europe
+    "FR": "eur", "DE": "eur", "BE": "eur", "LU": "eur",
+    "ES": "eur", "IT": "eur", "NL": "eur", "PT": "eur",
+    "AT": "eur", "FI": "eur", "IE": "eur", "GR": "eur",
+    "CH": "chf",  # Suisse — Franc suisse
+    "GB": "gbp",  # Royaume-Uni — Livre sterling
+    # Amériques
+    "CA": "cad",  # Canada — Dollar canadien
+}
+DEFAULT_CURRENCY = "usd"
+
+
+def _detect_currency(request: Request) -> str:
+    """
+    Détecte la devise depuis l'IP du client via le header CF-IPCountry (Cloudflare)
+    ou X-Country-Code (Railway/Vercel). Fallback USD.
+    """
+    country_code = (
+        request.headers.get("CF-IPCountry")      # Cloudflare
+        or request.headers.get("X-Country-Code") # Custom header
+        or request.headers.get("X-Vercel-IP-Country")  # Vercel
+        or ""
+    ).upper()
+    return COUNTRY_CURRENCY.get(country_code, DEFAULT_CURRENCY)
+
 router = APIRouter()
 
 # Stripe est initialisé uniquement si la clé est présente
@@ -95,7 +141,8 @@ async def get_plans():
 
 @router.post("/checkout")
 async def create_checkout_session(
-    request: CheckoutRequest,
+    body: CheckoutRequest,
+    http_request: Request,
     current_user: Annotated[User, Depends(get_current_active_user)],
 ):
     """Crée une session Stripe Checkout pour upgrader l'abonnement."""
@@ -105,32 +152,39 @@ async def create_checkout_session(
             detail="Paiement non disponible. Contactez l'équipe MANSA.",
         )
 
-    if request.plan not in PLANS:
+    if body.plan not in PLANS:
         raise HTTPException(status_code=400, detail="Plan invalide")
 
-    plan = PLANS[request.plan]
+    plan = PLANS[body.plan]
     if not plan["price_id"]:
         raise HTTPException(
             status_code=503,
             detail="Ce plan n'est pas encore disponible. Contactez l'équipe MANSA.",
         )
 
-    success_url = request.success_url or f"{settings.FRONTEND_URL}/billing/success"
-    cancel_url = request.cancel_url or f"{settings.FRONTEND_URL}/billing"
+    # Détection automatique de la devise selon le pays du client
+    currency = _detect_currency(http_request)
 
-    session = stripe.checkout.Session.create(
-        payment_method_types=["card"],
-        line_items=[{"price": plan["price_id"], "quantity": 1}],
-        mode="subscription",
-        success_url=success_url + "?session_id={CHECKOUT_SESSION_ID}",
-        cancel_url=cancel_url,
-        customer_email=current_user.email,
-        metadata={
-            "user_id": str(current_user.id),
-            "plan": request.plan,
-        },
-    )
-    return {"checkout_url": session.url}
+    success_url = body.success_url or f"{settings.FRONTEND_URL}/billing/success"
+    cancel_url = body.cancel_url or f"{settings.FRONTEND_URL}/billing"
+
+    try:
+        session = stripe.checkout.Session.create(
+            payment_method_types=["card"],
+            line_items=[{"price": plan["price_id"], "quantity": 1}],
+            mode="subscription",
+            currency=currency,
+            success_url=success_url + "?session_id={CHECKOUT_SESSION_ID}",
+            cancel_url=cancel_url,
+            customer_email=current_user.email,
+            metadata={
+                "user_id": str(current_user.id),
+                "plan": body.plan,
+            },
+        )
+    except stripe.error.StripeError as e:
+        raise HTTPException(status_code=502, detail="Erreur lors de la création du paiement.")
+    return {"checkout_url": session.url, "currency": currency}
 
 
 # ── Webhook Stripe ─────────────────────────────────────────────────────────
@@ -289,3 +343,46 @@ async def get_billing_status(
         ),
         "stripe_configured": bool(settings.STRIPE_SECRET_KEY),
     }
+
+
+# ── Historique des factures ───────────────────────────────────────────────
+
+@router.get("/invoices")
+async def get_invoices(
+    current_user: Annotated[User, Depends(get_current_active_user)],
+    db: AsyncSession = Depends(get_db),
+):
+    """Retourne les dernières factures Stripe de l'utilisateur (max 12)."""
+    if not settings.STRIPE_SECRET_KEY:
+        return {"invoices": []}
+
+    result = await db.execute(
+        select(Subscription).where(Subscription.user_id == current_user.id)
+    )
+    sub = result.scalar_one_or_none()
+    if not sub or not sub.stripe_customer_id:
+        return {"invoices": []}
+
+    try:
+        invoices = stripe.Invoice.list(
+            customer=sub.stripe_customer_id,
+            limit=12,
+        )
+        return {
+            "invoices": [
+                {
+                    "id": inv.id,
+                    "number": inv.number,
+                    "amount_paid": inv.amount_paid,
+                    "currency": inv.currency.upper(),
+                    "status": inv.status,
+                    "period_start": datetime.fromtimestamp(inv.period_start, tz=timezone.utc).isoformat() if inv.period_start else None,
+                    "period_end": datetime.fromtimestamp(inv.period_end, tz=timezone.utc).isoformat() if inv.period_end else None,
+                    "hosted_invoice_url": inv.hosted_invoice_url,
+                    "invoice_pdf": inv.invoice_pdf,
+                }
+                for inv in invoices.data
+            ]
+        }
+    except stripe.error.StripeError:
+        return {"invoices": []}

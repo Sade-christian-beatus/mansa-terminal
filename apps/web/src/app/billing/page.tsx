@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "@/lib/api";
-import { Check, Zap, Shield, Building2, ExternalLink } from "lucide-react";
+import { Check, Zap, Shield, Building2, ExternalLink, FileText, Download } from "lucide-react";
 
 const PLAN_ICONS = {
   starter: Zap,
@@ -40,6 +40,33 @@ interface BillingStatus {
   current_period_end?: string | null;
 }
 
+interface Invoice {
+  id: string;
+  number: string | null;
+  amount_paid: number;
+  currency: string;
+  status: string;
+  period_start: string | null;
+  period_end: string | null;
+  hosted_invoice_url: string | null;
+  invoice_pdf: string | null;
+}
+
+const CURRENCY_SYMBOLS: Record<string, string> = {
+  USD: "$", EUR: "€", GBP: "£", XOF: "FCFA", XAF: "FCFA",
+  NGN: "₦", KES: "KSh", ZAR: "R", MAD: "DH", TND: "DT",
+  EGP: "E£", GHS: "GH₵", ETB: "Br", CHF: "CHF", CAD: "CA$",
+};
+
+function formatCurrency(amountCents: number, currency: string): string {
+  const symbol = CURRENCY_SYMBOLS[currency] ?? currency;
+  const amount = amountCents / 100;
+  if (["XOF", "XAF", "NGN", "KES", "UGX", "TZS", "RWF"].includes(currency)) {
+    return `${Math.round(amount).toLocaleString("fr-FR")} ${symbol}`;
+  }
+  return `${symbol}${amount.toFixed(2)}`;
+}
+
 export default function BillingPage() {
   const [loadingPlan, setLoadingPlan] = useState<string | null>(null);
 
@@ -52,6 +79,13 @@ export default function BillingPage() {
   const { data: statusData } = useQuery<BillingStatus>({
     queryKey: ["billing-status"],
     queryFn: () => api.get<BillingStatus>("/billing/status"),
+    retry: false,
+  });
+
+  const { data: invoicesData } = useQuery<{ invoices: Invoice[] }>({
+    queryKey: ["billing-invoices"],
+    queryFn: () => api.get<{ invoices: Invoice[] }>("/billing/invoices"),
+    staleTime: 1000 * 60 * 5,
     retry: false,
   });
 
@@ -155,10 +189,10 @@ export default function BillingPage() {
 
                 <div className="mb-6">
                   <span className="text-3xl font-bold text-white">
-                    ${(plan.price_usd / 1000).toFixed(0)}k
+                    ${(plan.price_usd / 100).toFixed(0)}
                   </span>
                   <span className="text-gray-500 text-sm ml-1">/an</span>
-                  <p className="text-xs text-gray-500 mt-1">{plan.seats} siège{plan.seats > 1 ? "s" : ""}</p>
+                  <p className="text-xs text-gray-500 mt-1">{plan.seats} siège{plan.seats > 1 ? "s" : ""} · prix en USD</p>
                 </div>
 
                 <ul className="space-y-2 flex-1 mb-6">
@@ -195,9 +229,56 @@ export default function BillingPage() {
         </div>
       )}
 
-      {/* Note développement */}
+      {/* Historique des factures */}
+      {invoicesData && invoicesData.invoices.length > 0 && (
+        <div>
+          <h2 className="text-lg font-semibold text-white mb-3 flex items-center gap-2">
+            <FileText size={16} className="text-gray-400" />
+            Historique des factures
+          </h2>
+          <div className="space-y-2">
+            {invoicesData.invoices.map((inv) => (
+              <div key={inv.id}
+                className="bg-[#141B2E] border border-[#1E2A42] rounded-xl px-4 py-3 flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-white font-medium">
+                    {formatCurrency(inv.amount_paid, inv.currency)}
+                    <span className={`ml-2 text-xs px-1.5 py-0.5 rounded font-medium ${
+                      inv.status === "paid" ? "bg-emerald-500/20 text-emerald-400" : "bg-amber-500/20 text-amber-400"
+                    }`}>
+                      {inv.status === "paid" ? "Payé" : inv.status}
+                    </span>
+                  </p>
+                  {inv.period_start && (
+                    <p className="text-xs text-gray-500 mt-0.5">
+                      {new Date(inv.period_start).toLocaleDateString("fr-FR")} —{" "}
+                      {inv.period_end ? new Date(inv.period_end).toLocaleDateString("fr-FR") : ""}
+                    </p>
+                  )}
+                </div>
+                <div className="flex items-center gap-2">
+                  {inv.invoice_pdf && (
+                    <a href={inv.invoice_pdf} target="_blank" rel="noopener noreferrer"
+                      className="text-xs flex items-center gap-1 text-gray-400 hover:text-white transition-colors">
+                      <Download size={12} /> PDF
+                    </a>
+                  )}
+                  {inv.hosted_invoice_url && (
+                    <a href={inv.hosted_invoice_url} target="_blank" rel="noopener noreferrer"
+                      className="text-xs flex items-center gap-1 text-[#00D4AA] hover:underline">
+                      <ExternalLink size={12} /> Voir
+                    </a>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Note */}
       <p className="text-xs text-gray-600 text-center">
-        Paiements sécurisés via Stripe. Annulation possible à tout moment.
+        Paiements sécurisés via Stripe · Devise adaptée à votre pays · Annulation possible à tout moment.
       </p>
     </div>
   );

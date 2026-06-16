@@ -1,9 +1,10 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import { Sidebar } from "./Sidebar";
 import { TopBar } from "./TopBar";
+import { OnboardingOverlay } from "./OnboardingOverlay";
 import { useAuthStore } from "@/lib/auth-store";
 import { useThemeStore } from "@/lib/theme-store";
 
@@ -11,10 +12,10 @@ const ONBOARDING_KEY = "mansa_onboarding_done";
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname   = usePathname();
-  const router     = useRouter();
   const hydrate    = useAuthStore((s) => s.hydrate);
   const theme      = useThemeStore((s) => s.theme);
-  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [sidebarOpen,   setSidebarOpen]   = useState(false);
+  const [showOnboarding, setShowOnboarding] = useState(false);
 
   const isAuthPage       = pathname?.startsWith("/auth");
   const isOnboardingPage = pathname?.startsWith("/onboarding");
@@ -22,15 +23,15 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   // Initialise le store auth depuis la session Supabase au montage
   useEffect(() => { hydrate(); }, [hydrate]);
 
-  // Rediriger les nouveaux utilisateurs vers l'onboarding au premier visit
+  // Afficher l'onboarding in-app au premier visit (plus de redirect externe)
   useEffect(() => {
     if (isAuthPage || isOnboardingPage) return;
     if (typeof window === "undefined") return;
     const done = localStorage.getItem(ONBOARDING_KEY);
     if (!done) {
-      router.push("/onboarding");
+      setShowOnboarding(true);
     }
-  }, [isAuthPage, isOnboardingPage, router]);
+  }, [isAuthPage, isOnboardingPage]);
 
   // Applique le thème au <html> au montage + à chaque changement
   useEffect(() => {
@@ -64,6 +65,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="flex h-screen overflow-hidden" style={{ background: "var(--bg-primary)" }}>
+      {/* Onboarding in-app — overlay 3 étapes au premier accès */}
+      {showOnboarding && (
+        <OnboardingOverlay onComplete={() => setShowOnboarding(false)} />
+      )}
 
       {/* ── Overlay mobile ── */}
       {sidebarOpen && (
