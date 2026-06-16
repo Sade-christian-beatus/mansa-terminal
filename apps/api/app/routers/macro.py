@@ -325,12 +325,30 @@ async def get_region_aggregates(
                 compliance[code] = "ok" if val <= rule["threshold"] else "breach"
         country["convergence"] = compliance
 
+    # Calculer les totaux attendus par zone pour le warning de complétude
+    expected_counts = {"UEMOA": 8, "CEMAC": 6, "SSA": 54}
+    n_expected = expected_counts.get(zone_upper, len(countries_data))
+    n_with_data = len(countries_data)
+    data_completeness_pct = round((n_with_data / n_expected) * 100) if n_expected else 100
+
+    # Avertissement si des pays manquent de données
+    completeness_warning = None
+    if n_with_data < n_expected:
+        missing_count = n_expected - n_with_data
+        completeness_warning = (
+            f"{missing_count} pays sur {n_expected} n'ont pas de données pour {year}. "
+            f"Les moyennes sont calculées sur {n_with_data} pays ({data_completeness_pct}% de couverture)."
+        )
+
     return {
         "zone": zone_upper,
         "year": year,
         "countries": countries_data,
         "convergence_criteria": criteria,
-        "n_countries": len(countries_data),
+        "n_countries": n_with_data,
+        "n_expected": n_expected,
+        "data_completeness_pct": data_completeness_pct,
+        "completeness_warning": completeness_warning,
     }
 
 

@@ -60,9 +60,30 @@ if settings.SENTRY_DSN:
     )
 
 
+def _validate_required_env() -> None:
+    """Bloque le démarrage si des variables critiques sont absentes en production."""
+    import os
+    missing = []
+    if not settings.ANTHROPIC_API_KEY:
+        missing.append("ANTHROPIC_API_KEY")
+    if not getattr(settings, "ANTHROPIC_MODEL_ID", None):
+        missing.append("ANTHROPIC_MODEL_ID")
+    if settings.APP_ENV == "production":
+        if not getattr(settings, "SUPABASE_JWT_SECRET", None):
+            missing.append("SUPABASE_JWT_SECRET")
+        if not getattr(settings, "STRIPE_WEBHOOK_SECRET", None):
+            missing.append("STRIPE_WEBHOOK_SECRET")
+    if missing:
+        raise RuntimeError(
+            f"Variables d'environnement manquantes : {', '.join(missing)}. "
+            "Vérifiez votre fichier .env ou la configuration Railway."
+        )
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     _configure_logging()
+    _validate_required_env()
     yield
 
 

@@ -32,12 +32,12 @@ client = anthropic.AsyncAnthropic(api_key=settings.ANTHROPIC_API_KEY)
 
 # ── Limites par plan ────────────────────────────────────────────────────────
 DAILY_LIMITS: dict[str, int] = {
-    "starter":      10,
-    "trialing":     30,   # trial Professional
-    "professional": 50,
-    "enterprise":   200,
+    "starter":      20,   # raised from 10 to improve adoption
+    "trialing":     50,   # trial Professional
+    "professional": 100,  # raised from 50
+    "enterprise":   500,
 }
-MONTHLY_LIMIT_STARTER = 50
+MONTHLY_LIMIT_STARTER = 100
 QUESTION_MAX_LEN = 2_000   # caractères
 
 # ── Pays africains pour extraction automatique (54 pays UA) ─────────────────
@@ -146,11 +146,16 @@ Compte courant %PIB (BCA_NGDPD), IDE entrants %PIB (BX_KLT_DINV_WD_GD_ZS), Rése
 5. LANGUE : Réponds dans la même langue que la question (français ou anglais)
 6. PÉRIMÈTRE : Si la question sort du domaine macro-financier Afrique, indique poliment que tu n'es pas en mesure d'y répondre dans ce contexte.
 
-Format de réponse :
-- Titres markdown pour structurer
-- Données chiffrées avec leur millésime
-- ⚠️ pour les risques importants
-- Section finale "Points clés pour l'investisseur"
+Format de réponse structuré (OBLIGATOIRE) :
+1. **Contexte** — Situation actuelle avec données chiffrées et millésimes
+2. **Analyse** — Interprétation des tendances, comparaisons régionales
+3. **Risques** ⚠️ — Facteurs de risque avec niveau de probabilité
+4. **Recommandation** — Implications concrètes pour décideurs et investisseurs
+
+Règles de citation :
+- Cite TOUJOURS la source et l'année : (FMI WEO 2024), (BM WDI 2023), (MANSA Data)
+- Si données absentes du contexte : "Données non disponibles dans MANSA Database — estimation basée sur [source publique]"
+- Ne JAMAIS inventer des chiffres sans les qualifier comme estimations
 """
 
 # ── Fallback context quand la KB est vide ──────────────────────────────────
@@ -178,6 +183,11 @@ class QueryRequest(BaseModel):
         #    Un utilisateur pourrait fermer </question> prématurément et ouvrir
         #    une fausse section <context> pour tromper le modèle.
         #    Même traitement que </document> déjà appliqué dans le RAG.
+        import html as _html
+        # Escape XML/HTML special chars to neutralize tag break-out injection
+        # e.g. </question> becomes &lt;/question&gt; — harmless in text
+        v = _html.escape(v, quote=False)
+        # Also strip raw XML delimiters that might slip through encoding variants
         for tag in ("<question>", "</question>", "<context>", "</context>"):
             v = v.replace(tag, "")
         if not v.strip():
@@ -281,12 +291,17 @@ async def get_relevant_context(
         )
         waemu_rows = waemu_result.fetchall()
         if waemu_rows:
+            n_waemu = waemu_rows[0].n_countries if waemu_rows else 0
+            coverage_note = (
+                f"⚠️ Couverture partielle: {n_waemu}/8 pays avec données — moyenne sur {n_waemu} pays seulement"
+                if n_waemu < 8 else "Couverture complète: 8/8 pays"
+            )
             lines = [
                 f"  {r.indicator_code}: moyenne UEMOA = {r.avg_val:.2f} (sur {r.n_countries} pays)"
                 for r in waemu_rows
             ]
             context_parts.append(
-                "=== Agrégats zone UEMOA 2024 (8 pays XOF) ===\n" + "\n".join(lines)
+                f"=== Agrégats zone UEMOA 2024 (8 pays XOF) — {coverage_note} ===\n" + "\n".join(lines)
             )
 
     # ── 3. Agrégats CEMAC si zone mentionnée ─────────────────────────────
@@ -306,12 +321,17 @@ async def get_relevant_context(
         )
         cemac_rows = cemac_result.fetchall()
         if cemac_rows:
+            n_cemac = cemac_rows[0].n_countries if cemac_rows else 0
+            coverage_note = (
+                f"⚠️ Couverture partielle: {n_cemac}/6 pays avec données — moyenne sur {n_cemac} pays seulement"
+                if n_cemac < 6 else "Couverture complète: 6/6 pays"
+            )
             lines = [
                 f"  {r.indicator_code}: moyenne CEMAC = {r.avg_val:.2f} (sur {r.n_countries} pays)"
                 for r in cemac_rows
             ]
             context_parts.append(
-                "=== Agrégats zone CEMAC 2024 (6 pays XAF) ===\n" + "\n".join(lines)
+                f"=== Agrégats zone CEMAC 2024 (6 pays XAF) — {coverage_note} ===\n" + "\n".join(lines)
             )
 
     # ── 4. Contexte Afrique général si aucun pays spécifique ─────────────
@@ -372,6 +392,17 @@ async def get_relevant_context(
 
     if not context_parts:
         return FALLBACK_CONTEXT
+
+    # Note de priorité des sources pour guider l'analyse
+    source_priority_note = (
+        "=== Priorité des sources (ordre décroissant) ===\n"
+        "  1. FMI WEO / Article IV (référence institutionnelle primaire)\n"
+        "  2. Banque Mondiale WDI (complément et recoupement)\n"
+        "  3. BCEAO / BEAC (données zone franc)\n"
+        "  4. Autres sources (EIA, NASA, Comtrade, etc.)\n"
+        "  En cas de divergence entre sources, signaler explicitement et utiliser la source prioritaire."
+    )
+    context_parts.insert(0, source_priority_note)
 
     joined = "\n\n".join(context_parts)
     return f"<context>\n{joined}\n</context>"
@@ -435,7 +466,6 @@ async def query_ai_analyst(
             )
 
     # ── Construire le prompt ────────────────────────────────────────────────
-    start_time = time.time()
     countries = extract_countries(body.question)
     context = await get_relevant_context(body.question, countries, db)
 
@@ -443,11 +473,33 @@ async def query_ai_analyst(
     # interpolée dans le system prompt. Le contexte DB est encapsulé XML.
     user_message = f"{context}\n\n<question>\n{body.question}\n</question>"
 
+    # ── Pré-enregistrement audit (avant streaming pour garantir la trace) ────
+    start_time = time.time()
+    pre_query: AIQuery | None = None
+    query_id = ""
+    try:
+        pre_query = AIQuery(
+            user_id=sub.user_id,
+            question=body.question,
+            response="",
+            input_tokens=0,
+            output_tokens=0,
+            countries_mentioned=countries,
+            duration_ms=0,
+        )
+        db.add(pre_query)
+        await db.commit()
+        await db.refresh(pre_query)
+        query_id = str(pre_query.id)
+    except Exception:
+        pass  # Non-bloquant : le stream continue même si l'audit échoue
+
     # ── Streaming generator ─────────────────────────────────────────────────
     async def generate() -> AsyncIterator[str]:
         full_response: list[str] = []
         input_tokens = 0
         output_tokens = 0
+        last_heartbeat = time.time()
 
         try:
             async with client.messages.stream(
@@ -455,10 +507,16 @@ async def query_ai_analyst(
                 max_tokens=settings.ANTHROPIC_MAX_TOKENS,
                 system=SYSTEM_PROMPT,
                 messages=[{"role": "user", "content": user_message}],
+                timeout=anthropic.Timeout(connect=10.0, read=60.0, write=10.0, pool=5.0),
             ) as stream:
                 async for text in stream.text_stream:
                     full_response.append(text)
                     yield f"data: {json.dumps({'type': 'text', 'content': text})}\n\n"
+                    # Heartbeat SSE toutes les 5s pour éviter les timeouts proxy
+                    now = time.time()
+                    if now - last_heartbeat >= 5.0:
+                        yield ": heartbeat\n\n"
+                        last_heartbeat = now
                 message = await stream.get_final_message()
                 input_tokens = message.usage.input_tokens
                 output_tokens = message.usage.output_tokens
@@ -466,31 +524,27 @@ async def query_ai_analyst(
         except anthropic.RateLimitError:
             yield f"data: {json.dumps({'type': 'error', 'content': 'Service temporairement surchargé. Réessayez dans quelques secondes.'})}\n\n"
             return
-        except anthropic.APIStatusError as e:
+        except anthropic.APIStatusError:
             yield f"data: {json.dumps({'type': 'error', 'content': 'Erreur du service AI. Réessayez.'})}\n\n"
+            return
+        except TimeoutError:
+            yield f"data: {json.dumps({'type': 'error', 'content': 'La génération a pris trop de temps. Reformulez votre question.'})}\n\n"
             return
         except Exception:
             yield f"data: {json.dumps({'type': 'error', 'content': 'Une erreur inattendue est survenue.'})}\n\n"
             return
 
-        # ── Audit log ────────────────────────────────────────────────────
+        # ── Mise à jour audit log post-streaming ────────────────────────────
         duration_ms = int((time.time() - start_time) * 1000)
-        query_id = ""
-        try:
-            ai_query = AIQuery(
-                user_id=sub.user_id,
-                question=body.question,      # question sanitisée (après validator)
-                response="".join(full_response),
-                input_tokens=input_tokens,
-                output_tokens=output_tokens,
-                countries_mentioned=countries,
-                duration_ms=duration_ms,
-            )
-            db.add(ai_query)
-            await db.commit()
-            query_id = str(ai_query.id)
-        except Exception:
-            pass  # La réponse est déjà streamée — ne pas bloquer
+        if pre_query is not None:
+            try:
+                pre_query.response = "".join(full_response)
+                pre_query.input_tokens = input_tokens
+                pre_query.output_tokens = output_tokens
+                pre_query.duration_ms = duration_ms
+                await db.commit()
+            except Exception:
+                pass
 
         yield f"data: {json.dumps({'type': 'done', 'query_id': query_id})}\n\n"
 

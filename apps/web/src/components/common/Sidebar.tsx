@@ -14,13 +14,8 @@ import {
   Receipt,
   SlidersHorizontal,
   HelpCircle,
-  Activity,
   Newspaper,
-  BookOpen,
   Map,
-  Bell,
-  GitBranch,
-  GitFork,
   ShieldAlert,
 } from "lucide-react";
 import { useLangStore } from "@/lib/lang-store";
@@ -33,17 +28,6 @@ interface SidebarProps {
 export function Sidebar({ onClose }: SidebarProps) {
   const pathname = usePathname();
   const locale   = useLangStore((s) => s.locale);
-
-  const NAV_MAIN = [
-    { labelKey: "nav_dashboard"  as const, href: "/",          icon: LayoutDashboard, badge: null },
-    { labelKey: "nav_ai"         as const, href: "/ai",         icon: Sparkles,        badge: "AI" },
-    { labelKey: "nav_news"       as const, href: "/news",       icon: Newspaper,       badge: null },
-    { labelKey: "nav_countries"  as const, href: "/countries",  icon: Globe2,          badge: null },
-    { labelKey: "nav_indicators" as const, href: "/indicators", icon: BarChart2,       badge: null },
-    { labelKey: "nav_markets"    as const, href: "/markets",    icon: TrendingUp,      badge: null },
-    { labelKey: "nav_signals"    as const, href: "/signals",    icon: Zap,             badge: "HF" },
-    { labelKey: "nav_climate"    as const, href: "/climate",    icon: CloudRain,       badge: null },
-  ];
 
   const NAV_BOTTOM = [
     { labelKey: "nav_billing"  as const, href: "/billing",  icon: Receipt           },
@@ -94,163 +78,118 @@ export function Sidebar({ onClose }: SidebarProps) {
         </div>
       </div>
 
-      {/* ── Navigation principale ── */}
-      <nav className="flex-1 px-3 py-4 space-y-0.5 overflow-y-auto">
-        {NAV_MAIN.map((item) => {
-          const Icon   = item.icon;
-          const active = isActive(item.href);
-          return (
-            <Link
-              key={item.href}
-              href={item.href}
-              className="flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-150"
-              style={active ? activeStyle : inactiveStyle}
-              onMouseEnter={hoverIn}
-              onMouseLeave={hoverOut}
-            >
-              <Icon size={17} strokeWidth={active ? 2.2 : 1.8} />
-              <span className="text-sm font-medium flex-1">{t(item.labelKey, locale)}</span>
-              {item.badge && (
-                <span
-                  className="text-[10px] px-1.5 py-0.5 rounded-md font-bold"
-                  style={
-                    active
-                      ? { background: `color-mix(in srgb, var(--mansa-green) 20%, transparent)`, color: "var(--mansa-green)" }
-                      : { background: "var(--bg-border)", color: "var(--text-muted)" }
-                  }
-                >
-                  {item.badge}
-                </span>
-              )}
-            </Link>
-          );
-        })}
+      {/* ── Navigation ── */}
+      <nav className="flex-1 px-3 py-4 overflow-y-auto" style={{ scrollbarWidth: "thin" }}>
+        {/* Groupe Principal */}
+        <div className="mb-1">
+          <p className="px-3 mb-1 text-[10px] font-semibold uppercase tracking-widest" style={{ color: "var(--text-muted)", opacity: 0.5 }}>
+            Principal
+          </p>
+          <div className="space-y-0.5">
+            {[
+              { href: "/countries",  labelKey: "nav_countries"  as const, icon: Globe2,          badge: null },
+              { href: "/ai",         labelKey: "nav_ai"         as const, icon: Sparkles,        badge: "AI" },
+              { href: "/markets",    labelKey: "nav_markets"    as const, icon: TrendingUp,      badge: null },
+              { href: "/",           labelKey: "nav_dashboard"  as const, icon: LayoutDashboard, badge: null },
+            ].map((item) => {
+              const Icon = item.icon;
+              const active = isActive(item.href);
+              return (
+                <Link key={item.href} href={item.href}
+                  className="flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-150"
+                  style={active ? activeStyle : inactiveStyle}
+                  onMouseEnter={hoverIn} onMouseLeave={hoverOut}>
+                  <Icon size={17} strokeWidth={active ? 2.2 : 1.8} />
+                  <span className="text-sm font-medium flex-1">{t(item.labelKey, locale)}</span>
+                  {item.badge && (
+                    <span className="text-[10px] px-1.5 py-0.5 rounded-md font-bold"
+                      style={active
+                        ? { background: `color-mix(in srgb, var(--mansa-green) 20%, transparent)`, color: "var(--mansa-green)" }
+                        : { background: "var(--bg-border)", color: "var(--text-muted)" }}>
+                      {item.badge}
+                    </span>
+                  )}
+                </Link>
+              );
+            })}
+          </div>
+        </div>
 
-        {/* ── Séparateur + MEAI Index ── */}
+        {/* Séparateur */}
         <div className="my-3 mx-1 border-t" style={{ borderColor: "var(--sidebar-border)" }} />
 
-        <Link
-          href="/meai"
-          className="flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-150"
-          style={isActive("/meai") ? activeStyle : inactiveStyle}
-          onMouseEnter={hoverIn}
-          onMouseLeave={hoverOut}
-        >
-          <Activity size={17} strokeWidth={isActive("/meai") ? 2.2 : 1.8} />
-          <span className="text-sm font-medium flex-1">{t("meai_label", locale)}</span>
-          <span
-            className="text-[10px] px-1.5 py-0.5 rounded-md font-bold"
-            style={
-              isActive("/meai")
-                ? { background: `color-mix(in srgb, var(--mansa-green) 20%, transparent)`, color: "var(--mansa-green)" }
-                : { background: "var(--bg-border)", color: "var(--text-muted)" }
-            }
-          >
-            NEW
-          </span>
-        </Link>
+        {/* Groupe Analytique */}
+        <div className="mb-1">
+          <p className="px-3 mb-1 text-[10px] font-semibold uppercase tracking-widest" style={{ color: "var(--text-muted)", opacity: 0.5 }}>
+            Analytique
+          </p>
+          <div className="space-y-0.5">
+            {[
+              { href: "/indicators", labelKey: "nav_indicators" as const, icon: BarChart2,  badge: null,    label: null },
+              { href: "/regions",    labelKey: null,                       icon: Map,        badge: "UEMOA", label: "Régions" },
+              { href: "/news",       labelKey: "nav_news"       as const, icon: Newspaper,  badge: null,    label: null },
+            ].map((item) => {
+              const Icon = item.icon;
+              const active = isActive(item.href);
+              const displayLabel = item.label ?? (item.labelKey ? t(item.labelKey, locale) : "");
+              return (
+                <Link key={item.href} href={item.href}
+                  className="flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-150"
+                  style={active ? activeStyle : inactiveStyle}
+                  onMouseEnter={hoverIn} onMouseLeave={hoverOut}>
+                  <Icon size={17} strokeWidth={active ? 2.2 : 1.8} />
+                  <span className="text-sm font-medium flex-1">{displayLabel}</span>
+                  {item.badge && (
+                    <span className="text-[10px] px-1.5 py-0.5 rounded-md font-bold"
+                      style={active
+                        ? { background: `color-mix(in srgb, var(--mansa-green) 20%, transparent)`, color: "var(--mansa-green)" }
+                        : { background: "var(--bg-border)", color: "var(--text-muted)" }}>
+                      {item.badge}
+                    </span>
+                  )}
+                </Link>
+              );
+            })}
+          </div>
+        </div>
 
-        {/* ── Séparateur + Régions UEMOA/CEMAC + Alertes + Scénarios ── */}
+        {/* Séparateur */}
         <div className="my-3 mx-1 border-t" style={{ borderColor: "var(--sidebar-border)" }} />
 
-        <Link
-          href="/regions"
-          className="flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-150"
-          style={isActive("/regions") ? activeStyle : inactiveStyle}
-          onMouseEnter={hoverIn}
-          onMouseLeave={hoverOut}
-        >
-          <Map size={17} strokeWidth={isActive("/regions") ? 2.2 : 1.8} />
-          <span className="text-sm font-medium flex-1">Régions</span>
-          <span
-            className="text-[10px] px-1.5 py-0.5 rounded-md font-bold"
-            style={
-              isActive("/regions")
-                ? { background: `color-mix(in srgb, var(--mansa-green) 20%, transparent)`, color: "var(--mansa-green)" }
-                : { background: "var(--bg-border)", color: "var(--text-muted)" }
-            }
-          >
-            UEMOA
-          </span>
-        </Link>
-
-        <Link
-          href="/alerts"
-          className="flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-150"
-          style={isActive("/alerts") ? activeStyle : inactiveStyle}
-          onMouseEnter={hoverIn}
-          onMouseLeave={hoverOut}
-        >
-          <Bell size={17} strokeWidth={isActive("/alerts") ? 2.2 : 1.8} />
-          <span className="text-sm font-medium flex-1">Alertes</span>
-        </Link>
-
-        <Link
-          href="/scenarios"
-          className="flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-150"
-          style={isActive("/scenarios") ? activeStyle : inactiveStyle}
-          onMouseEnter={hoverIn}
-          onMouseLeave={hoverOut}
-        >
-          <GitBranch size={17} strokeWidth={isActive("/scenarios") ? 2.2 : 1.8} />
-          <span className="text-sm font-medium flex-1">Scénarios</span>
-          <span
-            className="text-[10px] px-1.5 py-0.5 rounded-md font-bold"
-            style={
-              isActive("/scenarios")
-                ? { background: `color-mix(in srgb, var(--mansa-green) 20%, transparent)`, color: "var(--mansa-green)" }
-                : { background: "var(--bg-border)", color: "var(--text-muted)" }
-            }
-          >
-            NEW
-          </span>
-        </Link>
-
-        <Link
-          href="/correlation"
-          className="flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-150"
-          style={isActive("/correlation") ? activeStyle : inactiveStyle}
-          onMouseEnter={hoverIn}
-          onMouseLeave={hoverOut}
-        >
-          <GitFork size={17} strokeWidth={isActive("/correlation") ? 2.2 : 1.8} />
-          <span className="text-sm font-medium flex-1">Corrélation</span>
-        </Link>
-
-        <Link
-          href="/conflicts"
-          className="flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-150"
-          style={isActive("/conflicts") ? activeStyle : inactiveStyle}
-          onMouseEnter={hoverIn}
-          onMouseLeave={hoverOut}
-        >
-          <ShieldAlert size={17} strokeWidth={isActive("/conflicts") ? 2.2 : 1.8} />
-          <span className="text-sm font-medium flex-1">Conflits</span>
-          <span
-            className="text-[10px] px-1.5 py-0.5 rounded-md font-bold"
-            style={
-              isActive("/conflicts")
-                ? { background: `color-mix(in srgb, #EF4444 20%, transparent)`, color: "#EF4444" }
-                : { background: "var(--bg-border)", color: "var(--text-muted)" }
-            }
-          >
-            ACLED
-          </span>
-        </Link>
-
-        {/* ── Séparateur + Dictionnaire ── */}
-        <div className="my-3 mx-1 border-t" style={{ borderColor: "var(--sidebar-border)" }} />
-
-        <Link
-          href="/settings/dictionary"
-          className="flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-150"
-          style={isActive("/settings/dictionary") ? activeStyle : inactiveStyle}
-          onMouseEnter={hoverIn}
-          onMouseLeave={hoverOut}
-        >
-          <BookOpen size={17} strokeWidth={isActive("/settings/dictionary") ? 2.2 : 1.8} />
-          <span className="text-sm font-medium flex-1">{t("nav_dictionary", locale)}</span>
-        </Link>
+        {/* Groupe Spécialisé */}
+        <div className="mb-1">
+          <p className="px-3 mb-1 text-[10px] font-semibold uppercase tracking-widest" style={{ color: "var(--text-muted)", opacity: 0.5 }}>
+            Spécialisé
+          </p>
+          <div className="space-y-0.5">
+            {[
+              { href: "/signals",   labelKey: "nav_signals"  as const, icon: Zap,         badge: "HF",    label: null },
+              { href: "/climate",   labelKey: "nav_climate"  as const, icon: CloudRain,   badge: null,    label: null },
+              { href: "/conflicts", labelKey: null,                     icon: ShieldAlert, badge: "ACLED", label: "Conflits" },
+            ].map((item) => {
+              const Icon = item.icon;
+              const active = isActive(item.href);
+              const displayLabel = item.label ?? (item.labelKey ? t(item.labelKey, locale) : "");
+              return (
+                <Link key={item.href} href={item.href}
+                  className="flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-150"
+                  style={active ? activeStyle : inactiveStyle}
+                  onMouseEnter={hoverIn} onMouseLeave={hoverOut}>
+                  <Icon size={17} strokeWidth={active ? 2.2 : 1.8} />
+                  <span className="text-sm font-medium flex-1">{displayLabel}</span>
+                  {item.badge && (
+                    <span className="text-[10px] px-1.5 py-0.5 rounded-md font-bold"
+                      style={active
+                        ? { background: `color-mix(in srgb, var(--mansa-green) 20%, transparent)`, color: "var(--mansa-green)" }
+                        : { background: "var(--bg-border)", color: "var(--text-muted)" }}>
+                      {item.badge}
+                    </span>
+                  )}
+                </Link>
+              );
+            })}
+          </div>
+        </div>
       </nav>
 
       {/* ── Navigation secondaire ── */}
