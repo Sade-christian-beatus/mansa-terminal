@@ -62,22 +62,32 @@ if settings.SENTRY_DSN:
 
 def _validate_required_env() -> None:
     """Bloque le démarrage si des variables critiques sont absentes en production."""
-    import os
-    missing = []
+    import logging
+    _log = logging.getLogger(__name__)
+
+    # Variables qui font crasher l'app si absentes
+    hard_required = []
     if not settings.ANTHROPIC_API_KEY:
-        missing.append("ANTHROPIC_API_KEY")
+        hard_required.append("ANTHROPIC_API_KEY")
     if not getattr(settings, "ANTHROPIC_MODEL_ID", None):
-        missing.append("ANTHROPIC_MODEL_ID")
+        hard_required.append("ANTHROPIC_MODEL_ID")
     if settings.APP_ENV == "production":
         if not getattr(settings, "SUPABASE_JWT_SECRET", None):
-            missing.append("SUPABASE_JWT_SECRET")
-        if not getattr(settings, "STRIPE_WEBHOOK_SECRET", None):
-            missing.append("STRIPE_WEBHOOK_SECRET")
-    if missing:
+            hard_required.append("SUPABASE_JWT_SECRET")
+
+    if hard_required:
         raise RuntimeError(
-            f"Variables d'environnement manquantes : {', '.join(missing)}. "
+            f"Variables d'environnement manquantes : {', '.join(hard_required)}. "
             "Vérifiez votre fichier .env ou la configuration Railway."
         )
+
+    # Variables optionnelles — warning seulement (fonctionnalité dégradée)
+    if settings.APP_ENV == "production":
+        if not getattr(settings, "STRIPE_WEBHOOK_SECRET", None):
+            _log.warning(
+                "STRIPE_WEBHOOK_SECRET absent — les webhooks Stripe seront rejetés. "
+                "Ajoutez-la dans Railway si vous activez la facturation."
+            )
 
 
 @asynccontextmanager
