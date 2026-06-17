@@ -43,7 +43,7 @@ export default function LoginPage() {
         console.warn("[MANSA] authApi.sync() failed — continuing with Supabase session");
       }
 
-      router.push("/");
+      router.push("/accueil");
     } catch {
       setError("Une erreur est survenue. Veuillez réessayer.");
     } finally {
