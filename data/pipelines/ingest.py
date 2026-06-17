@@ -126,10 +126,18 @@ WB_CORE = [
     ("FP.CPI.TOTL.ZG",    "PCPIPCH",     "Inflation (IPC)",        "%",     1.0),
     ("NY.GDP.PCAP.CD",    "NGDPDPC",     "PIB par habitant",       "USD",   1.0),
     ("NY.GDP.MKTP.CD",    "NGDPD",       "PIB nominal",            "Mds $", 1e-9),
+    ("NY.GDP.MKTP.PP.CD", "PPPGDP",      "PIB en PPA",             "Mds $", 1e-9),
     ("SP.POP.TOTL",       "LP",          "Population",             "M hab.",1e-6),
     ("GC.DOD.TOTL.GD.ZS", "GGXWDG_NGDP", "Dette publique",         "% PIB", 1.0),
+    ("DT.DOD.DECT.GN.ZS", "EXTD_TOTAL_GDP", "Dette extérieure",    "% PIB", 1.0),
     ("GC.NLD.TOTL.GD.ZS", "GGXCNL_NGDP", "Solde budgétaire",       "% PIB", 1.0),
+    ("GC.REV.XGRT.GD.ZS", "GGR_NGDP",    "Recettes publiques",     "% PIB", 1.0),
+    ("GC.XPN.TOTL.GD.ZS", "GGX_NGDP",    "Dépenses publiques",     "% PIB", 1.0),
     ("BN.CAB.XOKA.GD.ZS", "BCA_NGDPD",   "Compte courant",         "% PIB", 1.0),
+    ("BX.KLT.DINV.WD.GD.ZS", "BX_KLT_DINV_WD_GD_ZS", "IDE entrants", "% PIB", 1.0),
+    ("BX.TRF.PWKR.DT.GD.ZS", "REM_GDP",  "Transferts diaspora",    "% PIB", 1.0),
+    ("BX.GSR.GNFS.CD",    "BX_GSR_GNFS_CD", "Exportations B&S",    "Mds $", 1e-9),
+    ("BM.GSR.GNFS.CD",    "BM_GSR_GNFS_CD", "Importations B&S",    "Mds $", 1e-9),
     ("SL.UEM.TOTL.ZS",    "LUR",         "Chômage",                "%",     1.0),
 ]
 
@@ -213,6 +221,16 @@ def fetch_wb(defs: list[tuple], source_label: str) -> list[tuple]:
 def fetch_imf(years: tuple[int, int]) -> list[tuple]:
     periods = ",".join(str(y) for y in range(years[0], years[1] + 1))
     rows: list[tuple] = []
+
+    # Sonde rapide — si l'API IMF est bloquée (403), abandonner proprement
+    # au lieu de cracher des dizaines d'avertissements.
+    try:
+        http_get_json(f"{IMF_BASE}/NGDP_RPCH/NGA?periods={years[1]}", retries=1)
+    except Exception as e:  # noqa: BLE001
+        print(f"  [skip] FMI WEO injoignable depuis ce réseau ({type(e).__name__}). "
+              "L'API IMF bloque souvent hors résidentiel — données World Bank conservées.")
+        return rows
+
     for code, (name, unit) in IMF_INDICATORS.items():
         merged: dict[str, dict] = {}
         for batch in batched(ISO3_LIST, 20):
