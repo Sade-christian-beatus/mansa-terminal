@@ -110,6 +110,15 @@ export const macroApi = {
   getHeatmap: (indicator: string, year: number) =>
     api.get("/macro/heatmap/africa", { params: { indicator, year } }),
 
+  /** Matrice pays × indicateurs pour le module Macroeconomic Table. */
+  getTable: (params?: { year?: number; region?: string }) =>
+    api.get<{
+      year: number;
+      indicators_present: string[];
+      countries: { id: string; name: string; region: string | null; values: Record<string, number> }[];
+      is_live: boolean;
+    }>("/macro/table", { params }),
+
   getFreshness: () => api.get("/macro/freshness"),
 
   getExport: (params?: { sources?: string; year_from?: number; year_to?: number }) =>

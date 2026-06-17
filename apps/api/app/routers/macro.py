@@ -73,6 +73,67 @@ async def list_countries(
     return result.scalars().all()
 
 
+@router.get("/table")
+async def get_macro_table(
+    current_user: Annotated[User, Depends(require_active_subscription)],
+    db: AsyncSession = Depends(get_db),
+    year: int = Query(2024, ge=2000, le=2030),
+    region: Optional[str] = Query(None, description="Filtrer par région géographique"),
+):
+    """
+    Matrice macroéconomique : tous les pays × tous les indicateurs annuels
+    disponibles pour l'année demandée. Alimente le module Macroeconomic Table.
+
+    Retourne uniquement les indicateurs ayant au moins une valeur (les colonnes
+    sans donnée sont masquées côté client).
+
+    NB : cette route DOIT être déclarée avant `/{country_id}` pour ne pas être
+    capturée par le paramètre de chemin.
+    """
+    q = (
+        select(
+            MacroIndicator.country_id,
+            MacroIndicator.indicator_code,
+            MacroIndicator.value,
+            Country.name_en,
+            Country.name_fr,
+            Country.region,
+        )
+        .join(Country, MacroIndicator.country_id == Country.id)
+        .where(
+            and_(
+                MacroIndicator.period == str(year),
+                MacroIndicator.period_type == "annual",
+                MacroIndicator.value.isnot(None),
+            )
+        )
+    )
+    if region:
+        q = q.where(Country.region == region)
+
+    result = await db.execute(q)
+    rows = result.fetchall()
+
+    by_country: dict[str, dict] = {}
+    present: set[str] = set()
+    for r in rows:
+        present.add(r.indicator_code)
+        entry = by_country.setdefault(r.country_id, {
+            "id": r.country_id,
+            "name": r.name_fr or r.name_en,
+            "region": r.region,
+            "values": {},
+        })
+        entry["values"][r.indicator_code] = r.value
+
+    return {
+        "year": year,
+        "indicators_present": sorted(present),
+        "countries": sorted(by_country.values(), key=lambda c: c["name"]),
+        "is_live": len(by_country) > 0,
+    }
+
+
 @router.get("/{country_id}", response_model=CountryMacroResponse)
 async def get_country_macro(
     country_id: str,
