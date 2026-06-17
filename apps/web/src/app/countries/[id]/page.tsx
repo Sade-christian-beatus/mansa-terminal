@@ -19,6 +19,9 @@ const ISO3_TO_ISO2: Record<string, string> = {
   COM:"km", STP:"st", SYC:"sc", LSO:"ls", MRT:"mr",
 };
 import { macroApi, forecastApi, type BatchForecastResult, type ForecastResult, type Institution } from "@/lib/api";
+import {
+  getCentralBank, getStatsInstitute, getFallbackNationalIndicators,
+} from "@/lib/national-sources";
 import { ErrorCard } from "@/components/common/ErrorCard";
 import { CATALOG_BY_ID } from "@/lib/indicator-catalog";
 import { ExportModal } from "@/components/common/ExportModal";
@@ -170,43 +173,93 @@ function IndicatorChart({ code, points }: { code: string; points: { period: stri
 }
 
 /* ── Scorecard component ─────────────────────────────── */
+const SCORE_DESCRIPTIONS: Record<string, string> = {
+  "Croissance PIB":   "Rythme d'expansion de l'économie",
+  "Inflation IPC":    "Hausse des prix à la consommation",
+  "Dette / PIB":      "Endettement public rapporté au PIB",
+  "Solde budgétaire": "Solde des finances publiques (recettes − dépenses)",
+  "Compte courant":   "Solde des échanges avec l'étranger",
+  "Réserves change":  "Mois d'importations couverts par les réserves",
+};
+
 function Scorecard({ items, grade }: { items: ScoreItem[]; grade: ReturnType<typeof compositeGrade> }) {
   const STATUS_CONFIG: Record<ScoreStatus, { bg: string; text: string; label: string }> = {
-    ok:   { bg: "rgba(16,185,129,0.12)",  text: "#10B981", label: "✓ OK"   },
-    warn: { bg: "rgba(245,158,11,0.12)",  text: "#F59E0B", label: "⚠ Vigilance" },
-    bad:  { bg: "rgba(239,68,68,0.12)",   text: "#EF4444", label: "✗ Risque" },
+    ok:   { bg: "rgba(16,185,129,0.12)",  text: "#10B981", label: "Sain"         },
+    warn: { bg: "rgba(245,158,11,0.12)",  text: "#F59E0B", label: "À surveiller" },
+    bad:  { bg: "rgba(239,68,68,0.12)",   text: "#EF4444", label: "À risque"     },
   };
+
+  const okCount = items.filter((i) => i.status === "ok").length;
+  const score   = items.reduce((s, c) => s + (c.status === "ok" ? 2 : c.status === "warn" ? 1 : 0), 0);
+  const pct     = Math.round((score / (items.length * 2)) * 100);
+
   return (
     <div className="mansa-card rounded-xl p-5">
-      <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center gap-2">
-          <Shield size={15} style={{ color: "var(--mansa-green)" }} />
-          <h3 className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>
-            Scorecard macro — Note composite
-          </h3>
+      <div className="flex items-center gap-2 mb-3">
+        <Shield size={15} style={{ color: "var(--mansa-green)" }} />
+        <h3 className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>
+          Santé macro-fiscale
+        </h3>
+      </div>
+
+      {/* Synthèse composite : note + jauge */}
+      <div className="rounded-xl p-4 mb-4 flex items-center gap-4"
+           style={{ background: `color-mix(in srgb, ${grade.color} 8%, transparent)`,
+                    border: `1px solid color-mix(in srgb, ${grade.color} 25%, transparent)` }}>
+        <div className="text-center flex-shrink-0">
+          <p className="text-4xl font-bold leading-none" style={{ color: grade.color }}>{grade.grade}</p>
+          <p className="text-[10px] mt-1 uppercase tracking-wider" style={{ color: "var(--text-muted)" }}>Note</p>
         </div>
-        <div className="flex items-center gap-3">
-          <div className="text-center">
-            <p className="text-4xl font-bold leading-none" style={{ color: grade.color }}>{grade.grade}</p>
-            <p className="text-xs mt-1" style={{ color: grade.color }}>{grade.label}</p>
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-semibold" style={{ color: grade.color }}>{grade.label}</p>
+          <p className="text-xs mb-2" style={{ color: "var(--text-muted)" }}>
+            {okCount} indicateur{okCount > 1 ? "s" : ""} sur {items.length} au vert · score global {pct}%
+          </p>
+          <div className="h-1.5 rounded-full overflow-hidden" style={{ background: "var(--bg-border)" }}>
+            <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, background: grade.color }} />
           </div>
         </div>
       </div>
-      <div className="space-y-2">
+
+      {/* Détail par indicateur */}
+      <div className="space-y-1">
         {items.map((item) => {
           const cfg = STATUS_CONFIG[item.status];
           return (
-            <div key={item.label} className="flex items-center gap-3 py-2 border-b last:border-0"
-                 style={{ borderColor: "var(--bg-border)" }}>
-              <span className="text-sm flex-1" style={{ color: "var(--text-secondary)" }}>{item.label}</span>
-              <span className="text-sm font-bold font-mono" style={{ color: "var(--text-primary)" }}>{item.value}</span>
-              <span className="text-xs px-2 py-0.5 rounded-full font-medium w-28 text-center"
-                    style={{ background: cfg.bg, color: cfg.text }}>
-                {cfg.label}
-              </span>
+            <div key={item.label} className="py-2 border-b last:border-0" style={{ borderColor: "var(--bg-border)" }}>
+              <div className="flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: cfg.text }} />
+                <span className="text-sm font-medium flex-1 truncate" style={{ color: "var(--text-primary)" }}>{item.label}</span>
+                <span className="text-sm font-bold font-mono" style={{ color: cfg.text }}>{item.value}</span>
+                <span className="text-[11px] px-2 py-0.5 rounded-full font-medium w-24 text-center flex-shrink-0"
+                      style={{ background: cfg.bg, color: cfg.text }}>
+                  {cfg.label}
+                </span>
+              </div>
+              <div className="flex items-center justify-between mt-0.5 pl-4">
+                <span className="text-[11px]" style={{ color: "var(--text-muted)" }}>
+                  {SCORE_DESCRIPTIONS[item.label] ?? ""}
+                </span>
+                <span className="text-[11px] font-mono whitespace-nowrap" style={{ color: "var(--text-muted)" }}>
+                  Cible&nbsp;{item.threshold_ok}
+                </span>
+              </div>
             </div>
           );
         })}
+      </div>
+
+      {/* Légende */}
+      <div className="flex items-center flex-wrap gap-x-4 gap-y-1 mt-3 pt-3 border-t" style={{ borderColor: "var(--bg-border)" }}>
+        {(["ok", "warn", "bad"] as ScoreStatus[]).map((s) => (
+          <div key={s} className="flex items-center gap-1.5">
+            <span className="w-2 h-2 rounded-full" style={{ background: STATUS_CONFIG[s].text }} />
+            <span className="text-[10px]" style={{ color: "var(--text-muted)" }}>{STATUS_CONFIG[s].label}</span>
+          </div>
+        ))}
+        <span className="text-[10px] ml-auto" style={{ color: "var(--text-muted)" }}>
+          « Cible » = seuil de bonne santé
+        </span>
       </div>
     </div>
   );
@@ -496,31 +549,49 @@ function InstitutionCard({ icon: Icon, role, inst }: {
   );
 }
 
-function NationalSourcesSection({ countryId }: { countryId: string }) {
-  const { data, isLoading, isError } = useQuery({
+function NationalSourcesSection({ countryId, fallbackInflation }: {
+  countryId: string; fallbackInflation: number | null;
+}) {
+  const { data, isLoading } = useQuery({
     queryKey: ["country-national", countryId],
     queryFn: () => macroApi.getNationalSources(countryId),
     staleTime: 1000 * 60 * 30,
     retry: 1,
   });
 
-  const institutions = data?.institutions;
-  const indicators = data?.indicators ?? {};
-
   const latest = (pts: { period: string; value: number; unit: string | null; source: string }[]) => {
     if (!pts?.length) return null;
     return [...pts].sort((a, b) => b.period.localeCompare(a.period))[0];
   };
-  const indicatorCodes = Object.keys(indicators).filter((c) => (indicators[c]?.length ?? 0) > 0);
-  const hasInstitutions = institutions?.stats_institute || institutions?.central_bank || (institutions?.others?.length ?? 0) > 0;
+
+  // Institutions : API si disponible, sinon repli côté client
+  const statsInstitute = data?.institutions?.stats_institute ?? getStatsInstitute(countryId);
+  const centralBank    = data?.institutions?.central_bank ?? getCentralBank(countryId);
+  const others         = data?.institutions?.others ?? [];
+
+  // Indicateurs : API si présents, sinon repli (taux directeur + IPC national)
+  const apiIndicators = data?.indicators ?? {};
+  const apiCodes = Object.keys(apiIndicators).filter((c) => (apiIndicators[c]?.length ?? 0) > 0);
+  const indicators = apiCodes.length > 0
+    ? apiCodes.map((code) => ({ code, ...latest(apiIndicators[code])! }))
+    : getFallbackNationalIndicators(countryId, fallbackInflation);
+  const isFallback = apiCodes.length === 0;
 
   return (
     <div className="mansa-card rounded-xl p-5">
-      <div className="flex items-center gap-2 mb-1">
-        <Landmark size={15} style={{ color: "var(--mansa-green)" }} />
-        <h3 className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>
-          Sources nationales
-        </h3>
+      <div className="flex items-center justify-between gap-2 mb-1">
+        <div className="flex items-center gap-2">
+          <Landmark size={15} style={{ color: "var(--mansa-green)" }} />
+          <h3 className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>
+            Sources nationales
+          </h3>
+        </div>
+        {isFallback && indicators.length > 0 && (
+          <span className="text-[10px] font-mono px-2 py-0.5 rounded"
+                style={{ background: "var(--bg-border)", color: "var(--text-muted)" }}>
+            Dernières valeurs publiées
+          </span>
+        )}
       </div>
       <p className="text-xs mb-4" style={{ color: "var(--text-muted)" }}>
         Institutions productrices de statistiques propres au pays et données qu'elles publient.
@@ -530,58 +601,51 @@ function NationalSourcesSection({ countryId }: { countryId: string }) {
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           {[1, 2].map((i) => <div key={i} className="mansa-card rounded-xl h-20 skeleton" />)}
         </div>
-      ) : isError ? (
-        <p className="text-xs" style={{ color: "var(--text-muted)" }}>
-          Sources nationales indisponibles pour le moment.
-        </p>
       ) : (
         <>
           {/* Institutions */}
-          {hasInstitutions && (
+          {(statsInstitute || centralBank || others.length > 0) && (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mb-4">
-              {institutions?.stats_institute && (
-                <InstitutionCard icon={Building2} role="Institut de statistique" inst={institutions.stats_institute} />
+              {statsInstitute && (
+                <InstitutionCard icon={Building2} role="Institut de statistique" inst={statsInstitute} />
               )}
-              {institutions?.central_bank && (
-                <InstitutionCard icon={Landmark} role="Banque centrale" inst={institutions.central_bank} />
+              {centralBank && (
+                <InstitutionCard icon={Landmark} role="Banque centrale" inst={centralBank} />
               )}
-              {institutions?.others?.map((o) => (
+              {others.map((o) => (
                 <InstitutionCard key={o.abbrev} icon={Building2} role="Autre source" inst={o} />
               ))}
             </div>
           )}
 
           {/* Indicateurs nationaux */}
-          {indicatorCodes.length > 0 ? (
+          {indicators.length > 0 ? (
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-              {indicatorCodes.map((code) => {
-                const pt = latest(indicators[code])!;
-                return (
-                  <div key={code} className="rounded-xl p-3" style={{ background: "var(--bg-border)" }}>
-                    <p className="text-[11px] mb-1 leading-tight" style={{ color: "var(--text-muted)" }}>
-                      {NATIONAL_IND_LABELS[code] ?? code}
-                    </p>
-                    <p className="text-lg font-bold font-mono" style={{ color: "var(--text-primary)" }}>
-                      {pt.value.toLocaleString("fr-FR", { maximumFractionDigits: 2 })}
-                      {pt.unit && pt.unit !== "USD" && <span className="text-xs ml-0.5">{pt.unit}</span>}
-                    </p>
-                    <div className="flex items-center justify-between mt-1">
-                      <span className="text-[10px] font-mono px-1.5 py-0.5 rounded"
-                            style={{ background: "color-mix(in srgb, var(--mansa-green) 12%, transparent)", color: "var(--mansa-green)" }}>
-                        {pt.source}
-                      </span>
-                      <span className="text-[10px] font-mono" style={{ color: "var(--text-muted)" }}>{pt.period}</span>
-                    </div>
+              {indicators.map((pt) => (
+                <div key={pt.code} className="rounded-xl p-3" style={{ background: "var(--bg-border)" }}>
+                  <p className="text-[11px] mb-1 leading-tight" style={{ color: "var(--text-muted)" }}>
+                    {NATIONAL_IND_LABELS[pt.code] ?? pt.code}
+                  </p>
+                  <p className="text-lg font-bold font-mono" style={{ color: "var(--text-primary)" }}>
+                    {pt.value.toLocaleString("fr-FR", { maximumFractionDigits: 2 })}
+                    {pt.unit && pt.unit !== "USD" && <span className="text-xs ml-0.5">{pt.unit}</span>}
+                  </p>
+                  <div className="flex items-center justify-between mt-1">
+                    <span className="text-[10px] font-mono px-1.5 py-0.5 rounded"
+                          style={{ background: "color-mix(in srgb, var(--mansa-green) 12%, transparent)", color: "var(--mansa-green)" }}>
+                      {pt.source}
+                    </span>
+                    <span className="text-[10px] font-mono" style={{ color: "var(--text-muted)" }}>{pt.period}</span>
                   </div>
-                );
-              })}
+                </div>
+              ))}
             </div>
           ) : (
             <div className="rounded-xl p-4 text-center" style={{ background: "var(--bg-border)" }}>
               <p className="text-xs" style={{ color: "var(--text-muted)" }}>
-                Aucune donnée nationale ingérée pour ce pays. Lancez{" "}
+                Aucune donnée nationale disponible pour ce pays. Lancez{" "}
                 <code className="text-[#00D4AA] bg-[#00D4AA]/10 px-1 rounded">dagster job execute -j daily_data_refresh</code>{" "}
-                (asset <code className="text-[#00D4AA] bg-[#00D4AA]/10 px-1 rounded">central_banks_to_database</code>) pour les charger.
+                (asset <code className="text-[#00D4AA] bg-[#00D4AA]/10 px-1 rounded">central_banks_to_database</code>) pour les charger en temps réel.
               </p>
             </div>
           )}
@@ -837,7 +901,7 @@ export default function CountryDetailPage() {
       )}
 
       {/* Sources nationales (INSD, BCEAO, etc.) */}
-      <NationalSourcesSection countryId={countryId} />
+      <NationalSourcesSection countryId={countryId} fallbackInflation={inf.latest ?? staticData?.inflation ?? null} />
 
       {/* Scorecard + Narrative */}
       {(!isLoading || isUsingFallback) && (
