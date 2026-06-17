@@ -103,6 +103,14 @@ export function MacroTable() {
     };
   }, [rows]);
 
+  // Plage de la colonne triée → dégradé "heatmap" dans les cellules
+  const sortRange = useMemo(() => {
+    const vals = rows.map((r) => r.values[sortKey]).filter((x): x is number => x != null);
+    if (!vals.length) return null;
+    const min = Math.min(...vals), max = Math.max(...vals);
+    return max === min ? null : { min, max };
+  }, [rows, sortKey]);
+
   const handleSort = (code: string) => {
     if (sortKey === code) setSortDir((d) => (d === "desc" ? "asc" : "desc"));
     else { setSortKey(code); setSortDir("desc"); }
@@ -182,13 +190,14 @@ export function MacroTable() {
                 {REGIONS.map((r) => <option key={r.key} value={r.key}>{r.label}</option>)}
               </select>
             </div>
-            {/* Année */}
-            <div className="relative">
+            {/* Année — limitée à 2024 tant que les données live ne sont pas chargées */}
+            <div className="relative" title={isLive ? "Année des données" : "Sélection d'année disponible une fois les données live chargées (réf. FMI WEO 2024)"}>
               <Calendar size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2" style={{ color: "var(--text-muted)" }} />
-              <select value={year} onChange={(e) => setYear(Number(e.target.value))}
-                className="pl-7 pr-6 py-1.5 text-xs rounded-lg border appearance-none cursor-pointer"
+              <select value={isLive ? year : 2024} onChange={(e) => setYear(Number(e.target.value))}
+                disabled={!isLive}
+                className="pl-7 pr-6 py-1.5 text-xs rounded-lg border appearance-none cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
                 style={{ background: "var(--input-bg)", borderColor: "var(--input-border)", color: "var(--text-primary)" }}>
-                {[2025, 2024, 2023, 2022, 2021, 2020].map((y) => <option key={y} value={y}>{y}</option>)}
+                {(isLive ? [2025, 2024, 2023, 2022, 2021, 2020] : [2024]).map((y) => <option key={y} value={y}>{y}</option>)}
               </select>
             </div>
             {/* Export */}
@@ -299,7 +308,7 @@ export function MacroTable() {
             {/* Indicateurs */}
             <tr style={{ background: "var(--sidebar-bg)" }}>
               <th className="sticky left-0 z-20 px-3 py-2.5 text-center font-semibold" style={{ background: "var(--sidebar-bg)", color: "var(--text-muted)", width: 36 }}>#</th>
-              <th className="sticky left-[36px] z-20 px-3 py-2.5 text-left font-semibold" style={{ background: "var(--sidebar-bg)", color: "var(--text-muted)", minWidth: 190 }}>Pays</th>
+              <th className="sticky left-[36px] z-20 px-3 py-2.5 text-left font-semibold" style={{ background: "var(--sidebar-bg)", color: "var(--text-muted)", minWidth: 190, boxShadow: "1px 0 0 var(--bg-border)" }}>Pays</th>
               {presentCategories.flatMap((g) => g.defs).map((def) => (
                 <th key={def.code} onClick={() => handleSort(def.code)}
                   className="px-3 py-2.5 text-right font-semibold cursor-pointer select-none whitespace-nowrap"
@@ -318,11 +327,14 @@ export function MacroTable() {
             {displayed.map((d, idx) => {
               const badge = computeBadge(d.values);
               const picked = compareIds.includes(d.id);
+              const zebra = idx % 2 ? "color-mix(in srgb, var(--sidebar-bg) 30%, transparent)" : "transparent";
               return (
-                <tr key={d.id} className="group transition-colors"
-                  style={{ borderTop: "1px solid var(--bg-border)", background: idx % 2 ? "color-mix(in srgb, var(--sidebar-bg) 30%, transparent)" : "transparent" }}>
-                  <td className="sticky left-0 z-10 px-3 py-2 text-center font-mono font-bold" style={{ background: "inherit", color: idx < 3 ? MANSA_GOLD : "var(--text-muted)" }}>{idx + 1}</td>
-                  <td className="sticky left-[36px] z-10 px-3 py-2" style={{ background: "inherit" }}>
+                <tr key={d.id} className="group"
+                  style={{ borderTop: "1px solid var(--bg-border)", background: zebra, transition: "background 0.12s" }}
+                  onMouseEnter={(e) => (e.currentTarget.style.background = "var(--sidebar-item-bg)")}
+                  onMouseLeave={(e) => (e.currentTarget.style.background = zebra)}>
+                  <td className="sticky left-0 z-10 px-3 py-2.5 text-center font-mono font-bold" style={{ background: "inherit", color: idx < 3 ? MANSA_GOLD : "var(--text-muted)" }}>{idx + 1}</td>
+                  <td className="sticky left-[36px] z-10 px-3 py-2.5" style={{ background: "inherit", boxShadow: "1px 0 0 var(--bg-border)" }}>
                     <div className="flex items-center gap-2">
                       <input type="checkbox" checked={picked} onChange={() => toggleCompare(d.id)}
                         className="cursor-pointer accent-[#C9A227]" title="Ajouter à la comparaison" />
@@ -342,14 +354,22 @@ export function MacroTable() {
                   {presentCategories.flatMap((g) => g.defs).map((def) => {
                     const v = d.values[def.code];
                     const hl = sortKey === def.code;
+                    // Intensité du dégradé selon la position de la valeur dans la plage
+                    let bg: string | undefined;
+                    if (hl && v != null && sortRange) {
+                      const pct = (v - sortRange.min) / (sortRange.max - sortRange.min);
+                      bg = `color-mix(in srgb, ${MANSA_GOLD} ${Math.round(8 + pct * 24)}%, transparent)`;
+                    } else if (hl) {
+                      bg = `color-mix(in srgb, ${MANSA_GOLD} 8%, transparent)`;
+                    }
                     return (
-                      <td key={def.code} className="px-3 py-2 text-right font-mono font-semibold whitespace-nowrap"
-                        style={{ color: valueColor(def, v), background: hl ? `color-mix(in srgb, ${MANSA_GOLD} 7%, transparent)` : undefined }}>
+                      <td key={def.code} className="px-3 py-2.5 text-right font-mono font-semibold whitespace-nowrap"
+                        style={{ color: valueColor(def, v), background: bg, fontVariantNumeric: "tabular-nums" }}>
                         {formatValue(def, v)}
                       </td>
                     );
                   })}
-                  <td className="px-3 py-2 text-center"><PerfBadge badge={badge} /></td>
+                  <td className="px-3 py-2.5 text-center"><PerfBadge badge={badge} /></td>
                 </tr>
               );
             })}
