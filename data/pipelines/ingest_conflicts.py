@@ -80,8 +80,20 @@ def fetch_sample(token: str, limit: int = 3000) -> list[dict]:
     req = urllib.request.Request(f"{READ_URL}?{qs}", headers={
         **HEADERS, "Authorization": f"Bearer {token}",
     })
-    with urllib.request.urlopen(req, timeout=90) as r:
-        payload = json.loads(r.read().decode("utf-8"))
+    try:
+        with urllib.request.urlopen(req, timeout=90) as r:
+            payload = json.loads(r.read().decode("utf-8"))
+    except urllib.error.HTTPError as e:  # type: ignore[attr-defined]
+        body = e.read().decode("utf-8", "replace")
+        print(f"\n❌ Lecture refusée — HTTP {e.code}")
+        print(f"   Réponse du serveur : {body[:300]}")
+        if e.code == 403:
+            print("\n   ➜ Ton jeton est valide mais l'accès aux données est refusé.")
+            print("     Va sur acleddata.com/myacled et vérifie :")
+            print("       • qu'une section « API Access » / « Access » est ACTIVÉE,")
+            print("       • que tu as accepté les conditions d'utilisation / la licence,")
+            print("       • ou qu'une demande d'accès API doit être validée.")
+        sys.exit(1)
     # ACLED renvoie soit {"data":[...]} soit une liste directe selon la version
     if isinstance(payload, dict):
         return payload.get("data") or payload.get("results") or []
