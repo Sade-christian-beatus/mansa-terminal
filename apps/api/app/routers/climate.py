@@ -191,6 +191,72 @@ async def get_active_fires(
     return result
 
 
+# ── NASA POWER — météo (température / précipitations) ───────────────────────
+_POWER_CACHE: dict = {"ts": 0.0, "data": None}
+_POWER_CITIES = [
+    ("West Africa",     "Lagos",        6.45,   3.40),
+    ("North Africa",    "Le Caire",     30.05,  31.25),
+    ("East Africa",     "Nairobi",      -1.29,  36.82),
+    ("Central Africa",  "Kinshasa",     -4.32,  15.31),
+    ("Southern Africa", "Johannesburg", -26.20, 28.05),
+]
+
+
+@router.get("/weather")
+async def get_weather(
+    current_user: Annotated[User, Depends(require_active_subscription)],
+):
+    """
+    Météo régionale réelle (NASA POWER / MERRA-2) — température et
+    précipitations du dernier mois disponible pour 5 villes de référence
+    (une par région). Marche côté serveur. Cache process de 6h.
+    """
+    now = time.time()
+    cached = _POWER_CACHE.get("data")
+    if cached and now - _POWER_CACHE["ts"] < 6 * 3600:
+        return cached
+
+    out: list[dict] = []
+    try:
+        async with httpx.AsyncClient(timeout=60) as client:
+            for region, city, lat, lon in _POWER_CITIES:
+                url = (
+                    "https://power.larc.nasa.gov/api/temporal/monthly/point"
+                    f"?parameters=T2M,PRECTOTCORR&community=AG&latitude={lat}"
+                    f"&longitude={lon}&start=2023&end=2025&format=JSON"
+                )
+                try:
+                    resp = await client.get(url, headers={"User-Agent": "MANSA-Terminal/1.0"})
+                    resp.raise_for_status()
+                    params = resp.json()["properties"]["parameter"]
+                    t2m = params.get("T2M", {})
+                    prec = params.get("PRECTOTCORR", {})
+                    months = [k for k, v in t2m.items() if not k.endswith("13") and v > -900]
+                    if not months:
+                        continue
+                    last = max(months)
+                    out.append({
+                        "region": region,
+                        "city": city,
+                        "month": last,
+                        "temp_c": round(t2m[last], 1),
+                        "precip_mm_day": round(prec.get(last, 0.0), 1),
+                    })
+                except Exception:  # noqa: BLE001
+                    continue
+    except Exception as exc:  # noqa: BLE001
+        return {"is_live": False, "cities": [], "note": f"NASA POWER indisponible : {exc}"}
+
+    result = {
+        "is_live": bool(out),
+        "source": "NASA POWER (MERRA-2) — dernier mois disponible",
+        "cities": out,
+    }
+    if out:
+        _POWER_CACHE.update(ts=now, data=result)
+    return result
+
+
 @router.get("/summary")
 async def get_climate_summary(
     current_user: Annotated[User, Depends(require_active_subscription)],

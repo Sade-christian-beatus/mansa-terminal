@@ -170,6 +170,12 @@ export const climateApi = {
     as_of: string | null;
     note?: string;
   }>("/climate/active-fires"),
+  getWeather: () => api.get<{
+    is_live: boolean;
+    source?: string;
+    cities: { region: string; city: string; month: string; temp_c: number; precip_mm_day: number }[];
+    note?: string;
+  }>("/climate/weather"),
 };
 
 // ── Helpers News ─────────────────────────────────────────────────────────

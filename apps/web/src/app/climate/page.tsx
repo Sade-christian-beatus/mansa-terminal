@@ -84,6 +84,49 @@ function ActiveFiresBanner() {
   );
 }
 
+/* ─── Carte météo régionale NASA POWER ──────────────────────── */
+function WeatherBanner() {
+  const { data } = useQuery({
+    queryKey: ["weather-power"],
+    queryFn: () => climateApi.getWeather(),
+    staleTime: 1000 * 60 * 60,
+    retry: false,
+  });
+  if (!data || !data.is_live || !data.cities.length) return null;
+  const regionFr: Record<string, string> = {
+    "North Africa": "Afrique du Nord", "West Africa": "Afrique de l'Ouest",
+    "Central Africa": "Afrique Centrale", "East Africa": "Afrique de l'Est",
+    "Southern Africa": "Afrique Australe",
+  };
+  const fmtMonth = (m: string) => `${m.slice(4)}/${m.slice(0, 4)}`;
+  return (
+    <div className="mansa-card rounded-2xl p-5">
+      <div className="flex items-center gap-2 mb-3">
+        <CloudRain size={16} style={{ color: "#3B82F6" }} />
+        <h2 className="text-sm font-bold" style={{ color: "var(--text-primary)" }}>Météo régionale</h2>
+        <span className="text-[10px] px-1.5 py-0.5 rounded font-bold" style={{ background: "#3B82F622", color: "#3B82F6" }}>NASA POWER</span>
+        {data.cities[0] && (
+          <span className="text-xs ml-auto" style={{ color: "var(--text-muted)" }}>{fmtMonth(data.cities[0].month)}</span>
+        )}
+      </div>
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
+        {data.cities.map((c) => (
+          <div key={c.region} className="rounded-xl border p-3" style={{ borderColor: "var(--bg-border)", background: "var(--input-bg)" }}>
+            <div className="text-[10px] mb-1" style={{ color: "var(--text-muted)" }}>{regionFr[c.region] ?? c.region}</div>
+            <div className="text-xs font-medium mb-1.5" style={{ color: "var(--text-secondary)" }}>{c.city}</div>
+            <div className="text-xl font-bold font-mono" style={{ color: c.temp_c >= 28 ? "#EF4444" : c.temp_c >= 20 ? "#F59E0B" : "#3B82F6" }}>
+              {c.temp_c}°C
+            </div>
+            <div className="flex items-center gap-1 text-[11px] mt-1" style={{ color: "var(--text-muted)" }}>
+              <Droplets size={10} style={{ color: "#3B82F6" }} /> {c.precip_mm_day} mm/j
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 /* ─── Données EM-DAT simulées (seront remplacées par API) ── */
 const EMDAT_DISASTERS = [
   { country: "Kenya",         flag: "🇰🇪", type: "flood",    deaths: 59,   affected: 27_000, year: 2025, impact: "Mombasa & Nairobi inondées" },
@@ -353,6 +396,9 @@ export default function ClimatePage() {
 
       {/* ── Feux actifs (NASA FIRMS, temps réel) ── */}
       <ActiveFiresBanner />
+
+      {/* ── Météo régionale (NASA POWER) ── */}
+      <WeatherBanner />
 
       {/* ── Tabs ── */}
       <div className="flex items-center gap-1 border-b overflow-x-auto" style={{ borderColor: "var(--bg-border)" }}>
