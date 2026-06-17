@@ -126,7 +126,27 @@ export const macroApi = {
 
   getRegion: (zone: "UEMOA" | "CEMAC" | "SSA", year?: number) =>
     api.get(`/macro/regions/${zone}`, { params: { year } }),
+
+  /** Sources nationales d'un pays : institutions + séries taggées source nationale. */
+  getNationalSources: (countryId: string) =>
+    api.get<NationalSourcesResult>(`/macro/${countryId}/national-sources`),
 };
+
+export interface Institution {
+  name: string;
+  abbrev: string;
+  url: string | null;
+}
+export interface NationalSourcesResult {
+  country_id: string;
+  country_name: string;
+  institutions: {
+    stats_institute: Institution | null;
+    central_bank: Institution | null;
+    others: Institution[];
+  };
+  indicators: Record<string, { period: string; value: number; unit: string | null; source: string }[]>;
+}
 
 // ── Helpers AI Analyst ──────────────────────────────────────────────────
 export interface AIHistoryItem {

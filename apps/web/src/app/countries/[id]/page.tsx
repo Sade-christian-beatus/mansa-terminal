@@ -7,7 +7,7 @@ import {
   Tooltip, ResponsiveContainer,
 } from "recharts";
 import Image from "next/image";
-import { ArrowLeft, TrendingUp, TrendingDown, Download, Shield, BarChart3, RefreshCw } from "lucide-react";
+import { ArrowLeft, TrendingUp, TrendingDown, Download, Shield, BarChart3, RefreshCw, Landmark, Building2, ExternalLink } from "lucide-react";
 
 const ISO3_TO_ISO2: Record<string, string> = {
   NGA:"ng", ZAF:"za", EGY:"eg", ETH:"et", KEN:"ke", TZA:"tz", MAR:"ma", GHA:"gh",
@@ -18,7 +18,7 @@ const ISO3_TO_ISO2: Record<string, string> = {
   LBR:"lr", GMB:"gm", GNB:"gw", CPV:"cv", GNQ:"gq", GAB:"ga", CAF:"cf", BDI:"bi",
   COM:"km", STP:"st", SYC:"sc", LSO:"ls", MRT:"mr",
 };
-import { macroApi, forecastApi, type BatchForecastResult, type ForecastResult } from "@/lib/api";
+import { macroApi, forecastApi, type BatchForecastResult, type ForecastResult, type Institution } from "@/lib/api";
 import { ErrorCard } from "@/components/common/ErrorCard";
 import { CATALOG_BY_ID } from "@/lib/indicator-catalog";
 import { ExportModal } from "@/components/common/ExportModal";
@@ -459,6 +459,138 @@ function ForecastSection({ countryId }: { countryId: string }) {
   );
 }
 
+/* ── Sources nationales ───────────────────────────────── */
+const NATIONAL_IND_LABELS: Record<string, string> = {
+  INT_POLICY:      "Taux directeur",
+  INT_RESERVE_REQ: "Réserves obligatoires",
+  CPI_NAT:         "Inflation IPC (nationale)",
+  FX_CBN_USD:      "Taux de change officiel",
+  FX_RESERVES:     "Réserves de change",
+  M2_GDP:          "Masse monétaire M2",
+};
+
+function InstitutionCard({ icon: Icon, role, inst }: {
+  icon: typeof Landmark; role: string; inst: Institution;
+}) {
+  return (
+    <div className="mansa-card rounded-xl p-4 flex items-start gap-3">
+      <div className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0"
+           style={{ background: "color-mix(in srgb, var(--mansa-green) 12%, transparent)" }}>
+        <Icon size={18} style={{ color: "var(--mansa-green)" }} />
+      </div>
+      <div className="min-w-0 flex-1">
+        <p className="text-[10px] uppercase tracking-wider mb-0.5" style={{ color: "var(--text-muted)" }}>{role}</p>
+        <p className="text-sm font-semibold leading-tight" style={{ color: "var(--text-primary)" }}>
+          {inst.abbrev}
+          {inst.url && (
+            <a href={inst.url} target="_blank" rel="noopener noreferrer"
+               className="inline-flex items-center ml-1.5 align-middle"
+               style={{ color: "var(--mansa-green)" }}>
+              <ExternalLink size={12} />
+            </a>
+          )}
+        </p>
+        <p className="text-xs mt-0.5 leading-snug" style={{ color: "var(--text-muted)" }}>{inst.name}</p>
+      </div>
+    </div>
+  );
+}
+
+function NationalSourcesSection({ countryId }: { countryId: string }) {
+  const { data, isLoading, isError } = useQuery({
+    queryKey: ["country-national", countryId],
+    queryFn: () => macroApi.getNationalSources(countryId),
+    staleTime: 1000 * 60 * 30,
+    retry: 1,
+  });
+
+  const institutions = data?.institutions;
+  const indicators = data?.indicators ?? {};
+
+  const latest = (pts: { period: string; value: number; unit: string | null; source: string }[]) => {
+    if (!pts?.length) return null;
+    return [...pts].sort((a, b) => b.period.localeCompare(a.period))[0];
+  };
+  const indicatorCodes = Object.keys(indicators).filter((c) => (indicators[c]?.length ?? 0) > 0);
+  const hasInstitutions = institutions?.stats_institute || institutions?.central_bank || (institutions?.others?.length ?? 0) > 0;
+
+  return (
+    <div className="mansa-card rounded-xl p-5">
+      <div className="flex items-center gap-2 mb-1">
+        <Landmark size={15} style={{ color: "var(--mansa-green)" }} />
+        <h3 className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>
+          Sources nationales
+        </h3>
+      </div>
+      <p className="text-xs mb-4" style={{ color: "var(--text-muted)" }}>
+        Institutions productrices de statistiques propres au pays et données qu'elles publient.
+      </p>
+
+      {isLoading ? (
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          {[1, 2].map((i) => <div key={i} className="mansa-card rounded-xl h-20 skeleton" />)}
+        </div>
+      ) : isError ? (
+        <p className="text-xs" style={{ color: "var(--text-muted)" }}>
+          Sources nationales indisponibles pour le moment.
+        </p>
+      ) : (
+        <>
+          {/* Institutions */}
+          {hasInstitutions && (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mb-4">
+              {institutions?.stats_institute && (
+                <InstitutionCard icon={Building2} role="Institut de statistique" inst={institutions.stats_institute} />
+              )}
+              {institutions?.central_bank && (
+                <InstitutionCard icon={Landmark} role="Banque centrale" inst={institutions.central_bank} />
+              )}
+              {institutions?.others?.map((o) => (
+                <InstitutionCard key={o.abbrev} icon={Building2} role="Autre source" inst={o} />
+              ))}
+            </div>
+          )}
+
+          {/* Indicateurs nationaux */}
+          {indicatorCodes.length > 0 ? (
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+              {indicatorCodes.map((code) => {
+                const pt = latest(indicators[code])!;
+                return (
+                  <div key={code} className="rounded-xl p-3" style={{ background: "var(--bg-border)" }}>
+                    <p className="text-[11px] mb-1 leading-tight" style={{ color: "var(--text-muted)" }}>
+                      {NATIONAL_IND_LABELS[code] ?? code}
+                    </p>
+                    <p className="text-lg font-bold font-mono" style={{ color: "var(--text-primary)" }}>
+                      {pt.value.toLocaleString("fr-FR", { maximumFractionDigits: 2 })}
+                      {pt.unit && pt.unit !== "USD" && <span className="text-xs ml-0.5">{pt.unit}</span>}
+                    </p>
+                    <div className="flex items-center justify-between mt-1">
+                      <span className="text-[10px] font-mono px-1.5 py-0.5 rounded"
+                            style={{ background: "color-mix(in srgb, var(--mansa-green) 12%, transparent)", color: "var(--mansa-green)" }}>
+                        {pt.source}
+                      </span>
+                      <span className="text-[10px] font-mono" style={{ color: "var(--text-muted)" }}>{pt.period}</span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="rounded-xl p-4 text-center" style={{ background: "var(--bg-border)" }}>
+              <p className="text-xs" style={{ color: "var(--text-muted)" }}>
+                Aucune donnée nationale ingérée pour ce pays. Lancez{" "}
+                <code className="text-[#00D4AA] bg-[#00D4AA]/10 px-1 rounded">dagster job execute -j daily_data_refresh</code>{" "}
+                (asset <code className="text-[#00D4AA] bg-[#00D4AA]/10 px-1 rounded">central_banks_to_database</code>) pour les charger.
+              </p>
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
 /* ── Page principale ─────────────────────────────────── */
 export default function CountryDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -703,6 +835,9 @@ export default function CountryDetailPage() {
           </div>
         </div>
       )}
+
+      {/* Sources nationales (INSD, BCEAO, etc.) */}
+      <NationalSourcesSection countryId={countryId} />
 
       {/* Scorecard + Narrative */}
       {(!isLoading || isUsingFallback) && (
