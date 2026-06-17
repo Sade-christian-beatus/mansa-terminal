@@ -581,11 +581,12 @@ export default function CountryDetailPage() {
         <div className="flex items-center gap-4">
           {ISO3_TO_ISO2[countryId] ? (
             <Image
-              src={`https://flagcdn.com/w80/${ISO3_TO_ISO2[countryId]}.png`}
+              src={`https://flagcdn.com/w160/${ISO3_TO_ISO2[countryId]}.png`}
               alt={displayName}
               width={60}
               height={40}
-              className="rounded shadow-sm"
+              unoptimized
+              className="rounded shadow-sm object-cover"
             />
           ) : (
             <span className="text-5xl">{displayFlag}</span>

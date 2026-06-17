@@ -23,15 +23,18 @@ const ISO3_TO_ISO2: Record<string, string> = {
 
 function CountryFlag({ iso3, size = 24 }: { iso3: string; size?: number }) {
   const iso2 = ISO3_TO_ISO2[iso3];
-  if (!iso2) return <span className="text-2xl">🌍</span>;
+  if (!iso2) return <span style={{ fontSize: size }}>🌍</span>;
+  const w = Math.round(size * 1.5);
   return (
     <Image
-      src={`https://flagcdn.com/w${size * 2}/${iso2}.png`}
+      // flagcdn n'accepte que des largeurs fixes (w40, w80, w160…) — w160 reste net même réduit
+      src={`https://flagcdn.com/w160/${iso2}.png`}
       alt={iso3}
-      width={size * 1.5}
+      width={w}
       height={size}
+      unoptimized
       className="rounded-sm object-cover flex-shrink-0"
-      style={{ width: size * 1.5, height: size }}
+      style={{ width: w, height: size }}
     />
   );
 }

@@ -1,55 +1,20 @@
 "use client";
 
-import { useState, useMemo } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useState } from "react";
 import {
-  RefreshCw, Search, Calendar, Download, Zap,
+  Search, Calendar, Download, Zap,
   Flame, Droplets, Satellite, Anchor, TrendingUp,
-  TrendingDown, Globe2, Activity, BarChart3,
+  Globe2, Activity, BarChart3, RefreshCw,
 } from "lucide-react";
 
 import { api } from "@/lib/api";
-import { AfricaHeatmap }       from "@/components/dashboard/AfricaHeatmap";
-import { TopCountriesTable }   from "@/components/dashboard/CountrySparklines";
 import { MacroKPIGrid }        from "@/components/dashboard/MacroKPIGrid";
 import { MacroDataTable }      from "@/components/dashboard/MacroDataTable";
 import { MarketTicker }        from "@/components/dashboard/MarketTicker";
 import { HeroKPIs }            from "@/components/dashboard/HeroKPIs";
-import { NewsPanel }           from "@/components/dashboard/NewsPanel";
 import { CommandPalette }      from "@/components/dashboard/CommandPalette";
 import { ExportModal }         from "@/components/common/ExportModal";
 import type { ExportRow }      from "@/lib/export-utils";
-
-const INDICATORS = [
-  { code: "NGDP_RPCH",    label: "Croissance PIB"        },
-  { code: "PCPIPCH",      label: "Inflation IPC"          },
-  { code: "GGXCNL_NGDP", label: "Solde budgétaire"       },
-  { code: "GGXWDG_NGDP", label: "Dette publique"          },
-  { code: "BCA_NGDPD",   label: "Compte courant"          },
-  { code: "ASSDRESES",   label: "Réserves import."        },
-  { code: "LUR",         label: "Chômage"                 },
-];
-
-// ── Données heatmap statiques (fallback quand l'API est indisponible) ──────
-const STATIC_HEATMAP: Record<string, Record<string, number>> = {
-  NGDP_RPCH:    { NGA:3.1, ZAF:1.1, EGY:2.7, ETH:6.8, KEN:5.0, MAR:3.2, GHA:3.1, CIV:6.5, SEN:8.3, TZA:5.4, CMR:4.1, AGO:2.4, DZA:3.6, MOZ:5.5, ZMB:4.8, RWA:7.0, TUN:1.8, UGA:6.1, LBY:4.0, COD:6.3, NER:12.3, BEN:6.4, MLI:4.0, TGO:6.0, GIN:6.5, BWA:3.5, NAM:3.6 },
-  PCPIPCH:      { NGA:32.5, ZAF:4.6, EGY:28.3, ETH:24.1, KEN:6.5, MAR:2.4, GHA:22.3, CIV:3.8, SEN:2.8, TZA:3.1, CMR:7.4, AGO:28.2, DZA:9.2, MOZ:6.2, ZMB:13.0, RWA:5.8, TUN:9.3, UGA:3.8, LBY:2.8, COD:23.6, NER:3.9, BEN:2.7, MLI:2.5, TGO:4.0 },
-  GGXWDG_NGDP:  { NGA:46, ZAF:75, EGY:90, ETH:38, KEN:70, MAR:69, GHA:83, CIV:57, SEN:73, TZA:42, CMR:48, AGO:73, DZA:60, MOZ:100, ZMB:137, RWA:68, TUN:80, UGA:50, LBY:84, COD:15 },
-  GGXCNL_NGDP:  { NGA:-4.6, ZAF:-5.0, EGY:-7.2, ETH:-2.6, KEN:-5.5, MAR:-4.1, GHA:-4.6, CIV:-4.0, SEN:-4.9, TZA:-3.0, CMR:-2.5, AGO:-1.0, DZA:-5.8, MOZ:-5.0, ZMB:-7.6, RWA:-6.0 },
-  BCA_NGDPD:    { NGA:0.8, ZAF:-1.6, EGY:-5.4, ETH:-3.1, KEN:-4.0, MAR:-1.2, GHA:-2.0, CIV:-3.7, SEN:-12.1, TZA:-3.5, AGO:4.5, DZA:2.4, LBY:13.3 },
-};
-
-const STATIC_FLAGS: Record<string, { flag: string; name: string }> = {
-  NGA:{flag:"🇳🇬",name:"Nigeria"}, ZAF:{flag:"🇿🇦",name:"Afrique du Sud"}, EGY:{flag:"🇪🇬",name:"Égypte"},
-  ETH:{flag:"🇪🇹",name:"Éthiopie"}, KEN:{flag:"🇰🇪",name:"Kenya"}, MAR:{flag:"🇲🇦",name:"Maroc"},
-  GHA:{flag:"🇬🇭",name:"Ghana"}, CIV:{flag:"🇨🇮",name:"Côte d'Ivoire"}, SEN:{flag:"🇸🇳",name:"Sénégal"},
-  TZA:{flag:"🇹🇿",name:"Tanzanie"}, CMR:{flag:"🇨🇲",name:"Cameroun"}, AGO:{flag:"🇦🇴",name:"Angola"},
-  DZA:{flag:"🇩🇿",name:"Algérie"}, MOZ:{flag:"🇲🇿",name:"Mozambique"}, ZMB:{flag:"🇿🇲",name:"Zambie"},
-  RWA:{flag:"🇷🇼",name:"Rwanda"}, TUN:{flag:"🇹🇳",name:"Tunisie"}, UGA:{flag:"🇺🇬",name:"Ouganda"},
-  LBY:{flag:"🇱🇾",name:"Libye"}, COD:{flag:"🇨🇩",name:"Congo RDC"}, NER:{flag:"🇳🇪",name:"Niger"},
-  BEN:{flag:"🇧🇯",name:"Bénin"}, MLI:{flag:"🇲🇱",name:"Mali"}, TGO:{flag:"🇹🇬",name:"Togo"},
-  GIN:{flag:"🇬🇳",name:"Guinée"}, BWA:{flag:"🇧🇼",name:"Botswana"}, NAM:{flag:"🇳🇦",name:"Namibie"},
-};
 
 const HF_ALERTS = [
   { flag: "🇪🇹", country: "Éthiopie",   msg: "Conflit +34%",   color: "#EF4444", icon: Flame    },
@@ -73,29 +38,7 @@ function openCommandPalette() {
 }
 
 export default function DashboardPage() {
-  const [indicator,   setIndicator]   = useState("NGDP_RPCH");
-  const [year,        setYear]        = useState(2024);
-  const [exportOpen,  setExportOpen]  = useState(false);
-
-  const { data: heatmap, isLoading: heatmapLoading, refetch, isFetching } = useQuery({
-    queryKey: ["heatmap", indicator, year],
-    queryFn:  () => api.get(`/macro/heatmap/africa?indicator=${indicator}&year=${year}`),
-    staleTime: 1000 * 60 * 30,
-  });
-
-  // Données heatmap effectives (API ou fallback statique)
-  const effectiveHeatmapData = useMemo(() => {
-    const apiData = heatmap?.data ?? [];
-    if (apiData.length > 0) return apiData;
-    // Fallback statique
-    const staticVals = STATIC_HEATMAP[indicator] ?? {};
-    return Object.entries(staticVals).map(([id, value]) => ({
-      country_id:   id,
-      country_name: STATIC_FLAGS[id]?.name ?? id,
-      flag:         STATIC_FLAGS[id]?.flag ?? "🌍",
-      value,
-    }));
-  }, [heatmap, indicator]);
+  const [exportOpen, setExportOpen] = useState(false);
 
   const now = new Date().toLocaleString("fr-FR", {
     day: "2-digit", month: "short", year: "numeric",
@@ -109,13 +52,7 @@ export default function DashboardPage() {
       );
       return resp.data ?? [];
     } catch {
-      return (heatmap?.data ?? []).map((d: Record<string, unknown>) => ({
-        country: d.country_id as string,
-        indicator_code: indicator,
-        value: d.value as number,
-        period: String(year),
-        source: "IMF",
-      }));
+      return [];
     }
   };
 
@@ -156,7 +93,7 @@ export default function DashboardPage() {
                 </span>
               </div>
 
-              {/* Nouveau titre — accroche produit */}
+              {/* Titre — accroche produit */}
               <h1 className="text-2xl font-bold tracking-tight leading-snug max-w-xl"
                   style={{ color: "var(--text-primary)" }}>
                 La plateforme qui transforme les{" "}
@@ -204,55 +141,6 @@ export default function DashboardPage() {
               Recherche pays, indicateurs...
               <kbd className="text-[10px] border rounded px-1 ml-1"
                    style={{ borderColor: "var(--bg-border)", color: "var(--text-muted)" }}>⌃K</kbd>
-            </button>
-
-            {/* Filtre source */}
-            <select
-              className="text-[11px] font-mono rounded-lg px-2.5 py-1.5 focus:outline-none cursor-pointer border transition-colors"
-              style={{ background: "var(--input-bg)", borderColor: "var(--input-border)", color: "var(--text-secondary)" }}
-              defaultValue=""
-            >
-              <option value="" disabled>Source</option>
-              <option value="IMF">FMI WEO</option>
-              <option value="WB">Banque Mondiale</option>
-              <option value="WHO">OMS</option>
-              <option value="EMDAT">EM-DAT</option>
-              <option value="EIA">EIA</option>
-              <option value="NASA">NASA VIIRS</option>
-              <option value="Comtrade">UN Comtrade</option>
-              <option value="BCEAO">BCEAO</option>
-              <option value="AU">Union Africaine</option>
-            </select>
-
-            <select
-              value={indicator}
-              onChange={(e) => setIndicator(e.target.value)}
-              className="text-[11px] font-mono rounded-lg px-2.5 py-1.5 focus:outline-none cursor-pointer border transition-colors"
-              style={{ background: "var(--input-bg)", borderColor: "var(--input-border)", color: "var(--text-secondary)" }}
-            >
-              {INDICATORS.map((ind) => (
-                <option key={ind.code} value={ind.code}>{ind.label}</option>
-              ))}
-            </select>
-
-            <select
-              value={year}
-              onChange={(e) => setYear(Number(e.target.value))}
-              className="text-[11px] font-mono rounded-lg px-2.5 py-1.5 focus:outline-none cursor-pointer border transition-colors"
-              style={{ background: "var(--input-bg)", borderColor: "var(--input-border)", color: "var(--text-secondary)" }}
-            >
-              {[2025, 2024, 2023, 2022, 2021, 2020].map((y) => (
-                <option key={y} value={y}>{y}</option>
-              ))}
-            </select>
-
-            <button
-              onClick={() => refetch()}
-              title="Actualiser"
-              className="p-1.5 rounded-lg border transition-all hover:border-[var(--mansa-green)]"
-              style={{ background: "var(--input-bg)", borderColor: "var(--input-border)", color: "var(--text-muted)" }}
-            >
-              <RefreshCw size={12} className={isFetching ? "animate-spin" : ""} />
             </button>
 
             <button
@@ -305,34 +193,8 @@ export default function DashboardPage() {
         {/* ── Hero KPIs ── */}
         <HeroKPIs />
 
-        {/* ── Main 2-column grid ── */}
-        <div className="grid grid-cols-12 gap-4">
-          <div className="col-span-8">
-            <AfricaHeatmap
-              data={effectiveHeatmapData}
-              indicator={indicator}
-              year={year}
-              isLoading={heatmapLoading}
-            />
-          </div>
-          <div className="col-span-4">
-            <NewsPanel />
-          </div>
-        </div>
-
-        {/* ── Bottom: top movers + KPI grid ── */}
-        <div className="grid grid-cols-12 gap-4">
-          <div className="col-span-4">
-            <TopCountriesTable
-              data={effectiveHeatmapData}
-              indicator={heatmap?.indicator_name ?? indicator}
-              isLoading={heatmapLoading}
-            />
-          </div>
-          <div className="col-span-8">
-            <MacroKPIGrid />
-          </div>
-        </div>
+        {/* ── Grille KPI macro ── */}
+        <MacroKPIGrid />
 
         {/* ── Tableau macro interactif ── */}
         <MacroDataTable />
