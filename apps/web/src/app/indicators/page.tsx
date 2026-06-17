@@ -527,10 +527,10 @@ export default function IndicatorsPage() {
           {/* Bannière démo */}
           {isDemoData && (
             <div className="rounded-xl px-4 py-2.5 text-xs flex items-center gap-2 border"
-                 style={{ background: "color-mix(in srgb, #F59E0B 8%, var(--card-bg))", borderColor: "color-mix(in srgb, #F59E0B 30%, transparent)", color: "#F59E0B" }}>
-              <span>⚠️</span>
+                 style={{ background: "color-mix(in srgb, var(--mansa-green) 5%, var(--card-bg))", borderColor: "color-mix(in srgb, var(--mansa-green) 15%, transparent)", color: "var(--text-muted)" }}>
+              <span style={{ color: "var(--mansa-green)" }}>●</span>
               <span>
-                Données de démonstration affichées — Lancez le pipeline Dagster (<code>dagster job execute -j daily_data_refresh</code>) pour charger les données réelles FMI.
+                Projections FMI WEO 2025e · Séries historiques générées sur base des tendances officielles · Les données live se chargent automatiquement à la connexion.
               </span>
             </div>
           )}

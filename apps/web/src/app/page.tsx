@@ -12,6 +12,7 @@ import { api } from "@/lib/api";
 import { AfricaHeatmap }       from "@/components/dashboard/AfricaHeatmap";
 import { TopCountriesTable }   from "@/components/dashboard/CountrySparklines";
 import { MacroKPIGrid }        from "@/components/dashboard/MacroKPIGrid";
+import { MacroDataTable }      from "@/components/dashboard/MacroDataTable";
 import { MarketTicker }        from "@/components/dashboard/MarketTicker";
 import { HeroKPIs }            from "@/components/dashboard/HeroKPIs";
 import { NewsPanel }           from "@/components/dashboard/NewsPanel";
@@ -332,6 +333,9 @@ export default function DashboardPage() {
             <MacroKPIGrid />
           </div>
         </div>
+
+        {/* ── Tableau macro interactif ── */}
+        <MacroDataTable />
 
         {/* ── Sources actives ── */}
         <div className="rounded-xl px-4 py-3 border" style={{ background: "var(--card-bg)", borderColor: "var(--card-border)" }}>

@@ -17,6 +17,7 @@ import {
   Newspaper,
   Map,
   ShieldAlert,
+  Home,
 } from "lucide-react";
 import { useLangStore } from "@/lib/lang-store";
 import { t } from "@/lib/translations";
@@ -87,10 +88,11 @@ export function Sidebar({ onClose }: SidebarProps) {
           </p>
           <div className="space-y-0.5">
             {[
-              { href: "/countries",  labelKey: "nav_countries"  as const, icon: Globe2,          badge: null },
-              { href: "/ai",         labelKey: "nav_ai"         as const, icon: Sparkles,        badge: "AI" },
-              { href: "/markets",    labelKey: "nav_markets"    as const, icon: TrendingUp,      badge: null },
-              { href: "/",           labelKey: "nav_dashboard"  as const, icon: LayoutDashboard, badge: null },
+              { href: "/accueil",    labelKey: null,                       icon: Home,            badge: null,    label: "Accueil" },
+              { href: "/countries",  labelKey: "nav_countries"  as const, icon: Globe2,          badge: null,    label: null },
+              { href: "/ai",         labelKey: "nav_ai"         as const, icon: Sparkles,        badge: "AI",    label: null },
+              { href: "/markets",    labelKey: "nav_markets"    as const, icon: TrendingUp,      badge: null,    label: null },
+              { href: "/",           labelKey: "nav_dashboard"  as const, icon: LayoutDashboard, badge: null,    label: null },
             ].map((item) => {
               const Icon = item.icon;
               const active = isActive(item.href);
@@ -100,7 +102,7 @@ export function Sidebar({ onClose }: SidebarProps) {
                   style={active ? activeStyle : inactiveStyle}
                   onMouseEnter={hoverIn} onMouseLeave={hoverOut}>
                   <Icon size={17} strokeWidth={active ? 2.2 : 1.8} />
-                  <span className="text-sm font-medium flex-1">{t(item.labelKey, locale)}</span>
+                  <span className="text-sm font-medium flex-1">{(item as any).label ?? t(item.labelKey!, locale)}</span>
                   {item.badge && (
                     <span className="text-[10px] px-1.5 py-0.5 rounded-md font-bold"
                       style={active
