@@ -74,24 +74,33 @@ def http_json(url: str, headers: dict | None = None):
 # ── UCDP (sans clé) ─────────────────────────────────────────────────────────
 def fetch_ucdp() -> dict[tuple[str, str], dict]:
     """Retourne {(iso3, year): {events, fatalities}} pour l'Afrique."""
+    token = os.getenv("UCDP_TOKEN")
+    if not token:
+        sys.exit(
+            "❌ UCDP exige désormais un token gratuit.\n"
+            "   1. Obtiens-le sur https://ucdpapi.pcr.uu.se (bouton « Authorize » / inscription)\n"
+            "   2. set \"UCDP_TOKEN=ton_token\"  puis relance."
+        )
+    ucdp_headers = {**BROWSER, "x-ucdp-access-token": token}
+
     agg: dict[tuple[str, str], dict] = defaultdict(lambda: {"events": 0, "fatalities": 0})
     version = None
     for v in UCDP_VERSIONS:
         try:
-            http_json(f"https://ucdpapi.pcr.uu.se/api/gedevents/{v}?pagesize=1")
+            http_json(f"https://ucdpapi.pcr.uu.se/api/gedevents/{v}?pagesize=1&page=0", headers=ucdp_headers)
             version = v
             break
         except Exception:  # noqa: BLE001
             continue
     if not version:
-        sys.exit("❌ UCDP injoignable (probable blocage réseau). Lance depuis ta connexion résidentielle.")
+        sys.exit("❌ UCDP injoignable ou token invalide. Vérifie UCDP_TOKEN.")
 
     print(f"📥 UCDP GED v{version} — téléchargement (Afrique)…")
     page, total = 0, 0
     while page < 60:  # garde-fou : 60 pages × 1000 = 60k événements max
         url = f"https://ucdpapi.pcr.uu.se/api/gedevents/{version}?pagesize=1000&page={page}"
         try:
-            data = http_json(url)
+            data = http_json(url, headers=ucdp_headers)
         except Exception as e:  # noqa: BLE001
             print(f"  ⚠ page {page} : {e}")
             break
