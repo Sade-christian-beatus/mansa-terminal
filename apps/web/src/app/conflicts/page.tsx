@@ -71,7 +71,7 @@ export default function ConflictsPage() {
   const [sortBy, setSortBy]           = useState<"fatalities_2024" | "events_2024">("fatalities_2024");
   const [expanded, setExpanded]       = useState<string | null>(null);
 
-  const { data } = useQuery({
+  const { data, isLoading } = useQuery({
     queryKey: ["conflicts", riskFilter, sortBy],
     queryFn:  () => api.get(`/acled/events?sort_by=${sortBy}${riskFilter ? `&risk_level=${riskFilter}` : ""}&limit=54`).then(r => r.data).catch(() => null),
     staleTime: 1000 * 60 * 30,
