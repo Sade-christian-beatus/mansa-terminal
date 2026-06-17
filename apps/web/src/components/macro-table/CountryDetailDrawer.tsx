@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
 import {
@@ -10,12 +10,21 @@ import { X, ExternalLink, TrendingUp, TrendingDown, Minus } from "lucide-react";
 
 import { forecastApi, type ForecastResult } from "@/lib/api";
 import {
-  MANSA_NAVY, MANSA_GOLD, INDICATOR_BY_CODE, formatValue, valueColor,
+  MANSA_NAVY, MANSA_GOLD, INDICATOR_BY_CODE, INDICATOR_CATALOG, formatValue, valueColor,
   computeBadge, type CountryDatum,
 } from "./data";
+import { getCentralBank, getStatsInstitute } from "@/lib/national-sources";
 import { Flag, PerfBadge } from "./ui";
 
 const DETAIL_INDICATORS = ["NGDP_RPCH", "PCPIPCH", "GGXWDG_NGDP", "BCA_NGDPD"];
+
+type DrawerTab = "overview" | "charts" | "indicators" | "sources";
+const TABS: { key: DrawerTab; label: string }[] = [
+  { key: "overview",    label: "Aperçu"       },
+  { key: "charts",      label: "Graphiques"   },
+  { key: "indicators",  label: "Indicateurs"  },
+  { key: "sources",     label: "Sources"      },
+];
 
 interface ChartPoint { year: number; hist: number | null; fcst: number | null; }
 
@@ -97,9 +106,13 @@ export function CountryDetailDrawer({ country, onClose }: { country: CountryDatu
     staleTime: 1000 * 60 * 30,
     retry: false,
   });
+  const [tab, setTab] = useState<DrawerTab>("overview");
 
   if (!country) return null;
   const badge = computeBadge(country.values);
+  const centralBank = getCentralBank(country.id);
+  const statsInstitute = getStatsInstitute(country.id);
+  const presentValues = INDICATOR_CATALOG.filter((def) => country.values[def.code] != null);
 
   return (
     <div className="fixed inset-0 z-50 flex justify-end" role="dialog" aria-modal="true">
@@ -132,46 +145,120 @@ export function CountryDetailDrawer({ country, onClose }: { country: CountryDatu
               className="ml-auto text-xs flex items-center gap-1 px-2.5 py-1 rounded-lg font-medium"
               style={{ background: MANSA_GOLD, color: MANSA_NAVY }}
             >
-              Fiche complète <ExternalLink size={11} />
+              Profil complet <ExternalLink size={11} />
             </Link>
+          </div>
+
+          {/* Onglets */}
+          <div className="mt-3 flex items-center gap-1">
+            {TABS.map((tb) => (
+              <button key={tb.key} onClick={() => setTab(tb.key)}
+                className="text-xs px-3 py-1.5 rounded-lg font-medium transition-colors"
+                style={tab === tb.key
+                  ? { background: MANSA_GOLD, color: MANSA_NAVY }
+                  : { background: "rgba(255,255,255,0.08)", color: "rgba(255,255,255,0.75)" }}>
+                {tb.label}
+              </button>
+            ))}
           </div>
         </div>
 
-        {/* KPIs principaux */}
         <div className="p-5">
-          <h3 className="text-xs font-semibold uppercase tracking-wider mb-3" style={{ color: "var(--text-muted)" }}>
-            Indicateurs clés
-          </h3>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-            {DETAIL_INDICATORS.map((code) => <KPI key={code} code={code} value={country.values[code]} />)}
-          </div>
-
-          {/* Graphiques historique + prévisions */}
-          <div className="flex items-center justify-between mt-6 mb-3">
-            <h3 className="text-xs font-semibold uppercase tracking-wider" style={{ color: "var(--text-muted)" }}>
-              Historique & prévisions
-            </h3>
-            <div className="flex items-center gap-3 text-[10px]" style={{ color: "var(--text-muted)" }}>
-              <span className="flex items-center gap-1"><span className="w-3 h-0.5" style={{ background: MANSA_NAVY }} /> Historique</span>
-              <span className="flex items-center gap-1"><span className="w-3 h-0.5" style={{ background: MANSA_GOLD }} /> Prévision</span>
-            </div>
-          </div>
-
-          {isLoading ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {DETAIL_INDICATORS.map((c) => <div key={c} className="h-[160px] rounded-xl skeleton" />)}
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {DETAIL_INDICATORS.map((code) => (
-                <MiniChart key={code} code={code} series={buildSeries(data?.forecasts?.[code])} />
-              ))}
-            </div>
+          {/* ── Aperçu ── */}
+          {tab === "overview" && (
+            <>
+              <h3 className="text-xs font-semibold uppercase tracking-wider mb-3" style={{ color: "var(--text-muted)" }}>
+                Indicateurs clés
+              </h3>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                {DETAIL_INDICATORS.map((code) => <KPI key={code} code={code} value={country.values[code]} />)}
+              </div>
+              <div className="flex items-center justify-between mt-6 mb-3">
+                <h3 className="text-xs font-semibold uppercase tracking-wider" style={{ color: "var(--text-muted)" }}>
+                  Tendance long terme — Croissance PIB
+                </h3>
+              </div>
+              {isLoading
+                ? <div className="h-[160px] rounded-xl skeleton" />
+                : <MiniChart code="NGDP_RPCH" series={buildSeries(data?.forecasts?.["NGDP_RPCH"])} />}
+            </>
           )}
 
-          <p className="text-[10px] mt-4" style={{ color: "var(--text-muted)" }}>
-            Sources : FMI World Economic Outlook · Banque Mondiale WDI. Prévisions générées par modèle statistique MANSA (ARIMA/lissage) sur la base des séries historiques officielles.
-          </p>
+          {/* ── Graphiques ── */}
+          {tab === "charts" && (
+            <>
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-xs font-semibold uppercase tracking-wider" style={{ color: "var(--text-muted)" }}>
+                  Historique & prévisions
+                </h3>
+                <div className="flex items-center gap-3 text-[10px]" style={{ color: "var(--text-muted)" }}>
+                  <span className="flex items-center gap-1"><span className="w-3 h-0.5" style={{ background: MANSA_NAVY }} /> Historique</span>
+                  <span className="flex items-center gap-1"><span className="w-3 h-0.5" style={{ background: MANSA_GOLD }} /> Prévision</span>
+                </div>
+              </div>
+              {isLoading ? (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {DETAIL_INDICATORS.map((c) => <div key={c} className="h-[160px] rounded-xl skeleton" />)}
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {DETAIL_INDICATORS.map((code) => (
+                    <MiniChart key={code} code={code} series={buildSeries(data?.forecasts?.[code])} />
+                  ))}
+                </div>
+              )}
+            </>
+          )}
+
+          {/* ── Indicateurs ── */}
+          {tab === "indicators" && (
+            <>
+              <h3 className="text-xs font-semibold uppercase tracking-wider mb-3" style={{ color: "var(--text-muted)" }}>
+                Tous les indicateurs ({presentValues.length})
+              </h3>
+              <div className="space-y-1">
+                {presentValues.map((def) => (
+                  <div key={def.code} className="flex items-center gap-3 py-1.5 border-b last:border-0" style={{ borderColor: "var(--bg-border)" }}>
+                    <span className="text-xs flex-1" style={{ color: "var(--text-secondary)" }}>{def.label}</span>
+                    <span className="text-xs font-mono font-semibold" style={{ color: valueColor(def, country.values[def.code]) }}>
+                      {formatValue(def, country.values[def.code])}
+                    </span>
+                    <span className="text-[10px] font-mono w-14 text-right" style={{ color: "var(--text-muted)" }}>{def.unit}</span>
+                  </div>
+                ))}
+                {presentValues.length === 0 && (
+                  <p className="text-xs" style={{ color: "var(--text-muted)" }}>Aucun indicateur disponible.</p>
+                )}
+              </div>
+            </>
+          )}
+
+          {/* ── Sources ── */}
+          {tab === "sources" && (
+            <>
+              <h3 className="text-xs font-semibold uppercase tracking-wider mb-3" style={{ color: "var(--text-muted)" }}>
+                Sources de données
+              </h3>
+              <ul className="space-y-2 text-xs" style={{ color: "var(--text-secondary)" }}>
+                <li>• FMI — World Economic Outlook (croissance, inflation, dette, solde, compte courant)</li>
+                <li>• Banque Mondiale — World Development Indicators</li>
+                {statsInstitute && (
+                  <li>• {statsInstitute.name} ({statsInstitute.abbrev}){statsInstitute.url ? ` — ${statsInstitute.url}` : ""}</li>
+                )}
+                {centralBank && (
+                  <li>• {centralBank.name} ({centralBank.abbrev}){centralBank.url ? ` — ${centralBank.url}` : ""}</li>
+                )}
+              </ul>
+              <Link href={`/countries/${country.id}`}
+                className="inline-flex items-center gap-1 mt-4 text-xs font-medium px-3 py-1.5 rounded-lg"
+                style={{ background: "var(--input-bg)", color: "var(--text-primary)", border: "1px solid var(--bg-border)" }}>
+                Voir les sources nationales détaillées <ExternalLink size={11} />
+              </Link>
+              <p className="text-[10px] mt-4" style={{ color: "var(--text-muted)" }}>
+                Prévisions générées par modèle statistique MANSA (ARIMA/lissage) sur la base des séries historiques officielles.
+              </p>
+            </>
+          )}
         </div>
       </div>
     </div>

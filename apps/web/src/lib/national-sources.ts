@@ -114,6 +114,12 @@ const POLICY_RATE: Record<string, { rate: number; period: string }> = {
   MOZ: { rate: 15.0,  period: "2024-04" }, DZA: { rate: 3.0,  period: "2024-01" },
 };
 
+/** Moyenne continentale des taux directeurs connus (pour la carte KPI). */
+export function averagePolicyRate(): number {
+  const rates = Object.values(POLICY_RATE).map((p) => p.rate);
+  return Math.round((rates.reduce((a, b) => a + b, 0) / rates.length) * 100) / 100;
+}
+
 export function getCentralBank(countryId: string): Institution | null {
   const cid = countryId.toUpperCase();
   if (UEMOA.has(cid)) return BCEAO;
