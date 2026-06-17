@@ -8,20 +8,24 @@ dashboard (`/`).
 
 ```
 components/macro-table/
-├── data.ts                 # Types, catalogue d'indicateurs catégorisé, dataset
-│                           # de repli (FMI WEO 2024), badges, helpers (rang,
-│                           # moyenne régionale, formatage, coloration).
-├── ui.tsx                  # Primitives partagées : Flag (flagcdn), PerfBadge.
-├── MacroTable.tsx          # Orchestrateur : toolbar (recherche/région/année/
-│                           # export), tableau multi-catégories triable, badges,
-│                           # sélection comparaison, ouverture détail/AI Brief.
-├── CountryDetailDrawer.tsx # Panneau latéral : KPIs + 4 mini-graphiques
-│                           # historique (navy) + prévision (or) via forecastApi.
-├── CompareView.tsx         # Comparaison 2–10 pays : radar normalisé, courbes
-│                           # superposées, tableau (valeurs + moy. Afrique + rang),
-│                           # export PNG du radar.
-├── AIBriefModal.tsx        # Résumé exécutif streamé (Claude via streamAIQuery).
-└── README.md               # Ce fichier.
+├── data.ts                  # Types, catalogue d'indicateurs catégorisé, dataset
+│                            # de repli (FMI WEO 2024), badges, helpers (rang,
+│                            # moyenne régionale, formatage, coloration).
+├── ui.tsx                   # Primitives partagées : Flag (flagcdn), PerfBadge,
+│                            # Sparkline (SVG léger), ScoreBar, heatBg (heatmap).
+├── MacroTable.tsx           # Orchestrateur : titre + actions, barre de filtres
+│                            # (vue/région/catégorie/tri/période/reset), bandeau
+│                            # 6 KPI à sparklines, tableau multi-catégories triable
+│                            # avec heatmap + sparklines en cellule, score MANSA,
+│                            # pagination, personnalisation des colonnes, toasts.
+├── CountryInsightPanel.tsx  # Panneau latéral persistant repliable : onglets
+│                            # Aperçu / Graphiques / Indicateurs / Sources ; mini-
+│                            # graphiques historique + prévision (or) via forecastApi.
+├── CompareView.tsx          # Comparaison 2–10 pays : radar normalisé, courbes
+│                            # superposées, tableau (valeurs + moy. Afrique + rang),
+│                            # export PNG du radar.
+├── AIBriefModal.tsx         # Résumé exécutif streamé (Claude via streamAIQuery).
+└── README.md                # Ce fichier.
 ```
 
 ## Flux de données
@@ -74,15 +78,17 @@ PDF brandé MANSA, et `exportSVGtoPNG` (capture des graphiques Recharts).
 
 ## Performance
 
-React Query (cache + dédup), `useMemo` sur filtrage/tri/agrégats, rendu paginé
-(15 lignes + expansion), colonnes pilotées par les indicateurs présents. Le module
-reste fluide avec 54 pays × 28 indicateurs.
+React Query (cache + dédup), `useMemo` sur filtrage/tri/agrégats/plages heatmap,
+rendu paginé (10/25/50 lignes), sparklines en cellule rendues en SVG léger (sans
+Recharts) pour rester fluides à grande échelle, colonnes pilotées par les
+indicateurs présents. Le module reste fluide avec 54 pays × 28 indicateurs.
 
 ## Palette
 
-Bleu nuit `#1F3A5F` (en-têtes, historique) · Or `#C9A227` (accents, prévisions,
-sélection). Les fonds restent sur les variables de thème (`--card-bg`, etc.) pour
-compatibilité mode clair/sombre.
+Accent teal du thème MANSA (`--mansa-green`) pour la sélection, les sparklines
+favorables et les actions ; or `#C9A227` réservé aux prévisions et au tri actif.
+Heatmap des cellules en vert/rouge translucide. Tous les fonds passent par les
+variables de thème (`--card-bg`, etc.) → compatibilité mode clair/sombre.
 
 ## Évolutions (phase 2)
 
