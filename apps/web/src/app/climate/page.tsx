@@ -41,6 +41,49 @@ interface ClimateSummary {
   };
 }
 
+/* ─── Carte feux actifs NASA FIRMS (temps réel) ─────────────── */
+function ActiveFiresBanner() {
+  const { data } = useQuery({
+    queryKey: ["active-fires"],
+    queryFn: () => climateApi.getActiveFires(),
+    staleTime: 1000 * 60 * 30,
+    retry: false,
+  });
+  if (!data || !data.is_live) return null;
+  const regionFr: Record<string, string> = {
+    "North Africa": "Afrique du Nord", "West Africa": "Afrique de l'Ouest",
+    "Central Africa": "Afrique Centrale", "East Africa": "Afrique de l'Est",
+    "Southern Africa": "Afrique Australe",
+  };
+  const entries = Object.entries(data.by_region);
+  const max = Math.max(...entries.map(([, n]) => n), 1);
+  return (
+    <div className="mansa-card rounded-2xl p-5">
+      <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
+        <div className="flex items-center gap-2">
+          <Flame size={16} style={{ color: "#F97316" }} />
+          <h2 className="text-sm font-bold" style={{ color: "var(--text-primary)" }}>Feux actifs — temps réel</h2>
+          <span className="text-[10px] px-1.5 py-0.5 rounded font-bold" style={{ background: "#10B98122", color: "#10B981" }}>LIVE</span>
+        </div>
+        <span className="text-xs" style={{ color: "var(--text-muted)" }}>
+          {data.total.toLocaleString("fr-FR")} détections · NASA FIRMS VIIRS · {data.as_of}
+        </span>
+      </div>
+      <div className="space-y-1.5">
+        {entries.map(([reg, n]) => (
+          <div key={reg} className="flex items-center gap-2">
+            <span className="text-xs w-36 flex-shrink-0" style={{ color: "var(--text-secondary)" }}>{regionFr[reg] ?? reg}</span>
+            <div className="flex-1 h-3 rounded overflow-hidden" style={{ background: "var(--input-bg)" }}>
+              <div className="h-full rounded" style={{ width: `${(n / max) * 100}%`, background: "linear-gradient(90deg,#F59E0B,#EF4444)" }} />
+            </div>
+            <span className="text-xs font-mono font-semibold w-14 text-right" style={{ color: "var(--text-primary)" }}>{n.toLocaleString("fr-FR")}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 /* ─── Données EM-DAT simulées (seront remplacées par API) ── */
 const EMDAT_DISASTERS = [
   { country: "Kenya",         flag: "🇰🇪", type: "flood",    deaths: 59,   affected: 27_000, year: 2025, impact: "Mombasa & Nairobi inondées" },
@@ -307,6 +350,9 @@ export default function ClimatePage() {
           <KpiStat icon={TrendingUp} label="Finance climatique"      value={`$${(summary.continent_averages.total_climate_finance_m_usd / 1000).toFixed(1)}B`} unit="" color="#3B82F6" sub="Total reçu (réf. 2022)" />
         </div>
       )}
+
+      {/* ── Feux actifs (NASA FIRMS, temps réel) ── */}
+      <ActiveFiresBanner />
 
       {/* ── Tabs ── */}
       <div className="flex items-center gap-1 border-b overflow-x-auto" style={{ borderColor: "var(--bg-border)" }}>

@@ -110,6 +110,7 @@ class Settings(BaseSettings):
     ACLED_API_KEY: str = ""
     ACLED_EMAIL: str = ""
     NASA_EARTHDATA_TOKEN: str = ""
+    NASA_FIRMS_MAP_KEY: str = ""   # firms.modaps.eosdis.nasa.gov — feux actifs (VIIRS)
 
     # AWS — hors scope MVP
     AWS_ACCESS_KEY_ID: str = ""
