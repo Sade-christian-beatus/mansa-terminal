@@ -88,6 +88,21 @@ export function MacroTable() {
 
   const displayed = showAll ? rows : rows.slice(0, 15);
 
+  // ── Synthèse continentale (interactive) ────────────────────────────────────
+  const summary = useMemo(() => {
+    const mean = (code: string) => {
+      const v = rows.map((r) => r.values[code]).filter((x): x is number => x != null);
+      return v.length ? v.reduce((a, b) => a + b, 0) / v.length : null;
+    };
+    const best = [...rows].sort((a, b) => computeBadge(b.values).score - computeBadge(a.values).score)[0];
+    return {
+      growth: mean("NGDP_RPCH"),
+      inflation: mean("PCPIPCH"),
+      debt: mean("GGXWDG_NGDP"),
+      best,
+    };
+  }, [rows]);
+
   const handleSort = (code: string) => {
     if (sortKey === code) setSortDir((d) => (d === "desc" ? "asc" : "desc"));
     else { setSortKey(code); setSortDir("desc"); }
@@ -203,6 +218,44 @@ export function MacroTable() {
           {[["#10B981","🟢 Très favorable"],["#F59E0B","🟡 Modéré"],["#F97316","🟠 Surveillance"],["#EF4444","🔴 Risque élevé"]].map(([c, l]) => (
             <span key={l} className="flex items-center gap-1"><span className="w-2 h-2 rounded-full" style={{ background: c }} />{l}</span>
           ))}
+        </div>
+      </div>
+
+      {/* ── Synthèse continentale interactive ── */}
+      <div className="px-5 py-4 border-b grid grid-cols-2 lg:grid-cols-4 gap-3" style={{ borderColor: "var(--bg-border)" }}>
+        {([
+          { code: "NGDP_RPCH",   label: "Croissance moy.", value: summary.growth,    unit: "%",     color: (summary.growth ?? 0) >= 4 ? "#10B981" : (summary.growth ?? 0) >= 2 ? "#F59E0B" : "#EF4444", signed: true },
+          { code: "PCPIPCH",     label: "Inflation moy.",  value: summary.inflation, unit: "%",     color: (summary.inflation ?? 0) < 6 ? "#10B981" : (summary.inflation ?? 0) < 15 ? "#F59E0B" : "#EF4444", signed: false },
+          { code: "GGXWDG_NGDP", label: "Dette moy.",      value: summary.debt,      unit: "% PIB", color: (summary.debt ?? 0) < 60 ? "#10B981" : (summary.debt ?? 0) < 80 ? "#F59E0B" : "#EF4444", signed: false },
+        ] as const).map((s) => {
+          const active = sortKey === s.code;
+          return (
+            <button key={s.code} onClick={() => { setSortKey(s.code); setSortDir("desc"); }}
+              className="text-left rounded-xl border p-3 transition-all hover:-translate-y-0.5"
+              style={{ background: active ? `color-mix(in srgb, ${MANSA_GOLD} 8%, var(--card-bg))` : "var(--card-bg)", borderColor: active ? MANSA_GOLD : "var(--bg-border)" }}>
+              <div className="text-[10px] uppercase tracking-wide mb-1 flex items-center justify-between" style={{ color: "var(--text-muted)" }}>
+                {s.label}
+                {active && <span style={{ color: MANSA_GOLD }}>{sortDir === "desc" ? "↓" : "↑"}</span>}
+              </div>
+              <div className="text-2xl font-bold font-mono" style={{ color: s.color }}>
+                {s.value != null ? `${s.signed && s.value >= 0 ? "+" : ""}${s.value.toFixed(1)}` : "—"}
+                <span className="text-xs font-normal ml-1" style={{ color: "var(--text-muted)" }}>{s.unit}</span>
+              </div>
+            </button>
+          );
+        })}
+        {/* Top performance */}
+        <div className="rounded-xl border p-3" style={{ background: `color-mix(in srgb, ${MANSA_NAVY} 6%, var(--card-bg))`, borderColor: "var(--bg-border)" }}>
+          <div className="text-[10px] uppercase tracking-wide mb-1" style={{ color: "var(--text-muted)" }}>Top performance</div>
+          {summary.best ? (
+            <button onClick={() => setDrawer(summary.best!)} className="flex items-center gap-2 mt-1">
+              <Flag iso3={summary.best.id} />
+              <div className="text-left">
+                <div className="text-sm font-bold leading-tight" style={{ color: "var(--text-primary)" }}>{summary.best.name}</div>
+                <div className="text-[10px]" style={{ color: "var(--text-muted)" }}>score {computeBadge(summary.best.values).score}/100</div>
+              </div>
+            </button>
+          ) : <span className="text-sm" style={{ color: "var(--text-muted)" }}>—</span>}
         </div>
       </div>
 
