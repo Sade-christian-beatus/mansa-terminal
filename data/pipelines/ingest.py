@@ -225,10 +225,17 @@ def fetch_wb() -> list[tuple]:
 
 # ── Base de données ─────────────────────────────────────────────────────────
 def normalize_sync_url(url: str) -> str:
+    """Adapte l'URL pour psycopg2 : driver sync, retrait des paramètres non-libpq
+    (ex: pgbouncer fourni par le pooler Supabase), ajout de sslmode=require."""
     url = url.replace("postgresql+asyncpg://", "postgresql://").replace("postgres://", "postgresql://")
-    if "sslmode=" not in url:
-        url += ("&" if "?" in url else "?") + "sslmode=require"
-    return url
+    parts = urllib.parse.urlsplit(url)
+    params = urllib.parse.parse_qsl(parts.query, keep_blank_values=True)
+    # libpq ne connaît pas "pgbouncer" → le retirer pour éviter l'échec de connexion
+    params = [(k, v) for k, v in params if k.lower() not in ("pgbouncer",)]
+    if not any(k.lower() == "sslmode" for k, _ in params):
+        params.append(("sslmode", "require"))
+    new_query = urllib.parse.urlencode(params)
+    return urllib.parse.urlunsplit((parts.scheme, parts.netloc, parts.path, new_query, parts.fragment))
 
 
 def seed_countries(cur) -> None:
