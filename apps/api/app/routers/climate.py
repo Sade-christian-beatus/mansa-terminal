@@ -2,11 +2,18 @@
 MANSA Terminal — Router Climate & ESG (Phase 2)
 Indicateurs climat, énergie, environnement pour les 54 pays africains
 """
+import csv as _csv
+import io
+import time
+from collections import Counter
 from typing import Annotated, Optional
+
+import httpx
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, and_
 
+from app.core.config import settings
 from app.core.database import get_db
 from app.core.dependencies import require_active_subscription
 from app.models.models import User, MacroIndicator, Country
@@ -103,6 +110,85 @@ async def get_climate_indicators(
             for d in CLIMATE_FALLBACK
         ],
     }
+
+
+# ── NASA FIRMS — feux actifs (near real-time) ───────────────────────────────
+# Cache process 1h pour éviter de solliciter FIRMS à chaque requête.
+_FIRMS_CACHE: dict = {"ts": 0.0, "data": None}
+_AFRICA_BBOX = "-20,-38,55,38"   # ouest,sud,est,nord
+
+
+def _fire_region(lat: float, lon: float) -> str:
+    """Classe une détection de feu dans une des 5 régions (mutuellement exclusives)."""
+    if lat >= 21:
+        return "North Africa"
+    if lat <= -12:
+        return "Southern Africa"
+    if lon < 8 and lat >= 4:
+        return "West Africa"
+    if lon >= 33:
+        return "East Africa"
+    return "Central Africa"
+
+
+@router.get("/active-fires")
+async def get_active_fires(
+    current_user: Annotated[User, Depends(require_active_subscription)],
+):
+    """
+    Feux actifs sur l'Afrique (NASA FIRMS, VIIRS SNPP, ~48h glissantes).
+    Données réelles si NASA_FIRMS_MAP_KEY est configurée. Agrégées par région
+    + cellules hotspots (1°×1°). Cache process de 1h.
+    """
+    key = settings.NASA_FIRMS_MAP_KEY
+    empty = {"is_live": False, "total": 0, "by_region": {}, "hotspots": [], "as_of": None}
+    if not key:
+        return {**empty, "note": "NASA_FIRMS_MAP_KEY non configurée"}
+
+    now = time.time()
+    cached = _FIRMS_CACHE.get("data")
+    if cached and now - _FIRMS_CACHE["ts"] < 3600:
+        return cached
+
+    url = f"https://firms.modaps.eosdis.nasa.gov/api/area/csv/{key}/VIIRS_SNPP_NRT/{_AFRICA_BBOX}/2"
+    try:
+        async with httpx.AsyncClient(timeout=60) as client:
+            resp = await client.get(url, headers={"User-Agent": "MANSA-Terminal/1.0"})
+            resp.raise_for_status()
+            text = resp.text
+    except Exception as exc:  # noqa: BLE001
+        return {**empty, "note": f"FIRMS indisponible : {exc}"}
+
+    by_region: Counter = Counter()
+    cells: Counter = Counter()
+    total = 0
+    latest = ""
+    for row in _csv.DictReader(io.StringIO(text)):
+        try:
+            lat = float(row["latitude"])
+            lon = float(row["longitude"])
+        except (KeyError, ValueError):
+            continue
+        by_region[_fire_region(lat, lon)] += 1
+        cells[(round(lat), round(lon))] += 1
+        total += 1
+        d = row.get("acq_date", "")
+        if d > latest:
+            latest = d
+
+    result = {
+        "is_live": True,
+        "source": "NASA FIRMS — VIIRS SNPP (near real-time, ~48h)",
+        "total": total,
+        "by_region": dict(by_region.most_common()),
+        "hotspots": [
+            {"lat": la, "lon": lo, "fires": n}
+            for (la, lo), n in cells.most_common(8)
+        ],
+        "as_of": latest or None,
+    }
+    _FIRMS_CACHE.update(ts=now, data=result)
+    return result
 
 
 @router.get("/summary")

@@ -161,6 +161,15 @@ export const conflictsApi = {
 export const climateApi = {
   getIndicators: (year?: number) => api.get("/climate/indicators", { params: { year } }),
   getSummary:    () => api.get("/climate/summary"),
+  getActiveFires: () => api.get<{
+    is_live: boolean;
+    source?: string;
+    total: number;
+    by_region: Record<string, number>;
+    hotspots: { lat: number; lon: number; fires: number }[];
+    as_of: string | null;
+    note?: string;
+  }>("/climate/active-fires"),
 };
 
 // ── Helpers News ─────────────────────────────────────────────────────────
