@@ -294,9 +294,9 @@ export default function RegionsPage() {
       })).filter(c => c.name);
 
   // Agrégats régionaux
-  const avgGrowth    = displayCountries.reduce((s, c) => s + (c.growth ?? c.indicators?.NGDP_RPCH ?? 0), 0) / (displayCountries.length || 1);
-  const avgInflation = displayCountries.reduce((s, c) => s + (c.inflation ?? c.indicators?.PCPIPCH ?? 0), 0) / (displayCountries.length || 1);
-  const avgDebt      = displayCountries.reduce((s, c) => s + (c.debt ?? c.indicators?.GGXWDG_NGDP ?? 0), 0) / (displayCountries.length || 1);
+  const avgGrowth    = displayCountries.reduce((s: number, c: any) => s + (c.growth ?? c.indicators?.NGDP_RPCH ?? 0), 0) / (displayCountries.length || 1);
+  const avgInflation = displayCountries.reduce((s: number, c: any) => s + (c.inflation ?? c.indicators?.PCPIPCH ?? 0), 0) / (displayCountries.length || 1);
+  const avgDebt      = displayCountries.reduce((s: number, c: any) => s + (c.debt ?? c.indicators?.GGXWDG_NGDP ?? 0), 0) / (displayCountries.length || 1);
 
   return (
     <div className="flex-1 overflow-y-auto p-6 space-y-6">
