@@ -7,15 +7,46 @@ Phase 2 : Intégration API ACLED (acleddata.com — inscription gratuite requise
           Ajouter ACLED_API_KEY + ACLED_EMAIL dans .env et décommenter le bloc live.
 """
 import logging
-from datetime import date, timedelta
 from typing import Annotated, Optional
 
 from fastapi import APIRouter, Depends, Query
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
+
+from app.core.database import get_db
 from app.core.dependencies import require_active_subscription
-from app.models.models import User
+from app.models.models import User, MacroIndicator
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
+
+
+async def _live_conflict_overlay(db: AsyncSession) -> dict[str, dict]:
+    """
+    Récupère les conflits réels ingérés (CONFLICT_EVENTS / CONFLICT_FATALITIES,
+    source UCDP/ACLED) et retourne {iso3: {events, fatalities, year}} pour
+    l'année la plus récente disponible par pays. Vide si rien en base.
+    """
+    result = await db.execute(
+        select(
+            MacroIndicator.country_id,
+            MacroIndicator.indicator_code,
+            MacroIndicator.value,
+            MacroIndicator.period,
+        ).where(MacroIndicator.indicator_code.in_(["CONFLICT_EVENTS", "CONFLICT_FATALITIES"]))
+    )
+    latest: dict[str, dict] = {}
+    for country_id, code, value, period in result.fetchall():
+        entry = latest.setdefault(country_id, {"events": 0, "fatalities": 0, "year": ""})
+        if period < entry["year"]:
+            continue
+        if period > entry["year"]:
+            entry.update(events=0, fatalities=0, year=period)
+        if code == "CONFLICT_EVENTS":
+            entry["events"] = int(value or 0)
+        else:
+            entry["fatalities"] = int(value or 0)
+    return latest
 
 # ── Données conflits Afrique 2024 (source : ACLED Annual Report 2024) ──────
 # Structure : country_id, name, flag, region, events_2024, fatalities_2024,
@@ -236,6 +267,7 @@ TREND_LABELS = {
 @router.get("/events")
 async def get_conflict_events(
     current_user: Annotated[User, Depends(require_active_subscription)],
+    db: AsyncSession = Depends(get_db),
     risk_level:   Optional[str]  = Query(None, description="critical, high, medium, low"),
     region:       Optional[str]  = Query(None, description="West Africa, East Africa, …"),
     sort_by:      str            = Query("fatalities_2024", description="fatalities_2024 ou events_2024"),
@@ -243,11 +275,25 @@ async def get_conflict_events(
 ):
     """
     Données de conflits armés pour les pays africains.
-    Source : Armed Conflict Location & Event Data Project (ACLED).
-    Phase 1 : Données synthétiques structurées basées sur ACLED Annual Report 2024.
-    Phase 2 : Intégration API live avec ACLED_API_KEY.
+    Si des données réelles UCDP/ACLED ont été ingérées (CONFLICT_EVENTS /
+    CONFLICT_FATALITIES), elles remplacent les chiffres de référence et
+    `is_live` passe à True. Sinon, données structurées (ACLED Annual Report 2024).
     """
-    data = CONFLICT_DATA.copy()
+    overlay = await _live_conflict_overlay(db)
+
+    # Copie profonde + superposition des vrais chiffres quand disponibles
+    data = []
+    for d in CONFLICT_DATA:
+        item = dict(d)
+        live = overlay.get(d["country_id"])
+        if live:
+            item["events_2024"] = live["events"]
+            item["fatalities_2024"] = live["fatalities"]
+            item["data_year"] = live["year"]
+        data.append(item)
+
+    is_live = bool(overlay)
+    all_data = data
 
     if risk_level:
         data = [d for d in data if d["risk_level"] == risk_level]
@@ -266,8 +312,7 @@ async def get_conflict_events(
             "trend_label":  TREND_LABELS.get(d["trend"], d["trend"]),
         })
 
-    # Résumé global
-    all_data = CONFLICT_DATA
+    # Résumé global (sur tous les pays, après superposition des vrais chiffres)
     summary = {
         "critical": sum(1 for d in all_data if d["risk_level"] == "critical"),
         "high":     sum(1 for d in all_data if d["risk_level"] == "high"),
@@ -281,9 +326,11 @@ async def get_conflict_events(
     return {
         "events":   enriched,
         "summary":  summary,
-        "is_live":  False,
-        "source":   "ACLED Annual Report 2024 — données synthétiques structurées",
-        "note":     "Intégration API ACLED live disponible avec ACLED_API_KEY dans .env",
+        "is_live":  is_live,
+        "source":   "UCDP / ACLED — données réelles ingérées" if is_live
+                    else "ACLED Annual Report 2024 — données synthétiques structurées",
+        "note":     None if is_live
+                    else "Lancer ingest_conflicts.py (UCDP/ACLED) pour les données live",
         "as_of":    "2024-12-31",
     }
 
