@@ -104,13 +104,13 @@ async def sync_user(
         await db.flush()
         await db.refresh(user)
 
-        # Créer un abonnement trial 30j automatiquement
+        # Créer un abonnement trial 14j automatiquement
         trial_sub = Subscription(
             user_id=user.id,
             plan="professional",
             status="trialing",
             seats=1,
-            trial_ends_at=datetime.now(timezone.utc) + timedelta(days=30),
+            trial_ends_at=datetime.now(timezone.utc) + timedelta(days=14),
         )
         db.add(trial_sub)
         await db.commit()

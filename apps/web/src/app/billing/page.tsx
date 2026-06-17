@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "@/lib/api";
-import { Check, Zap, Shield, Building2, ExternalLink } from "lucide-react";
+import { Check, Zap, Shield, Building2, ExternalLink, X, Minus } from "lucide-react";
 
 const PLAN_ICONS = {
   starter: Zap,
@@ -195,6 +195,60 @@ export default function BillingPage() {
         </div>
       )}
 
+      {/* Matrice comparative des fonctionnalités */}
+      <div className="mansa-card rounded-2xl overflow-hidden">
+        <div className="p-5 border-b" style={{ borderColor: "var(--bg-border)" }}>
+          <h2 className="font-bold text-sm" style={{ color: "var(--text-primary)" }}>
+            Règles et limites par type de compte
+          </h2>
+          <p className="text-xs mt-1" style={{ color: "var(--text-muted)" }}>
+            Comparaison complète des accès et quotas par plan
+          </p>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-xs">
+            <thead>
+              <tr style={{ background: "var(--input-bg)" }}>
+                <th className="text-left px-5 py-3 font-semibold" style={{ color: "var(--text-muted)", width: "35%" }}>
+                  Fonctionnalité
+                </th>
+                {[
+                  { key: "trial",        label: "Essai",         sub: "14 jours",    color: "#A78BFA" },
+                  { key: "starter",      label: "Starter",       sub: "$50k/an",     color: "#3B82F6" },
+                  { key: "professional", label: "Professional",  sub: "$100k/an",    color: "#00D4AA" },
+                  { key: "enterprise",   label: "Enterprise",    sub: "Sur mesure",  color: "#F59E0B" },
+                ].map((p) => (
+                  <th key={p.key} className="text-center px-4 py-3" style={{ color: p.color, fontWeight: 700 }}>
+                    {p.label}
+                    <div className="text-[10px] font-normal mt-0.5" style={{ color: "var(--text-muted)" }}>{p.sub}</div>
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {FEATURE_MATRIX.map((row, i) => (
+                <tr
+                  key={row.label}
+                  style={{
+                    background: i % 2 === 0 ? "transparent" : "var(--input-bg)",
+                    borderTop: "1px solid var(--bg-border)",
+                  }}
+                >
+                  <td className="px-5 py-3 font-medium" style={{ color: "var(--text-secondary)" }}>
+                    {row.label}
+                  </td>
+                  {(["trial", "starter", "professional", "enterprise"] as const).map((plan) => (
+                    <td key={plan} className="px-4 py-3 text-center">
+                      <FeatureCell value={row[plan]} />
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
       {/* Note développement */}
       <p className="text-xs text-gray-600 text-center">
         Paiements sécurisés via Stripe. Annulation possible à tout moment.
@@ -202,3 +256,40 @@ export default function BillingPage() {
     </div>
   );
 }
+
+type CellValue = true | false | null | string;
+
+function FeatureCell({ value }: { value: CellValue }) {
+  if (value === true)  return <Check size={14} className="mx-auto" style={{ color: "#00D4AA" }} />;
+  if (value === false) return <X    size={14} className="mx-auto" style={{ color: "#EF4444" }} />;
+  if (value === null)  return <Minus size={14} className="mx-auto" style={{ color: "#6B7280" }} />;
+  return <span style={{ color: "var(--text-primary)", fontWeight: 600 }}>{value}</span>;
+}
+
+const FEATURE_MATRIX: Array<{
+  label: string;
+  trial: CellValue;
+  starter: CellValue;
+  professional: CellValue;
+  enterprise: CellValue;
+}> = [
+  { label: "Durée / Renouvellement",      trial: "14 jours",   starter: "Annuel",     professional: "Annuel",    enterprise: "Annuel"      },
+  { label: "Nombre de sièges",             trial: "1",          starter: "1",          professional: "5",         enterprise: "25"           },
+  { label: "Pays africains (données)",     trial: "54",         starter: "54",         professional: "54",        enterprise: "54"           },
+  { label: "Indicateurs macro de base",    trial: true,         starter: true,         professional: true,        enterprise: true           },
+  { label: "Indicateurs avancés",          trial: true,         starter: false,        professional: true,        enterprise: true           },
+  { label: "MANSA AI — requêtes/jour",     trial: "50/j",       starter: "20/j",       professional: "100/j",     enterprise: "500/j"        },
+  { label: "MANSA AI — requêtes/mois",     trial: "50",         starter: "100",        professional: "illimité",  enterprise: "illimité"     },
+  { label: "Accès API publique (v1)",      trial: false,        starter: false,        professional: true,        enterprise: true           },
+  { label: "Export CSV",                   trial: true,         starter: true,         professional: true,        enterprise: true           },
+  { label: "Export Excel / PDF",           trial: false,        starter: false,        professional: true,        enterprise: true           },
+  { label: "Analyse régionale (CER)",      trial: true,         starter: true,         professional: true,        enterprise: true           },
+  { label: "Marchés & taux de change",     trial: true,         starter: true,         professional: true,        enterprise: true           },
+  { label: "Conflits & risques pays",      trial: true,         starter: true,         professional: true,        enterprise: true           },
+  { label: "Signaux haute fréquence",      trial: false,        starter: false,        professional: true,        enterprise: true           },
+  { label: "MEAI — Economic Activity Idx", trial: false,        starter: false,        professional: false,       enterprise: true           },
+  { label: "Données haute fréquence",      trial: false,        starter: false,        professional: false,       enterprise: true           },
+  { label: "Support prioritaire",          trial: false,        starter: false,        professional: true,        enterprise: true           },
+  { label: "Support dédié",               trial: false,        starter: false,        professional: false,       enterprise: true           },
+  { label: "SLA garanti",                  trial: false,        starter: false,        professional: false,       enterprise: true           },
+];
