@@ -117,11 +117,9 @@ class Settings(BaseSettings):
     AWS_REGION: str = "eu-west-1"
     S3_BUCKET_DATA_LAKE: str = "mansa-data-lake"
 
-    # Email — hors scope MVP
-    SMTP_HOST: str = "smtp.gmail.com"
-    SMTP_PORT: int = 587
-    SMTP_USER: str = ""
-    SMTP_PASSWORD: str = ""
+    # Email — Resend API (https://resend.com)
+    RESEND_API_KEY: str = ""
+    EMAIL_FROM: str = "MANSA Terminal <noreply@mansa-terminal.com>"
 
     @property
     def is_production(self) -> bool:
