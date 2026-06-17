@@ -158,10 +158,16 @@ async def worldbank_wdi_to_database(
     from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
     from sqlalchemy import text
 
-    database_url = os.getenv("DATABASE_URL")
+    database_url = os.getenv("DATABASE_URL", "")
     if not database_url:
         context.log.warning("DATABASE_URL non défini — skip persistance")
         return Output({"status": "skipped", "reason": "no database"}, metadata={})
+
+    # create_async_engine exige le driver asyncpg — normaliser le schéma.
+    if database_url.startswith("postgresql://"):
+        database_url = database_url.replace("postgresql://", "postgresql+asyncpg://", 1)
+    elif database_url.startswith("postgres://"):
+        database_url = database_url.replace("postgres://", "postgresql+asyncpg://", 1)
 
     engine = create_async_engine(database_url)
     inserted = 0
