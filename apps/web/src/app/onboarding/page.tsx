@@ -306,7 +306,7 @@ export default function OnboardingPage() {
     if (typeof window !== "undefined") {
       localStorage.setItem(ONBOARDING_KEY, "1");
     }
-    router.push("/");
+    router.push("/accueil");
   }
 
   function next() {

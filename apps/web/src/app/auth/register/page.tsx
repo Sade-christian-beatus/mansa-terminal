@@ -97,7 +97,7 @@ export default function RegisterPage() {
         } catch {
           console.warn("[MANSA] authApi.sync() failed — continuing with Supabase session");
         }
-        router.push("/");
+        router.push("/accueil");
       } else {
         setSuccess(true);
       }
