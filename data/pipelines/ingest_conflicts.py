@@ -127,6 +127,37 @@ def fetch_ucdp() -> dict[tuple[str, str], dict]:
     return agg
 
 
+# ── UCDP via fichier CSV téléchargé (sans token) ────────────────────────────
+def fetch_ucdp_csv(path: str) -> dict[tuple[str, str], dict]:
+    """
+    Lit un export CSV UCDP GED (téléchargé librement sur ucdp.uu.se/downloads).
+    Colonnes utilisées : country, year, region, best (estimation de décès).
+    """
+    import csv as _csv
+    if not os.path.isfile(path):
+        sys.exit(f"❌ Fichier introuvable : {path}")
+    agg: dict[tuple[str, str], dict] = defaultdict(lambda: {"events": 0, "fatalities": 0})
+    total = 0
+    with open(path, encoding="utf-8", errors="replace", newline="") as fh:
+        for row in _csv.DictReader(fh):
+            if (row.get("region") or "").strip() != "Africa":
+                continue
+            iso3 = NAME_TO_ISO3.get((row.get("country") or "").strip())
+            year = (row.get("year") or "").strip()
+            if not iso3 or not year:
+                continue
+            agg[(iso3, year)]["events"] += 1
+            try:
+                agg[(iso3, year)]["fatalities"] += int(float(row.get("best", 0) or 0))
+            except (TypeError, ValueError):
+                pass
+            total += 1
+    print(f"   {total} événements africains lus depuis le CSV ({len({k[0] for k in agg})} pays).")
+    if total == 0:
+        print("   ⚠ Aucun événement 'Africa' — vérifie que c'est bien le CSV UCDP GED.")
+    return agg
+
+
 # ── ACLED (OAuth email+password) ────────────────────────────────────────────
 def fetch_acled() -> dict[tuple[str, str], dict]:
     email = os.getenv("ACLED_EMAIL")
@@ -211,11 +242,19 @@ def write_db(agg: dict[tuple[str, str], dict], source: str) -> int:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="Ingestion conflits MANSA (UCDP / ACLED)")
-    parser.add_argument("--source", choices=["ucdp", "acled"], default="ucdp")
+    parser.add_argument("--source", choices=["ucdp", "ucdp-csv", "acled"], default="ucdp")
+    parser.add_argument("--file", help="Chemin du CSV UCDP GED (pour --source ucdp-csv)")
     args = parser.parse_args()
 
     print(f"🌍 MANSA — Ingestion conflits · source : {args.source.upper()}")
-    agg = fetch_ucdp() if args.source == "ucdp" else fetch_acled()
+    if args.source == "ucdp-csv":
+        if not args.file:
+            sys.exit("❌ Précise le CSV : --file chemin\\vers\\GEDEvent.csv")
+        agg = fetch_ucdp_csv(args.file)
+    elif args.source == "acled":
+        agg = fetch_acled()
+    else:
+        agg = fetch_ucdp()
 
     # Aperçu : top pays sur l'année la plus récente
     years = sorted({y for _, y in agg}, reverse=True)
@@ -228,9 +267,10 @@ def main() -> int:
         for iso, v in top[:15]:
             print(f"   {iso:<6}{v['events']:>12}{v['fatalities']:>10}")
 
+    source_label = "ACLED" if args.source == "acled" else "UCDP"
     if os.getenv("DATABASE_URL"):
-        n = write_db(agg, args.source.upper())
-        print(f"\n✅ {n} valeurs écrites en base (CONFLICT_EVENTS / CONFLICT_FATALITIES, source {args.source.upper()}).")
+        n = write_db(agg, source_label)
+        print(f"\n✅ {n} valeurs écrites en base (CONFLICT_EVENTS / CONFLICT_FATALITIES, source {source_label}).")
         print("   Recharge la page Conflits (Ctrl+Shift+R) pour voir les données live.")
     else:
         print("\nℹ DATABASE_URL non défini — aperçu seulement (pas d'écriture). "
