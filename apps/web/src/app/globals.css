@@ -102,6 +102,10 @@
   0%   { transform: scale(1); opacity: 1; }
   100% { transform: scale(1.6); opacity: 0; }
 }
+@keyframes slideInRight {
+  from { transform: translateX(100%); opacity: 0.4; }
+  to   { transform: translateX(0);    opacity: 1; }
+}
 
 /* Classes utilitaires MANSA */
 @layer components {
@@ -139,6 +143,7 @@
   }
 
   .animate-fade-in { animation: fadeIn 0.3s ease-out; }
+  .animate-slide-in-right { animation: slideInRight 0.25s ease-out; }
 
   .mansa-input {
     @apply w-full rounded-lg px-4 py-2.5 text-sm transition-colors focus:outline-none;

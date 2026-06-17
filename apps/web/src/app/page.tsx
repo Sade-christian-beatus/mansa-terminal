@@ -9,7 +9,7 @@ import {
 
 import { api } from "@/lib/api";
 import { MacroKPIGrid }        from "@/components/dashboard/MacroKPIGrid";
-import { MacroDataTable }      from "@/components/dashboard/MacroDataTable";
+import { MacroTable }          from "@/components/macro-table/MacroTable";
 import { MarketTicker }        from "@/components/dashboard/MarketTicker";
 import { HeroKPIs }            from "@/components/dashboard/HeroKPIs";
 import { CommandPalette }      from "@/components/dashboard/CommandPalette";
@@ -196,8 +196,8 @@ export default function DashboardPage() {
         {/* ── Grille KPI macro ── */}
         <MacroKPIGrid />
 
-        {/* ── Tableau macro interactif ── */}
-        <MacroDataTable />
+        {/* ── Module Macroeconomic Table ── */}
+        <MacroTable />
 
         {/* ── Sources actives ── */}
         <div className="rounded-xl px-4 py-3 border" style={{ background: "var(--card-bg)", borderColor: "var(--card-border)" }}>

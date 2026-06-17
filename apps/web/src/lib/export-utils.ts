@@ -314,6 +314,53 @@ export function exportPDF(
   }
 }
 
+/**
+ * Export PNG — sérialise un graphique SVG (Recharts) en image PNG.
+ * `svg` est l'élément <svg> à capturer (ex: container.querySelector("svg")).
+ * Fond blanc institutionnel + échelle 2x pour une image nette.
+ */
+export function exportSVGtoPNG(svg: SVGSVGElement | null, filename: string, scale = 2) {
+  if (!svg) return;
+  const rect = svg.getBoundingClientRect();
+  const w = rect.width || Number(svg.getAttribute("width")) || 800;
+  const h = rect.height || Number(svg.getAttribute("height")) || 400;
+
+  const clone = svg.cloneNode(true) as SVGSVGElement;
+  clone.setAttribute("xmlns", "http://www.w3.org/2000/svg");
+  clone.setAttribute("width", String(w));
+  clone.setAttribute("height", String(h));
+
+  const data = new XMLSerializer().serializeToString(clone);
+  const svgBlob = new Blob([data], { type: "image/svg+xml;charset=utf-8" });
+  const url = URL.createObjectURL(svgBlob);
+
+  const img = new Image();
+  img.onload = () => {
+    const canvas = document.createElement("canvas");
+    canvas.width = w * scale;
+    canvas.height = h * scale;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) { URL.revokeObjectURL(url); return; }
+    ctx.fillStyle = "#FFFFFF";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.scale(scale, scale);
+    ctx.drawImage(img, 0, 0, w, h);
+    URL.revokeObjectURL(url);
+    canvas.toBlob((blob) => {
+      if (!blob) return;
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = `${filename}.png`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(a.href);
+    }, "image/png");
+  };
+  img.onerror = () => URL.revokeObjectURL(url);
+  img.src = url;
+}
+
 /** Master export dispatcher */
 export function exportData(
   rows: ExportRow[],
