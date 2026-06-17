@@ -93,6 +93,33 @@ POLICY_RATES: dict[str, dict] = {
     "DZA": {"rate":  3.00, "currency": "DZD", "bank": "BA",   "date": "2024-01"},
 }
 
+# ============================================================
+# Indice des prix à la consommation publié par les instituts
+# nationaux de statistique (variation annuelle %, dernière valeur connue).
+# Source = abréviation de l'institut national (INSD, ANSD, NBS…).
+# ============================================================
+NATIONAL_CPI: dict[str, dict] = {
+    # UEMOA (instituts nationaux)
+    "BFA": {"value": 3.0, "stat": "INSD",   "period": "2024-12"},
+    "SEN": {"value": 2.8, "stat": "ANSD",   "period": "2024-12"},
+    "CIV": {"value": 3.8, "stat": "INS",    "period": "2024-12"},
+    "MLI": {"value": 2.5, "stat": "INSTAT", "period": "2024-12"},
+    "NER": {"value": 3.9, "stat": "INS",    "period": "2024-12"},
+    "BEN": {"value": 2.7, "stat": "INStaD", "period": "2024-12"},
+    "TGO": {"value": 4.0, "stat": "INSEED", "period": "2024-12"},
+    # Grandes économies
+    "NGA": {"value": 33.9, "stat": "NBS",     "period": "2024-12"},
+    "ZAF": {"value": 4.6,  "stat": "StatsSA", "period": "2024-12"},
+    "EGY": {"value": 24.1, "stat": "CAPMAS",  "period": "2024-12"},
+    "MAR": {"value": 2.4,  "stat": "HCP",     "period": "2024-12"},
+    "GHA": {"value": 23.8, "stat": "GSS",     "period": "2024-12"},
+    "KEN": {"value": 3.0,  "stat": "KNBS",    "period": "2024-12"},
+    "TZA": {"value": 3.1,  "stat": "NBS",     "period": "2024-12"},
+    "UGA": {"value": 3.0,  "stat": "UBOS",    "period": "2024-12"},
+    "RWA": {"value": 5.8,  "stat": "NISR",    "period": "2024-12"},
+    "TUN": {"value": 6.2,  "stat": "INS",     "period": "2024-12"},
+}
+
 # Taux de réserves obligatoires (%)
 RESERVE_REQUIREMENTS: dict[str, float] = {
     "SEN": 3.0, "CIV": 3.0, "MLI": 3.0, "BFA": 3.0,  # UEMOA
@@ -220,7 +247,20 @@ async def central_banks_data(context: AssetExecutionContext) -> Output[list[dict
             "source":         POLICY_RATES.get(country_id, {}).get("bank", "CENTRAL_BANK"),
         })
 
-    # 3. Données live CBN et SARB
+    # 3. IPC national publié par les instituts nationaux de statistique
+    for country_id, cpi in NATIONAL_CPI.items():
+        records.append({
+            "country_id":     country_id,
+            "indicator_code": "CPI_NAT",
+            "indicator_name": f"Inflation IPC nationale - {cpi['stat']} (%)",
+            "value":          cpi["value"],
+            "period":         cpi["period"],
+            "period_type":    "monthly",
+            "unit":           "%",
+            "source":         cpi["stat"],
+        })
+
+    # 4. Données live CBN et SARB
     async with httpx.AsyncClient(
         headers={"User-Agent": "MANSA-Terminal/1.0 (research@mansa.ai)"},
         timeout=30.0,
@@ -238,7 +278,7 @@ async def central_banks_data(context: AssetExecutionContext) -> Output[list[dict
             "total_records":   MetadataValue.int(len(records)),
             "countries":       MetadataValue.int(len(POLICY_RATES)),
             "sources":         MetadataValue.text("BCEAO, BEAC, CBN, SARB, BAM, BCT, CBK"),
-            "indicators":      MetadataValue.text("INT_POLICY, INT_RESERVE_REQ, FX_CBN_USD"),
+            "indicators":      MetadataValue.text("INT_POLICY, INT_RESERVE_REQ, CPI_NAT, FX_CBN_USD"),
         },
     )
 

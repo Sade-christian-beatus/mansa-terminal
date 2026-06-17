@@ -17,6 +17,7 @@ from app.core.limiter import limiter
 from app.core.database import get_db
 from app.core.dependencies import require_active_subscription
 from app.models.models import User, Country, MacroIndicator, DataIngestionLog
+from app.data.national_sources import get_national_sources, NATIONAL_SOURCE_TAGS
 
 router = APIRouter()
 
@@ -30,6 +31,22 @@ class IndicatorPoint(BaseModel):
 class CountryMacroResponse(BaseModel):
     country_id: str
     country_name: str
+    indicators: dict[str, list[IndicatorPoint]]
+
+class Institution(BaseModel):
+    name: str
+    abbrev: str
+    url: str | None = None
+
+class NationalInstitutions(BaseModel):
+    stats_institute: Institution | None = None
+    central_bank: Institution | None = None
+    others: list[Institution] = []
+
+class NationalSourcesResponse(BaseModel):
+    country_id: str
+    country_name: str
+    institutions: NationalInstitutions
     indicators: dict[str, list[IndicatorPoint]]
 
 class CountrySummary(BaseModel):
@@ -194,6 +211,67 @@ async def get_country_macro(
     return CountryMacroResponse(
         country_id=country.id,
         country_name=country.name_en,
+        indicators=indicators_grouped,
+    )
+
+
+@router.get("/{country_id}/national-sources", response_model=NationalSourcesResponse)
+async def get_country_national_sources(
+    country_id: str,
+    current_user: Annotated[User, Depends(require_active_subscription)],
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Données issues des sources **nationales** d'un pays.
+
+    Combine :
+      - le catalogue des institutions nationales (institut de statistique,
+        banque centrale, etc.) ;
+      - les séries `macro_indicators` dont la `source` est une source nationale
+        (BCEAO, BEAC, INSD, CBN, SARB…), ingérées par le pipeline banques
+        centrales / statistiques nationales.
+
+    Ex. pour BFA : INSD + BCEAO, avec le taux directeur BCEAO et l'IPC national.
+    """
+    cid = country_id.upper()
+    country_result = await db.execute(
+        select(Country).where(Country.id == cid)
+    )
+    country = country_result.scalar_one_or_none()
+    if not country:
+        raise HTTPException(status_code=404,
+                            detail=f"Pays '{country_id}' introuvable")
+
+    query = (
+        select(MacroIndicator)
+        .where(
+            and_(
+                MacroIndicator.country_id == cid,
+                MacroIndicator.source.in_(NATIONAL_SOURCE_TAGS),
+            )
+        )
+        .order_by(MacroIndicator.period)
+    )
+    result = await db.execute(query)
+    data_points = result.scalars().all()
+
+    indicators_grouped: dict[str, list[IndicatorPoint]] = {}
+    for point in data_points:
+        if point.value is None:
+            continue
+        indicators_grouped.setdefault(point.indicator_code, []).append(
+            IndicatorPoint(
+                period=point.period,
+                value=point.value,
+                unit=point.unit,
+                source=point.source or "",
+            )
+        )
+
+    return NationalSourcesResponse(
+        country_id=country.id,
+        country_name=country.name_en,
+        institutions=get_national_sources(cid),
         indicators=indicators_grouped,
     )
 
