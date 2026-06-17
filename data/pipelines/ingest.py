@@ -3,25 +3,26 @@
 MANSA Terminal — Script d'ingestion autonome (sans Dagster)
 ===========================================================
 
-Peuple la table `macro_indicators` (et `countries`) avec les données réelles
-FMI WEO + Banque Mondiale WDI pour les 54 pays africains. Une fois exécuté, le
-dashboard passe en « Live » et le filtre d'année (2015–2025) devient actif.
+Peuple les tables `countries` et `macro_indicators` avec des données réelles.
+
+Source par défaut : **Banque Mondiale WDI** (api.worldbank.org) — gratuite,
+ouverte et fiable. Les indicateurs macro cœur (croissance, inflation, dette,
+compte courant, PIB, population, chômage…) sont mappés vers les codes du
+catalogue MANSA afin d'alimenter directement les colonnes du dashboard.
+
+Le FMI WEO est disponible en option (--with-imf) mais son API est souvent
+bloquée (HTTP 403 / Cloudflare) hors réseau résidentiel.
 
 Dépendances : psycopg2 (déjà dans apps/api/requirements.txt) + stdlib.
     pip install psycopg2-binary
 
-Usage :
-    # Le script lit DATABASE_URL (ou DATABASE_URL_SYNC) depuis l'environnement.
-    export DATABASE_URL="postgresql://user:pass@host:5432/postgres"   # bash
-    python data/pipelines/ingest.py
-
-    # Windows PowerShell :
-    $env:DATABASE_URL = "postgresql://user:pass@host:5432/postgres"
-    python data/pipelines/ingest.py
+Usage (cmd.exe) :
+    set "DATABASE_URL=postgresql://user:pass@host:5432/postgres"
+    python data\\pipelines\\ingest.py
 
 Options :
-    --imf-only   N'ingère que les données FMI WEO
-    --wb-only    N'ingère que les données Banque Mondiale
+    --with-imf   Tente aussi le FMI WEO (peut échouer en 403 selon le réseau)
+    --imf-only   N'ingère que le FMI WEO
     --years 2010 2025   Plage d'années FMI (défaut : 2015 2025)
 """
 from __future__ import annotations
@@ -41,14 +42,26 @@ try:
 except ImportError:
     sys.exit("psycopg2 manquant. Installez-le :  pip install psycopg2-binary")
 
+# Évite les UnicodeEncodeError sur les consoles Windows (cp1252) face aux emojis.
+try:
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")  # type: ignore[attr-defined]
+except Exception:  # noqa: BLE001
+    pass
+
 IMF_BASE = "https://www.imf.org/external/datamapper/api/v1"
 WB_BASE = "https://api.worldbank.org/v2"
-USER_AGENT = "MANSA-Terminal/1.0 (ingest-script)"
+
+# En-têtes navigateur — nécessaire : les WAF (World Bank, IMF) renvoient 403
+# sur les User-Agent non navigateur.
+BROWSER_HEADERS = {
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+                  "(KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+    "Accept": "application/json, text/plain, */*",
+    "Accept-Language": "en-US,en;q=0.9",
+}
 
 # ── Pays africains : ISO3 → (ISO2, nom_en, nom_fr, région) ──────────────────
-# Les régions correspondent aux clés géo du frontend (filtre régional).
 COUNTRIES: dict[str, tuple[str, str, str, str]] = {
-    # Afrique de l'Ouest
     "NGA": ("ng", "Nigeria", "Nigeria", "West Africa"),
     "GHA": ("gh", "Ghana", "Ghana", "West Africa"),
     "CIV": ("ci", "Côte d'Ivoire", "Côte d'Ivoire", "West Africa"),
@@ -65,7 +78,6 @@ COUNTRIES: dict[str, tuple[str, str, str, str]] = {
     "GNB": ("gw", "Guinea-Bissau", "Guinée-Bissau", "West Africa"),
     "CPV": ("cv", "Cape Verde", "Cap-Vert", "West Africa"),
     "MRT": ("mr", "Mauritania", "Mauritanie", "West Africa"),
-    # Afrique de l'Est
     "KEN": ("ke", "Kenya", "Kenya", "East Africa"),
     "TZA": ("tz", "Tanzania", "Tanzanie", "East Africa"),
     "UGA": ("ug", "Uganda", "Ouganda", "East Africa"),
@@ -76,14 +88,12 @@ COUNTRIES: dict[str, tuple[str, str, str, str]] = {
     "SOM": ("so", "Somalia", "Somalie", "East Africa"),
     "DJI": ("dj", "Djibouti", "Djibouti", "East Africa"),
     "ERI": ("er", "Eritrea", "Érythrée", "East Africa"),
-    # Afrique du Nord
     "EGY": ("eg", "Egypt", "Égypte", "North Africa"),
     "MAR": ("ma", "Morocco", "Maroc", "North Africa"),
     "TUN": ("tn", "Tunisia", "Tunisie", "North Africa"),
     "DZA": ("dz", "Algeria", "Algérie", "North Africa"),
     "LBY": ("ly", "Libya", "Libye", "North Africa"),
     "SDN": ("sd", "Sudan", "Soudan", "North Africa"),
-    # Afrique Centrale
     "CMR": ("cm", "Cameroon", "Cameroun", "Central Africa"),
     "TCD": ("td", "Chad", "Tchad", "Central Africa"),
     "CAF": ("cf", "Central African Republic", "Centrafrique", "Central Africa"),
@@ -93,7 +103,6 @@ COUNTRIES: dict[str, tuple[str, str, str, str]] = {
     "GNQ": ("gq", "Equatorial Guinea", "Guinée équatoriale", "Central Africa"),
     "STP": ("st", "Sao Tome and Principe", "Sao Tomé-et-Príncipe", "Central Africa"),
     "AGO": ("ao", "Angola", "Angola", "Central Africa"),
-    # Afrique Australe
     "ZAF": ("za", "South Africa", "Afrique du Sud", "Southern Africa"),
     "BWA": ("bw", "Botswana", "Botswana", "Southern Africa"),
     "NAM": ("na", "Namibia", "Namibie", "Southern Africa"),
@@ -109,44 +118,53 @@ COUNTRIES: dict[str, tuple[str, str, str, str]] = {
     "SYC": ("sc", "Seychelles", "Seychelles", "Southern Africa"),
 }
 ISO3_LIST = list(COUNTRIES.keys())
-ISO2_TO_ISO3 = {v[0].upper(): k for k, v in COUNTRIES.items()}
 
-# ── Indicateurs FMI WEO (codes alignés sur le catalogue frontend) ───────────
+# ── Banque Mondiale — indicateurs cœur mappés vers le catalogue MANSA ───────
+# (wb_code, store_code, nom, unité, facteur d'échelle)
+WB_CORE = [
+    ("NY.GDP.MKTP.KD.ZG", "NGDP_RPCH",   "Croissance du PIB réel", "%",     1.0),
+    ("FP.CPI.TOTL.ZG",    "PCPIPCH",     "Inflation (IPC)",        "%",     1.0),
+    ("NY.GDP.PCAP.CD",    "NGDPDPC",     "PIB par habitant",       "USD",   1.0),
+    ("NY.GDP.MKTP.CD",    "NGDPD",       "PIB nominal",            "Mds $", 1e-9),
+    ("SP.POP.TOTL",       "LP",          "Population",             "M hab.",1e-6),
+    ("GC.DOD.TOTL.GD.ZS", "GGXWDG_NGDP", "Dette publique",         "% PIB", 1.0),
+    ("GC.NLD.TOTL.GD.ZS", "GGXCNL_NGDP", "Solde budgétaire",       "% PIB", 1.0),
+    ("BN.CAB.XOKA.GD.ZS", "BCA_NGDPD",   "Compte courant",         "% PIB", 1.0),
+    ("SL.UEM.TOTL.ZS",    "LUR",         "Chômage",                "%",     1.0),
+]
+
+# ── Banque Mondiale — indicateurs social/climat (code en underscore) ────────
+WB_SOCIAL = [
+    ("SP.DYN.LE00.IN", "SP_DYN_LE00_IN", "Espérance de vie",        "ans", 1.0),
+    ("SE.ADT.LITR.ZS", "SE_ADT_LITR_ZS", "Alphabétisation",         "%",   1.0),
+    ("EG.ELC.ACCS.ZS", "EG_ELC_ACCS_ZS", "Accès électricité",       "%",   1.0),
+    ("EG.FEC.RNEW.ZS", "EG_FEC_RNEW_ZS", "Énergie renouvelable",    "%",   1.0),
+    ("IT.NET.USER.ZS", "IT_NET_USER_ZS", "Internautes",             "%",   1.0),
+    ("SH.DYN.MORT",    "SH_DYN_MORT",    "Mortalité < 5 ans",       "‰",   1.0),
+    ("SI.POV.DDAY",    "SI_POV_DDAY",    "Pauvreté < 2,15$/j",      "%",   1.0),
+    ("EN.ATM.CO2E.PC", "EN_ATM_CO2E_PC", "Émissions CO2/hab",       "t",   1.0),
+]
+
+# ── FMI WEO (optionnel, --with-imf) ─────────────────────────────────────────
 IMF_INDICATORS = {
     "NGDPD":       ("PIB nominal (Mds USD)", "Mds $"),
     "NGDPDPC":     ("PIB par habitant (USD)", "USD"),
-    "PPPGDP":      ("PIB PPA (Mds USD)", "Mds $"),
     "NGDP_RPCH":   ("Croissance du PIB réel (%)", "%"),
     "LP":          ("Population (M)", "M hab."),
     "PCPIPCH":     ("Inflation IPC (%)", "%"),
     "GGXCNL_NGDP": ("Solde budgétaire (% PIB)", "% PIB"),
-    "GGXONLB_NGDP":("Solde primaire (% PIB)", "% PIB"),
-    "GGX_NGDP":    ("Dépenses publiques (% PIB)", "% PIB"),
     "GGXWDG_NGDP": ("Dette publique (% PIB)", "% PIB"),
     "BCA_NGDPD":   ("Compte courant (% PIB)", "% PIB"),
     "LUR":         ("Chômage (%)", "%"),
 }
 
-# ── Indicateurs Banque Mondiale (code WB pointé → stocké en underscore) ─────
-# Les codes underscore correspondent au catalogue frontend (colonnes affichées).
-WB_INDICATORS = {
-    "SP.DYN.LE00.IN": ("Espérance de vie (ans)", "ans"),
-    "SE.ADT.LITR.ZS": ("Alphabétisation (%)", "%"),
-    "EG.ELC.ACCS.ZS": ("Accès électricité (%)", "%"),
-    "EG.FEC.RNEW.ZS": ("Énergie renouvelable (%)", "%"),
-    "IT.NET.USER.ZS": ("Internautes (%)", "%"),
-    "SH.DYN.MORT":    ("Mortalité < 5 ans (‰)", "‰"),
-    "SI.POV.DDAY":    ("Pauvreté < 2,15$/j (%)", "%"),
-    "EN.ATM.CO2E.PC": ("Émissions CO2/hab (t)", "t"),
-}
 
-
-# ── HTTP (stdlib, avec retry simple) ────────────────────────────────────────
+# ── HTTP (stdlib, en-têtes navigateur, retry) ───────────────────────────────
 def http_get_json(url: str, retries: int = 3) -> object:
     last_err: Exception | None = None
     for attempt in range(retries):
         try:
-            req = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
+            req = urllib.request.Request(url, headers=BROWSER_HEADERS)
             with urllib.request.urlopen(req, timeout=40) as resp:
                 return json.loads(resp.read().decode("utf-8"))
         except Exception as e:  # noqa: BLE001
@@ -160,9 +178,39 @@ def batched(seq: list[str], n: int) -> Iterable[list[str]]:
         yield seq[i:i + n]
 
 
-# ── Récupération FMI WEO ────────────────────────────────────────────────────
+# ── Banque Mondiale ─────────────────────────────────────────────────────────
+def fetch_wb(defs: list[tuple], source_label: str) -> list[tuple]:
+    """defs = [(wb_code, store_code, nom, unité, échelle)]. Retourne des tuples UPSERT.
+
+    On interroge `country/all` (un seul appel) puis on filtre les 54 pays
+    africains : l'URL multi-pays trop longue déclenche un 403 côté WAF.
+    """
+    rows: list[tuple] = []
+    for wb_code, store_code, name, unit, scale in defs:
+        qs = urllib.parse.urlencode({"format": "json", "per_page": 20000, "mrv": 15})
+        url = f"{WB_BASE}/country/all/indicator/{wb_code}?{qs}"
+        try:
+            data = http_get_json(url)
+        except Exception as e:  # noqa: BLE001
+            print(f"  [warn] WB {store_code} : {e}")
+            continue
+        n = 0
+        if isinstance(data, list) and len(data) >= 2 and data[1]:
+            for rec in data[1]:
+                value = rec.get("value")
+                iso3 = rec.get("countryiso3code", "")
+                year = rec.get("date", "")
+                if value is None or iso3 not in COUNTRIES or not year:
+                    continue
+                rows.append((iso3, store_code, name, float(value) * scale, unit, str(year), "annual", source_label))
+                n += 1
+        print(f"  [ok] WB {store_code:<16} {n} points")
+        time.sleep(0.2)
+    return rows
+
+
+# ── FMI WEO (optionnel) ─────────────────────────────────────────────────────
 def fetch_imf(years: tuple[int, int]) -> list[tuple]:
-    """Retourne une liste de tuples prêts pour l'UPSERT macro_indicators."""
     periods = ",".join(str(y) for y in range(years[0], years[1] + 1))
     rows: list[tuple] = []
     for code, (name, unit) in IMF_INDICATORS.items():
@@ -189,48 +237,11 @@ def fetch_imf(years: tuple[int, int]) -> list[tuple]:
     return rows
 
 
-# ── Récupération Banque Mondiale ────────────────────────────────────────────
-def fetch_wb() -> list[tuple]:
-    rows: list[tuple] = []
-    iso2_str = ";".join(v[0] for v in COUNTRIES.values())
-    for wb_code, (name, unit) in WB_INDICATORS.items():
-        store_code = wb_code.replace(".", "_")  # aligne sur le catalogue frontend
-        page, n = 1, 0
-        while True:
-            qs = urllib.parse.urlencode({"format": "json", "per_page": 1000, "mrv": 12, "page": page})
-            url = f"{WB_BASE}/country/{iso2_str}/indicator/{wb_code}?{qs}"
-            try:
-                data = http_get_json(url)
-            except Exception as e:  # noqa: BLE001
-                print(f"  ⚠ WB {wb_code} page {page} : {e}")
-                break
-            if not isinstance(data, list) or len(data) < 2 or not data[1]:
-                break
-            for rec in data[1]:
-                value = rec.get("value")
-                iso3 = rec.get("countryiso3code", "")
-                year = rec.get("date", "")
-                if value is None or iso3 not in COUNTRIES or not year:
-                    continue
-                rows.append((iso3, store_code, name, float(value), unit, str(year), "annual", "WorldBank"))
-                n += 1
-            meta = data[0]
-            if page >= int(meta.get("pages", 1)):
-                break
-            page += 1
-            time.sleep(0.3)
-        print(f"  ✓ WB  {store_code:<16} {n} points")
-    return rows
-
-
 # ── Base de données ─────────────────────────────────────────────────────────
 def normalize_sync_url(url: str) -> str:
-    """Adapte l'URL pour psycopg2 : driver sync, retrait des paramètres non-libpq
-    (ex: pgbouncer fourni par le pooler Supabase), ajout de sslmode=require."""
     url = url.replace("postgresql+asyncpg://", "postgresql://").replace("postgres://", "postgresql://")
     parts = urllib.parse.urlsplit(url)
     params = urllib.parse.parse_qsl(parts.query, keep_blank_values=True)
-    # libpq ne connaît pas "pgbouncer" → le retirer pour éviter l'échec de connexion
     params = [(k, v) for k, v in params if k.lower() not in ("pgbouncer",)]
     if not any(k.lower() == "sslmode" for k, _ in params):
         params.append(("sslmode", "require"))
@@ -239,14 +250,14 @@ def normalize_sync_url(url: str) -> str:
 
 
 def seed_countries(cur) -> None:
-    values = [(iso3, iso2, en, fr, region) for iso3, (iso2, en, fr, region) in COUNTRIES.items()]
     execute_values(cur, """
         INSERT INTO countries (id, iso2, name_en, name_fr, region, is_active)
         VALUES %s
         ON CONFLICT (id) DO UPDATE SET
             iso2 = EXCLUDED.iso2, name_en = EXCLUDED.name_en,
             name_fr = EXCLUDED.name_fr, region = EXCLUDED.region
-    """, [(iso3, iso2, en, fr, region, True) for iso3, iso2, en, fr, region in values])
+    """, [(iso3, iso2, en, fr, region, True)
+          for iso3, (iso2, en, fr, region) in COUNTRIES.items()])
 
 
 def upsert_indicators(cur, rows: list[tuple]) -> int:
@@ -274,9 +285,9 @@ def log_ingestion(cur, source: str, count: int) -> None:
 
 # ── Main ────────────────────────────────────────────────────────────────────
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Ingestion MANSA (FMI WEO + Banque Mondiale)")
+    parser = argparse.ArgumentParser(description="Ingestion MANSA (Banque Mondiale + FMI WEO optionnel)")
+    parser.add_argument("--with-imf", action="store_true", help="Tente aussi le FMI WEO (souvent bloqué hors résidentiel)")
     parser.add_argument("--imf-only", action="store_true")
-    parser.add_argument("--wb-only", action="store_true")
     parser.add_argument("--years", nargs=2, type=int, default=[2015, 2025], metavar=("FROM", "TO"))
     args = parser.parse_args()
 
@@ -285,14 +296,21 @@ def main() -> int:
         sys.exit("❌ DATABASE_URL (ou DATABASE_URL_SYNC) non défini dans l'environnement.")
     db_url = normalize_sync_url(raw_url)
 
-    do_imf = not args.wb_only
-    do_wb = not args.imf_only
-
     print("🌍 MANSA — Ingestion des données macro réelles")
-    print(f"   Pays : {len(COUNTRIES)} · Années FMI : {args.years[0]}–{args.years[1]}")
+    print(f"   Pays : {len(COUNTRIES)} · Source : {'FMI WEO' if args.imf_only else 'Banque Mondiale WDI' + (' + FMI WEO' if args.with_imf else '')}")
 
-    imf_rows = fetch_imf(tuple(args.years)) if do_imf else []
-    wb_rows = fetch_wb() if do_wb else []
+    wb_rows: list[tuple] = []
+    imf_rows: list[tuple] = []
+
+    if not args.imf_only:
+        print("\n📊 Banque Mondiale — indicateurs cœur…")
+        wb_rows += fetch_wb(WB_CORE, "WorldBank")
+        print("📊 Banque Mondiale — social & climat…")
+        wb_rows += fetch_wb(WB_SOCIAL, "WorldBank")
+
+    if args.with_imf or args.imf_only:
+        print("\n📈 FMI WEO (peut échouer en 403)…")
+        imf_rows += fetch_imf(tuple(args.years))
 
     print("\n💾 Écriture en base…")
     conn = psycopg2.connect(db_url)
@@ -300,12 +318,12 @@ def main() -> int:
     try:
         with conn.cursor() as cur:
             seed_countries(cur)
-            n_imf = upsert_indicators(cur, imf_rows)
             n_wb = upsert_indicators(cur, wb_rows)
-            if n_imf:
-                log_ingestion(cur, "IMF_WEO", n_imf)
+            n_imf = upsert_indicators(cur, imf_rows)
             if n_wb:
                 log_ingestion(cur, "WorldBank", n_wb)
+            if n_imf:
+                log_ingestion(cur, "IMF_WEO", n_imf)
         conn.commit()
     except Exception:
         conn.rollback()
@@ -313,9 +331,13 @@ def main() -> int:
     finally:
         conn.close()
 
-    print(f"\n✅ Terminé — {n_imf + n_wb} points insérés/mis à jour "
-          f"(FMI : {n_imf}, Banque Mondiale : {n_wb}).")
-    print("   Le dashboard doit maintenant passer en « Live ». Rechargez avec Ctrl+Shift+R.")
+    total = n_wb + n_imf
+    print(f"\n✅ Terminé — {total} points insérés/mis à jour "
+          f"(Banque Mondiale : {n_wb}, FMI : {n_imf}).")
+    if total == 0:
+        print("⚠ Aucun point inséré — vérifiez votre connexion réseau (proxy/pare-feu).")
+    else:
+        print("   Le dashboard doit maintenant passer en « Live ». Rechargez avec Ctrl+Shift+R.")
     return 0
 
 
