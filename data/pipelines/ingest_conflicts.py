@@ -35,7 +35,14 @@ except Exception:  # noqa: BLE001
 
 OAUTH_URL = "https://acleddata.com/oauth/token"
 READ_URL = "https://acleddata.com/api/acled/read"
-HEADERS = {"User-Agent": "MANSA-Terminal/1.0"}
+# En-têtes navigateur : le endpoint de lecture est derrière un WAF qui renvoie
+# 403 aux User-Agent non navigateur (même comportement que l'API World Bank).
+HEADERS = {
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+                  "(KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+    "Accept": "application/json, text/plain, */*",
+    "Accept-Language": "en-US,en;q=0.9",
+}
 
 # Régions ACLED considérées comme africaines
 AFRICAN_REGIONS = {
