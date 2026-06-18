@@ -24,6 +24,7 @@ import anthropic
 from app.core.config import settings
 from app.core.database import get_db
 from app.core.dependencies import get_active_subscription
+from app.core.embeddings import embeddings_enabled, embed_text, to_pgvector_literal
 from app.core.limiter import limiter
 from app.models.models import User, Subscription, AIQuery, KnowledgeDocument, MacroIndicator
 
@@ -359,7 +360,42 @@ async def get_relevant_context(
     # ── 5. Documents de la knowledge base ────────────────────────────────
     kb_filter = [c for c in countries if len(c) == 3
                  and c not in ("WAEMU", "CEMAC", "WAFR", "EAFR", "SSA", "NAFR", "SAFR")]
-    if kb_filter:
+    docs_added = False
+
+    # 5a. Recherche sémantique (pgvector) — si les embeddings sont activés.
+    #     Trouve les documents les plus proches de la QUESTION par similarité
+    #     cosine, indépendamment des pays détectés (capte le sens, pas les mots).
+    if embeddings_enabled():
+        qvec = await embed_text(question)
+        if qvec is not None:
+            from sqlalchemy import text as sqltext
+            try:
+                sem_rows = (await db.execute(
+                    sqltext(
+                        """
+                        SELECT title, year, doc_type, content,
+                               1 - (embedding <=> CAST(:qvec AS vector)) AS similarity
+                        FROM knowledge_documents
+                        WHERE embedding IS NOT NULL
+                        ORDER BY embedding <=> CAST(:qvec AS vector)
+                        LIMIT 4
+                        """
+                    ),
+                    {"qvec": to_pgvector_literal(qvec)},
+                )).fetchall()
+            except Exception:
+                sem_rows = []  # pgvector indisponible / colonne absente → repli
+            for r in sem_rows:
+                safe_content = (r.content or "")[:1_200].replace("</document>", "[/document]")
+                context_parts.append(
+                    f"=== Document KB (sémantique · sim={r.similarity:.2f}): "
+                    f"{r.title} ({r.year}) — {r.doc_type} ===\n{safe_content}"
+                )
+                docs_added = True
+
+    # 5b. Repli : recherche par country_id si la recherche sémantique n'a rien
+    #     donné (pas de clé, pas d'embeddings générés, ou aucun résultat).
+    if not docs_added and kb_filter:
         docs_result = await db.execute(
             select(KnowledgeDocument)
             .where(KnowledgeDocument.country_id.in_(kb_filter))
