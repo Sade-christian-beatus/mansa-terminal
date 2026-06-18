@@ -8,7 +8,7 @@ import { supabase } from "@/lib/supabase/client";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
-// En production, passer par le proxy Next.js (/api/* → Railway FastAPI)
+// En production, passer par le proxy Next.js (/api/backend → Railway)
 // pour éviter les problèmes CORS cross-domain.
 const IS_BROWSER = typeof window !== "undefined";
 const IS_PROD = process.env.NODE_ENV === "production";
@@ -82,18 +82,12 @@ export interface AuthUser {
   full_name?: string | null;
   organization?: string | null;
   is_verified: boolean;
-  role?: string;
 }
 
 export const authApi = {
   /** Synchronise l'utilisateur Supabase dans notre DB après signup/login. */
-  sync: (data?: {
-    full_name?: string;
-    organization?: string;
-    country_of_residence?: string;
-    preferred_currency?: string;
-    preferred_language?: string;
-  }) => api.post<AuthUser>("/auth/sync", data ?? {}),
+  sync: (data?: { full_name?: string; organization?: string }) =>
+    api.post<AuthUser>("/auth/sync", data ?? {}),
 
   me: () => api.get<AuthUser>("/auth/me"),
 };
@@ -145,23 +139,6 @@ export const macroApi = {
     api.get<NationalSourcesResult>(`/macro/${countryId}/national-sources`),
 };
 
-export interface Institution {
-  name: string;
-  abbrev: string;
-  url: string | null;
-}
-export interface NationalSourcesResult {
-  country_id: string;
-  country_name: string;
-  institutions: {
-    stats_institute: Institution | null;
-    central_bank: Institution | null;
-    others: Institution[];
-  };
-  indicators: Record<string, { period: string; value: number; unit: string | null; source: string }[]>;
-  indicator_names?: Record<string, string>;
-}
-
 // ── Helpers AI Analyst ──────────────────────────────────────────────────
 export interface AIHistoryItem {
   id: string;
@@ -179,16 +156,8 @@ export const aiApi = {
 
 // ── Helpers Markets ──────────────────────────────────────────────────────
 export const marketsApi = {
-  getFxRates:      () => api.get("/markets/fx"),
-  getIndices:      () => api.get("/markets/indices"),
-  getCommodities:  () => api.get("/markets/commodities"),
-};
-
-// ── Helpers Conflicts (ACLED) ─────────────────────────────────────────────
-export const conflictsApi = {
-  getEvents:    (params?: { risk_level?: string; region?: string; sort_by?: string; limit?: number }) =>
-    api.get("/acled/events", { params }),
-  getHotspots:  () => api.get("/acled/hotspots"),
+  getFxRates: () => api.get("/markets/fx"),
+  getIndices:  () => api.get("/markets/indices"),
 };
 
 // ── Helpers Climate ──────────────────────────────────────────────────────
@@ -224,157 +193,26 @@ export const alertsApi = {
     api.get("/alerts/macro", { params }),
 };
 
-// ── Helpers API Keys ─────────────────────────────────────────────────────
-export interface APIKeyItem {
-  id: string;
-  name: string;
-  key_prefix: string;
-  scopes: string[];
-  last_used_at: string | null;
-  expires_at: string | null;
-  is_active: boolean;
-  created_at: string;
-}
-export interface APIKeyCreated extends APIKeyItem {
-  full_key: string;
-}
-
-export const apiKeysApi = {
-  list: (): Promise<APIKeyItem[]> =>
-    api.get("/keys"),
-  create: (data: { name: string; scopes?: string[]; expires_days?: number }): Promise<APIKeyCreated> =>
-    api.post("/keys", data),
-  revoke: (keyId: string): Promise<void> =>
-    api.delete(`/keys/${keyId}`),
-};
-
-// ── Helpers Bulk Export ───────────────────────────────────────────────────
-export const bulkExportApi = {
-  getCatalog: (): Promise<{ indicators: { code: string; name: string }[]; total: number }> =>
-    api.get("/macro/catalog"),
-
-  /** Retourne une URL de téléchargement direct (CSV ou JSON). */
-  buildUrl: (params: {
-    countries?: string;
-    indicators?: string;
-    from_year?: number;
-    to_year?: number;
-    format?: "csv" | "json";
-    region?: string;
-  }): string => {
-    const base = IS_BROWSER && IS_PROD ? "/api" : `${API_URL}/api`;
-    const qs = new URLSearchParams();
-    if (params.countries)  qs.set("countries",  params.countries);
-    if (params.indicators) qs.set("indicators", params.indicators);
-    if (params.from_year)  qs.set("from_year",  String(params.from_year));
-    if (params.to_year)    qs.set("to_year",    String(params.to_year));
-    if (params.format)     qs.set("format",     params.format);
-    if (params.region)     qs.set("region",     params.region);
-    return `${base}/macro/bulk-export?${qs.toString()}`;
-  },
-};
-
-// ── Helpers Forecasting ──────────────────────────────────────────────────
-export interface ForecastPoint {
-  year:     number;
-  value:    number;
-  lower_80: number;
-  upper_80: number;
-  lower_95: number;
-  upper_95: number;
-}
-export interface HistoricalPoint { year: number; value: number; }
-export interface ForecastResult {
-  country_id:         string;
-  indicator_code:     string;
-  indicator_name:     string;
-  unit:               string | null;
-  model:              string;
-  horizon_years:      number;
-  n_observations:     number;
-  last_historical_year: number;
-  historical:         HistoricalPoint[];
-  forecast:           ForecastPoint[];
-  generated_at:       string;
-}
-export interface BatchForecastResult {
-  country_id:    string;
-  horizon_years: number;
-  generated_at:  string;
-  forecasts:     Record<string, ForecastResult | { error: string }>;
-}
-
-export const forecastApi = {
-  getIndicator: (
-    countryId: string,
-    indicatorCode: string,
-    params?: { horizon?: number; from_year?: number }
-  ): Promise<ForecastResult> =>
-    api.get(`/forecast/${countryId}/${indicatorCode}`, { params }),
-
-  getBatch: (
-    countryId: string,
-    params?: { indicators?: string; horizon?: number }
-  ): Promise<BatchForecastResult> =>
-    api.get(`/forecast/batch/${countryId}`, { params }),
-};
-
 // ── Streaming SSE AI Analyst ────────────────────────────────────────────
-
-/** Récupère un token Supabase valide, en rafraîchissant si nécessaire. */
-async function _getFreshToken(): Promise<string | null> {
-  const { data: { session } } = await supabase.auth.getSession();
-  if (!session) return null;
-
-  // Si le token expire dans moins de 60 secondes, on rafraîchit proactivement
-  const expiresAt = (session as { expires_at?: number }).expires_at ?? 0;
-  const expiresInMs = expiresAt * 1000 - Date.now();
-  if (expiresInMs < 60_000) {
-    const { data: { session: refreshed } } = await supabase.auth.refreshSession();
-    return refreshed?.access_token ?? null;
-  }
-  return session.access_token ?? null;
-}
-
 export async function* streamAIQuery(
   question: string
 ): AsyncGenerator<{ type: string; content?: string; query_id?: string }> {
-  const streamBase = IS_BROWSER && IS_PROD ? "/api" : `${API_URL}/api`;
+  const streamBase = IS_BROWSER && IS_PROD ? "/api/backend" : `${API_URL}/api`;
 
-  // Toujours obtenir un token frais (auto-refresh si proche de l'expiration)
-  const token = await _getFreshToken();
+  // Récupérer le token Supabase pour le streaming fetch (pas Axios)
+  const { data: { session } } = await supabase.auth.getSession();
   const headers: Record<string, string> = { "Content-Type": "application/json" };
-  if (token) headers["Authorization"] = `Bearer ${token}`;
+  if (session?.access_token) {
+    headers["Authorization"] = `Bearer ${session.access_token}`;
+  }
 
-  let response = await fetch(`${streamBase}/ai/query`, {
+  const response = await fetch(`${streamBase}/ai/query`, {
     method: "POST",
     headers,
     body: JSON.stringify({ question }),
   });
 
-  // Si 401, forcer un refresh de session et réessayer une fois
-  if (response.status === 401) {
-    const { data: { session: refreshed } } = await supabase.auth.refreshSession();
-    if (refreshed?.access_token) {
-      headers["Authorization"] = `Bearer ${refreshed.access_token}`;
-      response = await fetch(`${streamBase}/ai/query`, {
-        method: "POST",
-        headers,
-        body: JSON.stringify({ question }),
-      });
-    }
-  }
-
-  if (!response.ok) {
-    let detail = `Erreur ${response.status}`;
-    try {
-      const body = await response.json();
-      detail = body.detail || detail;
-    } catch { /* ignore */ }
-    const err = new Error(detail) as Error & { status: number };
-    err.status = response.status;
-    throw err;
-  }
+  if (!response.ok) throw new Error(`AI API error: ${response.status}`);
 
   const reader = response.body?.getReader();
   const decoder = new TextDecoder("utf-8", { fatal: false });

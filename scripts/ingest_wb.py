@@ -38,22 +38,7 @@ AFRICAN_ISO3 = {
     "COM", "STP", "BDI",
 }
 
-# ISO-2 pour l'URL WB (API v2 utilise iso2)
-AFRICAN_ISO2 = [
-    "NG", "ZA", "KE", "GH", "EG", "MA", "TN", "SN", "CI", "CM",
-    "TZ", "UG", "ET", "RW", "CD", "MZ", "ZM", "AO", "BW", "MU",
-    "BJ", "BF", "GW", "ML", "NE", "TG", "CF", "TD", "CG", "GQ",
-    "GA", "MG", "MW", "ZW", "NA", "GN", "DZ", "LY", "SD", "SO",
-    "ER", "DJ", "SS", "SL", "LR", "GM", "CV", "MR", "LS", "SZ",
-    "KM", "ST", "BI",
-]
-
-# WB API v2 : batches de 10 pays (certains pays "fragiles" déclenchent 403 en gros batch)
-WB_BATCH_SIZE = 10
-COUNTRY_BATCHES = [
-    AFRICAN_ISO2[i:i + WB_BATCH_SIZE]
-    for i in range(0, len(AFRICAN_ISO2), WB_BATCH_SIZE)
-]
+# country/all évite les URL multi-pays trop longues (WAF 403 avec `;`-séparés)
 
 WB_INDICATORS = {
     # ── Macro / PIB ──────────────────────────────────────────────────────────
@@ -171,12 +156,9 @@ LOG_SQL = """
 
 # ── HTTP avec retry ───────────────────────────────────────────────────────
 @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=2, max=30))
-async def fetch_wb_indicator_batch(
-    client: httpx.AsyncClient, indicator: str, country_batch: list[str]
-) -> list[dict]:
-    """Récupère un indicateur WB pour un batch de pays (avec pagination)."""
-    countries_param = ";".join(country_batch)
-    url = f"{WB_BASE}/country/{countries_param}/indicator/{indicator}"
+async def fetch_wb_indicator(client: httpx.AsyncClient, indicator: str) -> list[dict]:
+    """Récupère un indicateur WB pour tous les pays africains (avec pagination)."""
+    url = f"{WB_BASE}/country/all/indicator/{indicator}"
     all_records: list[dict] = []
     page = 1
 
