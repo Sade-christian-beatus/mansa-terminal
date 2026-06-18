@@ -3,9 +3,10 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import {
-  Globe2, Sparkles, BarChart3, TrendingUp, Zap,
-  ArrowRight, Check, ChevronLeft, GitFork, ShieldAlert,
+  Globe2, BarChart3, Zap,
+  ArrowRight, Check, ChevronLeft,
 } from "lucide-react";
+import { ImageWithFallback } from "@/components/common/ImageWithFallback";
 
 /* ── Persist l'état onboarding ── */
 const ONBOARDING_KEY = "mansa_onboarding_done";
@@ -24,10 +25,11 @@ const SCREENS = [
     subtitle: "Africa's AI-Powered Macro-Fiscal Intelligence Platform",
     desc: "La première plateforme d'intelligence macroéconomique africaine en temps réel — conçue pour les investisseurs, les analystes et les décideurs.",
     visual: "globe",
+    image: "/images/onboarding-1.jpg",
     features: [
       "54 économies africaines couvertes",
-      "Données temps réel · IMF · World Bank",
-      "IA générative spécialisée Afrique",
+      "8 communautés économiques régionales",
+      "Cartes & heatmaps interactives du continent",
     ],
   },
   {
@@ -35,91 +37,29 @@ const SCREENS = [
     icon: BarChart3,
     iconColor: "#3B82F6",
     iconBg: "rgba(59,130,246,0.12)",
-    badge: "Intelligence",
-    title: "Macro-économie africaine",
-    subtitle: "141 indicateurs · 14 sources de données · Mise à jour quotidienne",
-    desc: "PIB, inflation, dette publique, solde courant, réserves de change — toutes les données macro dont vous avez besoin pour analyser les 54 marchés africains.",
-    visual: "chart",
+    badge: "Données & Intelligence",
+    title: "Vos données, augmentées par l'IA",
+    subtitle: "141 indicateurs · 14 sources · MANSA AI spécialisé Afrique",
+    desc: "PIB, inflation, dette, marchés, climat — et MANSA AI qui lit la base en temps réel pour rédiger des analyses macro-fiscales sourcées, en français comme en anglais.",
+    visual: "ai",
+    image: "/images/onboarding-2.jpg",
     features: [
-      "Heatmap interactive de l'Afrique",
-      "Séries temporelles 1990–2025",
-      "Export CSV / Excel / JSON",
+      "Séries temporelles 1990–2025 · export CSV/Excel/JSON",
+      "Marchés, corrélations, scénarios & prévisions",
+      "Analyses IA : risques souverains, profils pays",
     ],
   },
   {
     id: 2,
-    icon: TrendingUp,
-    iconColor: "#8B5CF6",
-    iconBg: "rgba(139,92,246,0.12)",
-    badge: "Marchés",
-    title: "Marchés & Analyses",
-    subtitle: "FX · Bourses africaines · Eurobonds · Matières premières",
-    desc: "Suivez les devises africaines, les indices boursiers (BRVM, NSE, JSE, EGX), les Eurobonds et les matières premières stratégiques en temps réel.",
-    visual: "markets",
-    features: [
-      "10+ paires de devises africaines",
-      "8 bourses africaines · Top actions",
-      "Signaux haute fréquence (HF)",
-    ],
-  },
-  {
-    id: 3,
-    icon: Sparkles,
-    iconColor: "#F59E0B",
-    iconBg: "rgba(245,158,11,0.12)",
-    badge: "Intelligence Artificielle",
-    title: "MANSA AI",
-    subtitle: "Powered by Claude · Spécialisé sur l'Afrique",
-    desc: "Posez vos questions macro en langage naturel. MANSA AI analyse la base de données en temps réel et vous génère des rapports économiques professionnels.",
-    visual: "ai",
-    features: [
-      "Analyses macro-fiscales en français/anglais",
-      "Risques souverains · Profils pays",
-      "Contexte IMF, Banque Mondiale, BCEAO",
-    ],
-  },
-  {
-    id: 4,
-    icon: GitFork,
-    iconColor: "#8B5CF6",
-    iconBg: "rgba(139,92,246,0.12)",
-    badge: "Analytics avancés",
-    title: "Corrélation inter-pays",
-    subtitle: "27 pays · 8 indicateurs · Scatter plot interactif",
-    desc: "Explorez les corrélations entre indicateurs macroéconomiques sur 27 pays africains. Détectez les patterns cachés : croissance vs. dette, inflation vs. investissement.",
-    visual: "correlation",
-    features: [
-      "Coefficient de Pearson calculé en temps réel",
-      "Filtres par région : UEMOA, CEMAC, Afrique",
-      "Scatter plot zoomable avec drapeaux pays",
-    ],
-  },
-  {
-    id: 5,
-    icon: ShieldAlert,
-    iconColor: "#EF4444",
-    iconBg: "rgba(239,68,68,0.12)",
-    badge: "Sécurité & Risques",
-    title: "Risques conflictuels ACLED",
-    subtitle: "15 pays · Données 2024 · Niveaux critique / élevé / moyen",
-    desc: "Intégrez le risque géopolitique à votre analyse. Visualisez les zones de conflit actives, les groupes armés et l'impact sur la stabilité économique — depuis les données ACLED.",
-    visual: "conflicts",
-    features: [
-      "15 pays africains avec niveaux de risque",
-      "Types de conflits : milices, jihadistes, intercommunautaires",
-      "Corrélation risque sécuritaire · prime de risque pays",
-    ],
-  },
-  {
-    id: 6,
     icon: Zap,
     iconColor: "#0ea5a0",
     iconBg: "rgba(14,165,160,0.12)",
     badge: "Prêt",
     title: "Commencer l'exploration",
     subtitle: "Votre plateforme est prête",
-    desc: "Accédez au dashboard principal pour commencer votre analyse macroéconomique de l'Afrique. Toutes les données sont disponibles immédiatement.",
+    desc: "Accédez au dashboard principal pour démarrer votre analyse macroéconomique de l'Afrique. Toutes les données sont disponibles immédiatement.",
     visual: "start",
+    image: "/images/onboarding-3.jpg",
     features: [
       "Dashboard interactif disponible",
       "MANSA AI activé et prêt",
@@ -411,9 +351,19 @@ export default function OnboardingPage() {
             </div>
           </div>
 
-          {/* Right: visual */}
+          {/* Right: image réelle (repli = illustration vectorielle) */}
           <div className="flex items-center justify-center">
-            <ScreenVisual type={screen.visual} color={screen.iconColor} />
+            <ImageWithFallback
+              src={screen.image}
+              alt={screen.title}
+              from={screen.iconColor}
+              to="#3B82F6"
+              priority
+              className="w-full aspect-[4/3] rounded-2xl overflow-hidden"
+              imgClassName="object-cover"
+            >
+              <ScreenVisual type={screen.visual} color={screen.iconColor} />
+            </ImageWithFallback>
           </div>
         </div>
       </div>

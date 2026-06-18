@@ -160,3 +160,62 @@ export function getFallbackNationalIndicators(
   }
   return out;
 }
+
+/* ── Catalogue d'indicateurs publiés par type d'institution ──────────────────
+   Permet d'afficher l'offre statistique complète de chaque source nationale,
+   et pas seulement les quelques séries déjà ingérées. */
+
+export interface CatalogIndicator {
+  code: string;
+  label: string;
+  unit: string;
+}
+
+export interface NationalCatalogGroup {
+  inst: Institution;
+  role: string;
+  indicators: CatalogIndicator[];
+}
+
+export interface NationalCatalog {
+  centralBank: NationalCatalogGroup | null;
+  statsInstitute: NationalCatalogGroup | null;
+}
+
+/** Séries habituellement publiées par une banque centrale africaine. */
+const CENTRAL_BANK_CATALOG: CatalogIndicator[] = [
+  { code: "INT_POLICY",      label: "Taux directeur",              unit: "%" },
+  { code: "INT_RESERVE_REQ", label: "Réserves obligatoires",       unit: "%" },
+  { code: "INT_INTERBANK",   label: "Taux interbancaire",          unit: "%" },
+  { code: "FX_CBN_USD",      label: "Taux de change officiel",     unit: "/USD" },
+  { code: "FX_RESERVES",     label: "Réserves de change",          unit: "mois imp." },
+  { code: "M2_GDP",          label: "Masse monétaire (M2)",        unit: "% PIB" },
+  { code: "CREDIT_PRIV",     label: "Crédit au secteur privé",     unit: "% PIB" },
+  { code: "BOP_CA_NAT",      label: "Balance des paiements",       unit: "% PIB" },
+];
+
+/** Séries habituellement publiées par un institut national de statistique. */
+const STATS_CATALOG: CatalogIndicator[] = [
+  { code: "CPI_NAT",        label: "Indice des prix (IPC)",       unit: "%" },
+  { code: "GDP_GROWTH_NAT", label: "Croissance du PIB",           unit: "%" },
+  { code: "GDP_NAT",        label: "PIB nominal",                 unit: "Mds" },
+  { code: "UNEMP_NAT",      label: "Taux de chômage",             unit: "%" },
+  { code: "IPI_NAT",        label: "Production industrielle",     unit: "indice" },
+  { code: "TRADE_BAL_NAT",  label: "Balance commerciale",         unit: "Mds" },
+  { code: "POP_NAT",        label: "Population",                  unit: "M hab." },
+  { code: "POVERTY_NAT",    label: "Taux de pauvreté",            unit: "%" },
+];
+
+/**
+ * Catalogue des indicateurs proposés par les sources nationales d'un pays,
+ * groupé par institution (banque centrale, institut de statistique).
+ */
+export function getNationalCatalog(countryId: string): NationalCatalog {
+  const cid = countryId.toUpperCase();
+  const cb = getCentralBank(cid);
+  const si = getStatsInstitute(cid);
+  return {
+    centralBank: cb ? { inst: cb, role: "Banque centrale", indicators: CENTRAL_BANK_CATALOG } : null,
+    statsInstitute: si ? { inst: si, role: "Institut de statistique", indicators: STATS_CATALOG } : null,
+  };
+}

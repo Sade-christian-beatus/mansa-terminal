@@ -6,7 +6,7 @@ import {
   ScatterChart, Scatter, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, Label, ReferenceLine,
 } from "recharts";
-import { GitFork, Info, TrendingUp, BarChart3 } from "lucide-react";
+import { GitFork, Info, TrendingUp, BarChart3, Grid3x3 } from "lucide-react";
 
 /* ── 54 pays avec données statiques pour la corrélation ── */
 const COUNTRIES_DATA: Record<string, {
@@ -55,6 +55,18 @@ const INDICATORS = [
   { code: "LUR",                label: "Chômage (%)" },
   { code: "BX_KLT_DINV_WD_GD_ZS", label: "IDE entrants (% PIB)" },
 ];
+
+/** Étiquettes courtes pour la matrice de corrélation. */
+const SHORT_LABELS: Record<string, string> = {
+  NGDP_RPCH: "Crois.",
+  PCPIPCH: "Infl.",
+  GGXCNL_NGDP: "Solde",
+  GGXWDG_NGDP: "Dette",
+  BCA_NGDPD: "C.cour.",
+  NGDPDPC: "PIB/h",
+  LUR: "Chôm.",
+  BX_KLT_DINV_WD_GD_ZS: "IDE",
+};
 
 const REGION_COLORS: Record<string, string> = {
   "West Africa":     "#00D4AA",
@@ -145,6 +157,52 @@ export default function CorrelationPage() {
   };
   const interp = interpretR(r);
 
+  // ── Droite de régression (OLS) sur le nuage courant ──
+  const regression = useMemo(() => {
+    const n = points.length;
+    if (n < 2) return null;
+    const mx = xVals.reduce((a, b) => a + b, 0) / n;
+    const my = yVals.reduce((a, b) => a + b, 0) / n;
+    const sxx = xVals.reduce((s, x) => s + (x - mx) ** 2, 0);
+    const sxy = xVals.reduce((s, x, i) => s + (x - mx) * (yVals[i] - my), 0);
+    if (sxx === 0) return null;
+    const slope = sxy / sxx;
+    const intercept = my - slope * mx;
+    const minX = Math.min(...xVals);
+    const maxX = Math.max(...xVals);
+    return [
+      { x: minX, y: slope * minX + intercept },
+      { x: maxX, y: slope * maxX + intercept },
+    ];
+  }, [points, xVals, yVals]);
+
+  // ── Matrice de corrélation (r entre tous les indicateurs, région courante) ──
+  const matrix = useMemo(() => {
+    const rows = Object.entries(COUNTRIES_DATA).filter(([, d]) => region === "Toutes" || d.region === region);
+    return INDICATORS.map((a) =>
+      INDICATORS.map((b) => {
+        const xs = rows.map(([, d]) => (d as any)[a.code] as number);
+        const ys = rows.map(([, d]) => (d as any)[b.code] as number);
+        return pearson(xs, ys);
+      }),
+    );
+  }, [region]);
+
+  const matrixColor = (v: number) => {
+    const a = Math.min(Math.abs(v), 1);
+    const base = v >= 0 ? "16,185,129" : "239,68,68";
+    return `rgba(${base}, ${(0.12 + a * 0.78).toFixed(2)})`;
+  };
+
+  // ── Paires d'indicateurs pré-réglées (raccourcis analytiques) ──
+  const PRESETS: { label: string; x: string; y: string }[] = [
+    { label: "Croissance × Dette",        x: "NGDP_RPCH", y: "GGXWDG_NGDP" },
+    { label: "Inflation × Solde budg.",   x: "PCPIPCH",   y: "GGXCNL_NGDP" },
+    { label: "PIB/hab × Chômage",         x: "NGDPDPC",   y: "LUR" },
+    { label: "IDE × Croissance",          x: "BX_KLT_DINV_WD_GD_ZS", y: "NGDP_RPCH" },
+    { label: "Dette × Compte courant",    x: "GGXWDG_NGDP", y: "BCA_NGDPD" },
+  ];
+
   return (
     <div className="space-y-6 animate-fade-in">
 
@@ -193,15 +251,35 @@ export default function CorrelationPage() {
           <label className="text-xs font-semibold uppercase tracking-wider" style={{ color: "var(--text-muted)" }}>
             Filtre région
           </label>
-          <select
-            value={region}
-            onChange={e => setRegion(e.target.value)}
-            className="w-full text-sm rounded-lg px-3 py-2 border focus:outline-none"
-            style={{ background: "var(--input-bg)", borderColor: "var(--input-border)", color: "var(--text-primary)" }}
-          >
-            {regions.map(r => <option key={r} value={r}>{r === "Toutes" ? "Toutes les régions" : r}</option>)}
-          </select>
+          <div className="flex flex-wrap gap-1.5">
+            {regions.map(rg => (
+              <button key={rg} onClick={() => setRegion(rg)}
+                className="px-2.5 py-1 rounded-full text-xs font-medium border transition-all"
+                style={region === rg
+                  ? { background: "color-mix(in srgb, var(--mansa-green) 14%, transparent)", borderColor: "var(--mansa-green)", color: "var(--mansa-green)" }
+                  : { background: "var(--card-bg)", borderColor: "var(--bg-border)", color: "var(--text-muted)" }}>
+                {rg === "Toutes" ? "Toutes" : rg}
+              </button>
+            ))}
+          </div>
         </div>
+      </div>
+
+      {/* ── Raccourcis : paires d'indicateurs pré-réglées ── */}
+      <div className="flex items-center gap-2 flex-wrap">
+        <span className="text-xs font-medium" style={{ color: "var(--text-muted)" }}>Analyses rapides :</span>
+        {PRESETS.map(p => {
+          const active = indX === p.x && indY === p.y;
+          return (
+            <button key={p.label} onClick={() => { setIndX(p.x); setIndY(p.y); }}
+              className="px-3 py-1.5 rounded-lg text-xs font-medium border transition-all"
+              style={active
+                ? { background: "color-mix(in srgb, var(--mansa-green) 12%, transparent)", borderColor: "var(--mansa-green)", color: "var(--mansa-green)" }
+                : { background: "var(--card-bg)", borderColor: "var(--bg-border)", color: "var(--text-secondary)" }}>
+              {p.label}
+            </button>
+          );
+        })}
       </div>
 
       {/* ── KPIs corrélation ── */}
@@ -247,9 +325,81 @@ export default function CorrelationPage() {
             <Tooltip content={<CustomTooltip />} />
             <ReferenceLine y={0} stroke="var(--text-muted)" strokeDasharray="4 2" opacity={0.4} />
             <ReferenceLine x={0} stroke="var(--text-muted)" strokeDasharray="4 2" opacity={0.4} />
+            {regression && (
+              <Scatter
+                data={regression}
+                line={{ stroke: interp.color, strokeWidth: 2, strokeDasharray: "6 4" }}
+                lineJointType="monotone"
+                shape={() => <g />}
+                legendType="none"
+                isAnimationActive={false}
+              />
+            )}
             <Scatter data={points} shape={<CustomDot />} />
           </ScatterChart>
         </ResponsiveContainer>
+      </div>
+
+      {/* ── Matrice de corrélation ── */}
+      <div className="mansa-card rounded-2xl p-5">
+        <div className="flex items-center gap-2 mb-1">
+          <Grid3x3 size={14} style={{ color: "var(--mansa-green)" }} />
+          <h3 className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>
+            Matrice de corrélation
+          </h3>
+          <span className="ml-auto text-xs" style={{ color: "var(--text-muted)" }}>
+            {region === "Toutes" ? "Toutes régions" : region} · cliquez une cellule
+          </span>
+        </div>
+        <p className="text-xs mb-3" style={{ color: "var(--text-muted)" }}>
+          Coefficient r entre chaque paire d'indicateurs · <span style={{ color: "#10B981" }}>vert</span> = positif,&nbsp;
+          <span style={{ color: "#EF4444" }}>rouge</span> = négatif.
+        </p>
+        <div className="overflow-x-auto">
+          <table className="text-[10px] border-separate" style={{ borderSpacing: 2 }}>
+            <thead>
+              <tr>
+                <th className="p-1"></th>
+                {INDICATORS.map((b) => (
+                  <th key={b.code} className="p-1 font-mono font-semibold align-bottom" style={{ color: "var(--text-muted)" }} title={b.label}>
+                    {SHORT_LABELS[b.code] ?? b.code.slice(0, 5)}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {INDICATORS.map((a, i) => (
+                <tr key={a.code}>
+                  <td className="pr-2 py-1 font-mono font-semibold whitespace-nowrap text-right" style={{ color: "var(--text-muted)" }} title={a.label}>
+                    {SHORT_LABELS[a.code] ?? a.code.slice(0, 5)}
+                  </td>
+                  {INDICATORS.map((b, j) => {
+                    const v = matrix[i][j];
+                    const isDiag = i === j;
+                    const isSel = (indY === a.code && indX === b.code);
+                    return (
+                      <td key={b.code} className="p-0">
+                        <button
+                          onClick={() => { if (!isDiag) { setIndY(a.code); setIndX(b.code); } }}
+                          disabled={isDiag}
+                          title={`${a.label} × ${b.label} : r = ${v.toFixed(2)}`}
+                          className="w-9 h-8 rounded font-mono font-semibold flex items-center justify-center transition-transform hover:scale-110"
+                          style={{
+                            background: isDiag ? "var(--bg-border)" : matrixColor(v),
+                            color: isDiag ? "var(--text-muted)" : Math.abs(v) > 0.5 ? "#fff" : "var(--text-primary)",
+                            outline: isSel ? "2px solid var(--mansa-green)" : "none",
+                            cursor: isDiag ? "default" : "pointer",
+                          }}>
+                          {isDiag ? "—" : v.toFixed(1)}
+                        </button>
+                      </td>
+                    );
+                  })}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
 
       {/* ── Légende régions ── */}
