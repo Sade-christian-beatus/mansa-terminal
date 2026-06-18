@@ -115,6 +115,11 @@ jobs:
           cd apps/web
           npm run lint
 
+      - name: Test (Vitest)
+        run: |
+          cd apps/web
+          npm test
+
       - name: Build
         env:
           NEXT_PUBLIC_API_URL: https://mansa-terminal.onrender.com
