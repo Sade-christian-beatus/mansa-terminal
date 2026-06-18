@@ -174,10 +174,17 @@ async def imf_weo_to_database(
     from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
     from sqlalchemy import text
 
-    database_url = os.getenv("DATABASE_URL")
+    database_url = os.getenv("DATABASE_URL", "")
     if not database_url:
         context.log.warning("DATABASE_URL non défini — skip persistance")
         return Output({"status": "skipped", "reason": "no database"})
+
+    # create_async_engine exige le driver asyncpg — Railway/Supabase fournit
+    # souvent postgresql:// (ou postgres://). On normalise pour éviter l'échec.
+    if database_url.startswith("postgresql://"):
+        database_url = database_url.replace("postgresql://", "postgresql+asyncpg://", 1)
+    elif database_url.startswith("postgres://"):
+        database_url = database_url.replace("postgres://", "postgresql+asyncpg://", 1)
 
     engine = create_async_engine(database_url)
     inserted = 0

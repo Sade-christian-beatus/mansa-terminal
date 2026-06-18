@@ -20,6 +20,7 @@ PyJWT==2.10.1            # JWT tokens (import: jwt)
 
 # === HTTP ===
 httpx==0.28.1            # Client HTTP async pour les pipelines et tests
+feedparser==6.0.11       # Parse des flux RSS/Atom pour le router news
 
 # === RATE LIMITING ===
 slowapi==0.1.9           # Rate limiting middleware pour FastAPI
@@ -42,3 +43,15 @@ python-multipart==0.0.20 # Nécessaire pour les form data FastAPI
 
 # === OPTIONNEL (Phase 2) ===
 pgvector                 # Recherche vectorielle pour le RAG
+openai>=1.40.0           # Embeddings text-embedding-3-small (RAG sémantique)
+
+# === FORECASTING ===
+statsmodels==0.14.4      # ARIMA, ExponentialSmoothing, seasonal decomposition
+scipy==1.14.1            # Dépendance statsmodels (calcul statistique)
+
+# === TESTS ===
+pytest==8.3.4            # Framework de test
+pytest-asyncio==0.24.0   # Support async/await dans les tests
+pytest-cov==6.0.0        # Couverture de code
+httpx==0.28.1            # Client HTTP pour TestClient FastAPI (déjà listé)
+

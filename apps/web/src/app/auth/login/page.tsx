@@ -9,7 +9,7 @@ import { authApi } from "@/lib/api";
 import { useAuthStore } from "@/lib/auth-store";
 
 export default function LoginPage() {
-  const router = useRouter();
+  const router  = useRouter();
   const setUser = useAuthStore((s) => s.setUser);
   const [email, setEmail]       = useState("");
   const [password, setPassword] = useState("");
@@ -88,6 +88,7 @@ export default function LoginPage() {
         )}
 
         <form onSubmit={handleSubmit} className="space-y-4">
+          {/* Email */}
           <div>
             <label className="block text-sm mb-1.5" style={{ color: "var(--text-secondary)" }}>
               Email
@@ -102,6 +103,7 @@ export default function LoginPage() {
             />
           </div>
 
+          {/* Mot de passe */}
           <div>
             <label className="block text-sm mb-1.5" style={{ color: "var(--text-secondary)" }}>
               Mot de passe
@@ -122,7 +124,7 @@ export default function LoginPage() {
             className="w-full mansa-btn-primary justify-center py-2.5 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {loading && <Loader2 size={14} className="animate-spin" />}
-            {loading ? "Connexion..." : "Se connecter"}
+            {loading ? "Connexion en cours…" : "Se connecter"}
           </button>
         </form>
 

@@ -12,7 +12,7 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 // pour éviter les problèmes CORS cross-domain.
 const IS_BROWSER = typeof window !== "undefined";
 const IS_PROD = process.env.NODE_ENV === "production";
-const API_BASE = IS_BROWSER && IS_PROD ? "/api/backend" : `${API_URL}/api`;
+const API_BASE = IS_BROWSER && IS_PROD ? "/api" : `${API_URL}/api`;
 
 const _api = axios.create({
   baseURL: API_BASE,
@@ -104,6 +104,39 @@ export const macroApi = {
 
   getHeatmap: (indicator: string, year: number) =>
     api.get("/macro/heatmap/africa", { params: { indicator, year } }),
+
+  /** Matrice pays × indicateurs pour le module Macroeconomic Table. */
+  getTable: (params?: { year?: number; region?: string }) =>
+    api.get<{
+      year: number;
+      indicators_present: string[];
+      countries: { id: string; name: string; region: string | null; values: Record<string, number> }[];
+      is_live: boolean;
+    }>("/macro/table", { params }),
+
+  getFreshness: () =>
+    api.get<{
+      sources: { source: string; last_updated: string | null; total_records: number; run_count: number }[];
+      last_updated: string | null;
+      is_live: boolean;
+      note?: string;
+    }>("/macro/freshness"),
+
+  /** Déclenche la ré-ingestion serveur (workflow GitHub Actions data-ingest.yml). */
+  refresh: (source: "all" | "imf" | "worldbank" | "extra" = "all") =>
+    api.post<{ triggered: boolean; source: string; message: string; workflow_url: string | null }>(
+      "/macro/refresh", null, { params: { source } },
+    ),
+
+  getExport: (params?: { sources?: string; year_from?: number; year_to?: number }) =>
+    api.get("/macro/export", { params }),
+
+  getRegion: (zone: "UEMOA" | "CEMAC" | "SSA", year?: number) =>
+    api.get(`/macro/regions/${zone}`, { params: { year } }),
+
+  /** Sources nationales d'un pays : institutions + séries taggées source nationale. */
+  getNationalSources: (countryId: string) =>
+    api.get<NationalSourcesResult>(`/macro/${countryId}/national-sources`),
 };
 
 // ── Helpers AI Analyst ──────────────────────────────────────────────────
@@ -131,6 +164,33 @@ export const marketsApi = {
 export const climateApi = {
   getIndicators: (year?: number) => api.get("/climate/indicators", { params: { year } }),
   getSummary:    () => api.get("/climate/summary"),
+  getActiveFires: () => api.get<{
+    is_live: boolean;
+    source?: string;
+    total: number;
+    by_region: Record<string, number>;
+    hotspots: { lat: number; lon: number; fires: number }[];
+    as_of: string | null;
+    note?: string;
+  }>("/climate/active-fires"),
+  getWeather: () => api.get<{
+    is_live: boolean;
+    source?: string;
+    cities: { region: string; city: string; month: string; temp_c: number; precip_mm_day: number }[];
+    note?: string;
+  }>("/climate/weather"),
+};
+
+// ── Helpers News ─────────────────────────────────────────────────────────
+export const newsApi = {
+  getFeed: (params?: { limit?: number; category?: string }) =>
+    api.get("/news/feed", { params }),
+};
+
+// ── Helpers Alerts ───────────────────────────────────────────────────────
+export const alertsApi = {
+  getMacroAlerts: (params?: { severity?: string; year?: number; limit?: number }) =>
+    api.get("/alerts/macro", { params }),
 };
 
 // ── Streaming SSE AI Analyst ────────────────────────────────────────────

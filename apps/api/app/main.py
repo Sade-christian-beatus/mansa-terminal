@@ -18,7 +18,7 @@ from sentry_sdk.integrations.sqlalchemy import SqlalchemyIntegration
 
 from app.core.config import settings
 from app.core.limiter import limiter
-from app.routers import auth, health, macro, countries, ai_analyst, billing, markets, climate
+from app.routers import auth, health, macro, countries, ai_analyst, billing, markets, climate, news, alerts, acled, public_api, forecast
 
 # ---- Logging structuré (JSON en prod, standard en dev) ----
 class _JSONFormatter(logging.Formatter):
@@ -59,25 +59,85 @@ if settings.SENTRY_DSN:
     )
 
 
+def _validate_required_env() -> None:
+    """Bloque le démarrage si des variables critiques sont absentes en production."""
+    import os
+    missing = []
+    if not settings.ANTHROPIC_API_KEY:
+        missing.append("ANTHROPIC_API_KEY")
+    if not getattr(settings, "ANTHROPIC_MODEL_ID", None):
+        missing.append("ANTHROPIC_MODEL_ID")
+    if settings.APP_ENV == "production":
+        if not getattr(settings, "SUPABASE_JWT_SECRET", None):
+            missing.append("SUPABASE_JWT_SECRET")
+        if not getattr(settings, "STRIPE_WEBHOOK_SECRET", None):
+            missing.append("STRIPE_WEBHOOK_SECRET")
+    if missing:
+        raise RuntimeError(
+            f"Variables d'environnement manquantes : {', '.join(missing)}. "
+            "Vérifiez votre fichier .env ou la configuration Railway."
+        )
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     _configure_logging()
+    _validate_required_env()
     yield
 
 
 app = FastAPI(
     title=settings.APP_NAME,
     version=settings.APP_VERSION,
-    debug=False,                                          # jamais True en prod
+    description=(
+        "**MANSA Terminal** — Africa's Macro-Fiscal Intelligence Platform\n\n"
+        "API publique pour économistes, data scientists et institutions.\n\n"
+        "**Authentification** : `Authorization: Bearer mansa_xxx`\n\n"
+        "Obtenez votre clé sur [mansa.ai/profile](https://mansa-terminal.vercel.app/profile)."
+    ),
+    debug=False,
     lifespan=lifespan,
-    docs_url="/docs" if settings.APP_ENV != "production" else None,
-    redoc_url="/redoc" if settings.APP_ENV != "production" else None,
-    openapi_url="/openapi.json" if settings.APP_ENV != "production" else None,
+    # Swagger accessible en production pour la doc publique de l'API
+    docs_url="/docs",
+    redoc_url="/redoc",
+    openapi_url="/openapi.json",
 )
 
 # ---- Rate limiting ----
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
+
+# ---- Rate limit middleware par route pattern ----
+@app.middleware("http")
+async def route_rate_limit_headers(request: Request, call_next) -> Response:
+    """
+    Ajoute les headers X-RateLimit-* pour transparence client.
+    Les limites réelles sont appliquées par slowapi sur les routes individuelles.
+    Ici on expose les limites attendues par endpoint pour les clients API.
+    """
+    response = await call_next(request)
+    path = request.url.path
+
+    # Communiquer les limites par type de route
+    if "/api/ai" in path:
+        response.headers["X-RateLimit-Policy"] = "20/hour"
+    elif "/api/auth" in path:
+        response.headers["X-RateLimit-Policy"] = "10/minute"
+    elif "/api/macro/export" in path:
+        response.headers["X-RateLimit-Policy"] = "20/hour"
+    elif "/api/markets" in path:
+        response.headers["X-RateLimit-Policy"] = "60/minute"
+    elif "/api/news" in path:
+        response.headers["X-RateLimit-Policy"] = "30/minute"
+    elif "/api/macro" in path:
+        response.headers["X-RateLimit-Policy"] = "120/minute"
+    elif "/api/acled" in path:
+        response.headers["X-RateLimit-Policy"] = "60/minute"
+    else:
+        response.headers["X-RateLimit-Policy"] = "200/minute"
+
+    return response
 
 
 # ---- Request ID middleware ----
@@ -113,6 +173,11 @@ app.include_router(ai_analyst.router, prefix="/api/ai",        tags=["AI Analyst
 app.include_router(billing.router,    prefix="/api/billing",   tags=["Billing"])
 app.include_router(markets.router,    prefix="/api/markets",   tags=["Markets"])
 app.include_router(climate.router,    prefix="/api/climate",   tags=["Climate"])
+app.include_router(news.router,       prefix="/api/news",      tags=["News"])
+app.include_router(alerts.router,     prefix="/api/alerts",    tags=["Alerts"])
+app.include_router(acled.router,      prefix="/api/acled",     tags=["Conflicts"])
+app.include_router(public_api.router, prefix="/api",           tags=["API Keys", "Public Data"])
+app.include_router(forecast.router,   prefix="/api/forecast",  tags=["Forecasting"])
 
 
 @app.get("/", tags=["Root"])

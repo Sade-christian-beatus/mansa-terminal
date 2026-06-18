@@ -27,6 +27,9 @@ class User(Base):
     hashed_password = Column(String(255), nullable=False)
     full_name = Column(String(255))
     organization = Column(String(255))
+    country_of_residence = Column(String(3))   # ISO 3166-1 alpha-3 (NGA, FRA…)
+    preferred_currency = Column(String(3))     # ISO 4217 (USD, EUR, XOF…)
+    preferred_language = Column(String(5), default="fr")  # fr, en
     role = Column(String(20), nullable=False, default="analyst")
     is_active = Column(Boolean, nullable=False, default=True)
     is_verified = Column(Boolean, nullable=False, default=False)
@@ -172,21 +175,66 @@ class AIQuery(Base):
 
 
 class KnowledgeDocument(Base):
-    """RAG knowledge base — pgvector embedding column added via migration."""
+    """
+    RAG knowledge base — Documents macro-économiques africains.
+
+    Colonne embedding : vecteur VECTOR(1536) ajouté via migration 0003_pgvector.
+    Recherche sémantique (cosine) ACTIVE quand OPENAI_API_KEY est configurée :
+      - génération des vecteurs : scripts/embed_knowledge.py (backfill)
+      - service d'embedding requête : app/core/embeddings.py
+      - recherche cosine + repli country_id : ai_analyst.get_relevant_context (§5)
+    La colonne embedding n'est PAS déclarée dans l'ORM (raw SQL pgvector) pour
+    rester compatible avec les bases sans l'extension (CI postgres standard) et
+    éviter de charger un vecteur 1536 à chaque SELECT.
+
+    Modèle d'embedding : OpenAI text-embedding-3-small (dim=1536).
+    """
     __tablename__ = "knowledge_documents"
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     title = Column(String(500), nullable=False)
-    doc_type = Column(String(100))           # IMF_ARTICLE_IV | WB_MEMO | BCEAO_REPORT
+    doc_type = Column(String(100))           # IMF_ARTICLE_IV | WB_MEMO | BCEAO_REPORT | MANSA_SUMMARY
     country_id = Column(String(3), ForeignKey("countries.id"), nullable=True)
     content = Column(Text, nullable=False)
     year = Column(Integer)
     source_url = Column(String(500))
+    # Embedding pgvector — NULL si pas encore vectorisé (migration 0003 requise)
+    # La colonne est déclarée ici comme Text pour rester compatible si pgvector
+    # n'est pas installé. La migration 0003 change son type en vector(1536).
+    # Pour la recherche sémantique, utiliser sqlalchemy-pgvector ou raw SQL.
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     __table_args__ = (
         Index("idx_knowledge_country", "country_id"),
         Index("idx_knowledge_type", "doc_type"),
+        Index("idx_knowledge_year", "year"),
+    )
+
+
+# ============================================================
+# API KEYS (Public API)
+# ============================================================
+
+class APIKey(Base):
+    """Clés d'API pour accès programmatique à la plateforme MANSA."""
+    __tablename__ = "api_keys"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
+    name = Column(String(100), nullable=False)           # Label donné par l'user (ex: "Mon script R")
+    key_hash = Column(String(64), unique=True, nullable=False)  # SHA-256 de la clé brute
+    key_prefix = Column(String(12), nullable=False)     # Premiers chars pour affichage (mansa_xxxx)
+    scopes = Column(JSONB, default=list)                # ["read:macro", "read:countries", ...]
+    last_used_at = Column(DateTime(timezone=True))
+    expires_at = Column(DateTime(timezone=True))        # NULL = pas d'expiration
+    is_active = Column(Boolean, nullable=False, default=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    user = relationship("User")
+
+    __table_args__ = (
+        Index("idx_apikey_user", "user_id"),
+        Index("idx_apikey_hash", "key_hash"),
     )
 
 

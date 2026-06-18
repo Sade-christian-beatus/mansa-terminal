@@ -26,7 +26,7 @@ const SHORTCUTS: PaletteItem[] = [
   { id: "markets", label: "Marchés & FX",  sub: "Taux de change · Indices",     href: "/markets", icon: <TrendingUp size={13} className="text-amber-400" /> },
   { id: "countries",label:"Pays africains", sub: "54 économies · données macro", href: "/countries",icon:<Globe size={13} className="text-blue-400" /> },
   { id: "climate", label: "Climat & ESG",  sub: "Indicateurs environnementaux", href: "/climate", icon: <Leaf size={13} className="text-green-400" /> },
-  { id: "indicators",label:"Indicateurs",  sub: "Catalogue des 141 indicateurs",href: "/indicators",icon:<BarChart2 size={13} className="text-[#00D4AA]" /> },
+  { id: "indicators",label:"Indicateurs",  sub: "Catalogue des 141 indicateurs",href: "/indicators",icon:<BarChart2 size={13} style={{ color: "var(--mansa-green)" }} /> },
 ];
 
 export function CommandPalette() {
@@ -129,18 +129,20 @@ export function CommandPalette() {
 
       {/* Panel */}
       <div className="relative w-full max-w-lg animate-fade-in">
-        <div className="bg-[#0D1426] border border-[#2A3A52] rounded-xl shadow-2xl overflow-hidden">
+        <div className="mansa-card rounded-xl shadow-2xl overflow-hidden">
           {/* Search input */}
-          <div className="flex items-center gap-3 px-4 py-3 border-b border-[#1E2A42]">
-            <Search size={14} className="text-gray-500 shrink-0" />
+          <div className="flex items-center gap-3 px-4 py-3 border-b" style={{ borderColor: "var(--card-border)" }}>
+            <Search size={14} className="shrink-0" style={{ color: "var(--text-muted)" }} />
             <input
               ref={inputRef}
               value={query}
               onChange={(e) => { setQuery(e.target.value); setSel(0); }}
               placeholder="Rechercher un pays, indicateur, page..."
-              className="flex-1 bg-transparent text-white text-sm font-mono placeholder-gray-600 focus:outline-none"
+              className="flex-1 bg-transparent text-sm font-mono focus:outline-none"
+              style={{ color: "var(--text-primary)" }}
             />
-            <kbd className="shrink-0 text-[10px] text-gray-600 border border-[#1E2A42] rounded px-1.5 py-0.5 font-mono">
+            <kbd className="shrink-0 text-[10px] font-mono px-1.5 py-0.5 rounded"
+                 style={{ color: "var(--text-muted)", border: "1px solid var(--bg-border)" }}>
               ESC
             </kbd>
           </div>
@@ -148,7 +150,8 @@ export function CommandPalette() {
           {/* Results */}
           <div className="overflow-y-auto max-h-72 py-1">
             {!query && (
-              <p className="px-4 pt-1.5 pb-1 text-[10px] text-gray-600 font-mono uppercase tracking-widest">
+              <p className="px-4 pt-1.5 pb-1 text-[10px] font-mono uppercase tracking-widest"
+                 style={{ color: "var(--text-muted)" }}>
                 Navigation rapide
               </p>
             )}
@@ -157,25 +160,24 @@ export function CommandPalette() {
                 key={item.id}
                 onClick={() => navigate(item.href)}
                 onMouseEnter={() => setSel(i)}
-                className={`w-full flex items-center gap-3 px-4 py-2.5 text-left transition-colors ${
-                  i === sel ? "bg-[#1A2540]" : "hover:bg-[#1A2540]/60"
-                }`}
+                className="w-full flex items-center gap-3 px-4 py-2.5 text-left transition-colors"
+                style={{ background: i === sel ? "var(--bg-card-hover)" : "transparent" }}
               >
                 <span className="w-5 shrink-0 flex items-center justify-center">{item.icon}</span>
                 <div className="flex-1 min-w-0">
-                  <p className="text-gray-100 text-sm font-medium truncate">{item.label}</p>
-                  {item.sub && <p className="text-gray-600 text-[11px] font-mono truncate">{item.sub}</p>}
+                  <p className="text-sm font-medium truncate" style={{ color: "var(--text-primary)" }}>{item.label}</p>
+                  {item.sub && <p className="text-[11px] font-mono truncate" style={{ color: "var(--text-muted)" }}>{item.sub}</p>}
                 </div>
-                <ArrowRight size={12} className="text-gray-700 shrink-0" />
+                <ArrowRight size={12} style={{ color: "var(--text-muted)" }} />
               </button>
             ))}
           </div>
 
           {/* Footer hint */}
-          <div className="flex items-center gap-4 px-4 py-2 border-t border-[#1E2A42] bg-[#080D1A]/60">
+          <div className="flex items-center gap-4 px-4 py-2 border-t" style={{ borderColor: "var(--card-border)", background: "var(--sidebar-bg)" }}>
             {[["↑↓", "naviguer"], ["↵", "ouvrir"], ["esc", "fermer"]].map(([key, label]) => (
-              <span key={key} className="flex items-center gap-1 text-[10px] text-gray-700 font-mono">
-                <kbd className="border border-[#1E2A42] rounded px-1 text-gray-600">{key}</kbd>
+              <span key={key} className="flex items-center gap-1 text-[10px] font-mono" style={{ color: "var(--text-muted)" }}>
+                <kbd className="rounded px-1" style={{ border: "1px solid var(--bg-border)", color: "var(--text-muted)" }}>{key}</kbd>
                 {label}
               </span>
             ))}

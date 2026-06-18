@@ -8,27 +8,7 @@ import {
   Geography,
   ZoomableGroup,
 } from "react-simple-maps";
-
-// GeoJSON monde Natural Earth — on filtre uniquement les pays africains
-const WORLD_TOPO =
-  "https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json";
-
-// ISO-3166 numeric → ISO-3 (pays africains uniquement)
-const NUM_TO_ISO3: Record<string, string> = {
-  "012": "DZA", "024": "AGO", "204": "BEN", "072": "BWA", "854": "BFA",
-  "108": "BDI", "132": "CPV", "120": "CMR", "140": "CAF", "148": "TCD",
-  "174": "COM", "180": "COD", "178": "COG", "384": "CIV", "262": "DJI",
-  "818": "EGY", "226": "GNQ", "232": "ERI", "231": "ETH", "266": "GAB",
-  "270": "GMB", "288": "GHA", "324": "GIN", "624": "GNB", "404": "KEN",
-  "426": "LSO", "430": "LBR", "434": "LBY", "450": "MDG", "454": "MWI",
-  "466": "MLI", "478": "MRT", "480": "MUS", "504": "MAR", "508": "MOZ",
-  "516": "NAM", "562": "NER", "566": "NGA", "646": "RWA", "678": "STP",
-  "686": "SEN", "694": "SLE", "706": "SOM", "710": "ZAF", "728": "SSD",
-  "729": "SDN", "748": "SWZ", "834": "TZA", "768": "TGO", "788": "TUN",
-  "800": "UGA", "894": "ZMB", "716": "ZWE",
-};
-
-const AFRICAN_NUMERIC = new Set(Object.keys(NUM_TO_ISO3));
+import { WORLD_TOPO, NUM_TO_ISO3, AFRICAN_NUMERIC } from "@/lib/africa-geo";
 
 interface HeatmapEntry {
   country_id: string;
@@ -45,11 +25,11 @@ interface AfricaHeatmapProps {
 }
 
 function getColor(value: number | null, min: number, max: number): string {
-  if (value === null) return "#1E2A42";
+  if (value === null) return "#1A1300";
   if (value >= 0) {
     const t = max > 0 ? Math.min(value / max, 1) : 0;
     const a = Math.round((0.25 + t * 0.75) * 255).toString(16).padStart(2, "0");
-    return `#00D4AA${a}`;
+    return `#0ea5a0${a}`;
   }
   const t = min < 0 ? Math.min(Math.abs(value) / Math.abs(min), 1) : 0;
   const a = Math.round((0.25 + t * 0.75) * 255).toString(16).padStart(2, "0");
@@ -90,19 +70,17 @@ export function AfricaHeatmap({ data, indicator, year, isLoading }: AfricaHeatma
   return (
     <div className="mansa-card rounded-xl p-4 relative">
       <div className="flex items-center justify-between mb-2">
-        <h3 className="text-sm font-semibold text-white">
+        <h3 className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>
           Afrique — {indicator} · {year}
         </h3>
-        <span className="text-xs text-gray-500">{data.length} pays</span>
+        <span className="text-xs" style={{ color: "var(--text-muted)" }}>{data.length} pays</span>
       </div>
 
       {/* Tooltip flottant */}
       {tooltip && (
         <div
-          className="pointer-events-none absolute z-50 bg-[#141B2E] border
-                     border-[#1E2A42] rounded-lg px-3 py-2 text-xs text-gray-200
-                     shadow-xl whitespace-nowrap"
-          style={{ left: tooltip.x + 12, top: tooltip.y - 8 }}
+          className="pointer-events-none absolute z-50 rounded-lg px-3 py-2 text-xs shadow-xl whitespace-nowrap"
+          style={{ left: tooltip.x + 12, top: tooltip.y - 8, background: "var(--dropdown-bg)", border: "1px solid var(--card-border)", color: "var(--text-primary)" }}
         >
           {tooltip.content}
         </div>
@@ -136,7 +114,7 @@ export function AfricaHeatmap({ data, indicator, year, isLoading }: AfricaHeatma
                         strokeWidth={0.5}
                         style={{
                           default: { outline: "none", cursor: iso3 ? "pointer" : "default" },
-                          hover:   { outline: "none", fill: "#00D4AA99" },
+                          hover:   { outline: "none", fill: "#0ea5a099" },
                           pressed: { outline: "none" },
                         }}
                         onMouseMove={(evt: React.MouseEvent) => {
@@ -179,7 +157,7 @@ export function AfricaHeatmap({ data, indicator, year, isLoading }: AfricaHeatma
         <span className="text-xs text-gray-700">Cliquer sur un pays</span>
         <div className="flex items-center gap-2">
           <span className="text-xs text-gray-600">Positif</span>
-          <div className="w-16 h-2 rounded bg-gradient-to-r from-[#00D4AA]/20 to-[#00D4AA]" />
+          <div className="w-16 h-2 rounded bg-gradient-to-r from-[#0ea5a0]/20 to-[#0ea5a0]" />
         </div>
       </div>
     </div>
@@ -217,7 +195,7 @@ export function TopCountriesTable({ data, indicator, isLoading }: TopCountriesTa
 
   return (
     <div className="mansa-card rounded-xl p-4 h-full flex flex-col">
-      <h3 className="text-sm font-semibold text-white mb-4">
+      <h3 className="text-sm font-semibold mb-4" style={{ color: "var(--text-primary)" }}>
         Classement — {indicator}
       </h3>
       <div className="space-y-1 overflow-y-auto flex-1">
@@ -229,23 +207,21 @@ export function TopCountriesTable({ data, indicator, isLoading }: TopCountriesTa
             <div
               key={d.country_id}
               onClick={() => router.push(`/countries/${d.country_id}`)}
-              className="flex items-center gap-3 py-1.5 px-2 rounded-lg
-                         hover:bg-[#141B2E] transition-colors cursor-pointer group"
+              className="flex items-center gap-3 py-1.5 px-2 rounded-lg mansa-card-hover transition-colors cursor-pointer group"
             >
-              <span className="text-xs text-gray-600 w-5 text-right font-mono">
+              <span className="text-xs w-5 text-right font-mono" style={{ color: "var(--text-muted)" }}>
                 {i + 1}
               </span>
               <span className="text-sm">{d.flag}</span>
-              <span className="text-xs text-gray-300 w-20 truncate
-                               group-hover:text-white transition-colors">
+              <span className="text-xs w-20 truncate transition-colors" style={{ color: "var(--text-secondary)" }}>
                 {d.country_name}
               </span>
-              <div className="flex-1 h-1.5 bg-[#1E2A42] rounded-full overflow-hidden">
+              <div className="flex-1 h-1.5 rounded-full overflow-hidden" style={{ background: "var(--bg-border)" }}>
                 <div
                   className="h-full rounded-full transition-all duration-300"
                   style={{
                     width: `${barWidth}%`,
-                    backgroundColor: isPositive ? "#00D4AA" : "#EF4444",
+                    backgroundColor: isPositive ? "var(--mansa-green)" : "#EF4444",
                   }}
                 />
               </div>

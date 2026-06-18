@@ -191,6 +191,22 @@ const INDICATOR_ALIASES: Record<string, string> = {
 };
 
 /**
+ * Série historique {year, value} pour un pays et un indicateur, depuis les
+ * données de démonstration (FMI WEO). Retourne [] si indisponible.
+ */
+export function getCountrySeries(indicator: string, countryId: string): { year: string; value: number }[] {
+  const resolved = INDICATOR_ALIASES[indicator] ?? indicator;
+  const yearMap = (INDICATOR_MAP[resolved] ?? {})[countryId.toUpperCase()];
+  if (!yearMap) return [];
+  return Object.entries(yearMap)
+    .map(([year, value]) => ({ year, value }))
+    .sort((a, b) => a.year.localeCompare(b.year));
+}
+
+/** Liste des codes indicateurs disposant de séries historiques de démo. */
+export const DEMO_SERIES_CODES = Object.keys(INDICATOR_MAP);
+
+/**
  * Retourne les données de fallback pour un indicateur IMF
  * en filtrant sur les périodes demandées.
  */

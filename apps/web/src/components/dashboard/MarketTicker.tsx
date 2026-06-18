@@ -49,9 +49,10 @@ export function MarketTicker() {
 
   if (items.length === 0) {
     return (
-      <div className="h-8 bg-[#080D1A] border-b border-[#1E2A42] flex items-center px-4 gap-8">
+      <div className="h-8 border-b flex items-center px-4 gap-8"
+           style={{ background: "var(--sidebar-bg)", borderColor: "var(--sidebar-border)" }}>
         {Array.from({ length: 7 }).map((_, i) => (
-          <div key={i} className="h-2.5 w-20 bg-[#1E2A42] rounded animate-pulse" />
+          <div key={i} className="h-2.5 w-20 skeleton rounded" />
         ))}
       </div>
     );
@@ -60,18 +61,26 @@ export function MarketTicker() {
   const doubled = [...items, ...items];
 
   return (
-    <div className="h-8 bg-[#080D1A] border-b border-[#1E2A42] overflow-hidden flex items-stretch">
+    <div className="h-8 border-b overflow-hidden flex items-stretch"
+         style={{ background: "var(--sidebar-bg)", borderColor: "var(--sidebar-border)" }}>
       {/* Badge FX LIVE / DEMO */}
-      <div className={`shrink-0 flex items-center gap-1.5 px-3 border-r border-[#1E2A42] ${data?.isFallback ? "bg-amber-500/5" : "bg-[#00D4AA]/5"}`}>
-        <span className={`w-1.5 h-1.5 rounded-full ${data?.isFallback ? "bg-amber-400" : "bg-[#00D4AA] animate-pulse"}`} />
-        <span className={`text-[10px] font-mono font-bold tracking-widest ${data?.isFallback ? "text-amber-400" : "text-[#00D4AA]"}`}>
+      <div className="shrink-0 flex items-center gap-1.5 px-3 border-r"
+           style={{
+             borderColor: "var(--sidebar-border)",
+             background: data?.isFallback ? "rgba(245,158,11,0.05)" : "color-mix(in srgb, var(--mansa-green) 5%, transparent)",
+           }}>
+        <span className={`w-1.5 h-1.5 rounded-full ${data?.isFallback ? "bg-amber-400" : "animate-pulse"}`}
+              style={data?.isFallback ? {} : { background: "var(--mansa-green)" }} />
+        <span className="text-[10px] font-mono font-bold tracking-widest"
+              style={{ color: data?.isFallback ? "#F59E0B" : "var(--mansa-green)" }}>
           {data?.isFallback ? "DEMO" : "FX"}
         </span>
       </div>
 
       {/* Label base */}
-      <div className="shrink-0 flex items-center px-3 border-r border-[#1E2A42]">
-        <span className="text-gray-600 text-[10px] font-mono">1 USD =</span>
+      <div className="shrink-0 flex items-center px-3 border-r"
+           style={{ borderColor: "var(--sidebar-border)" }}>
+        <span className="text-[10px] font-mono" style={{ color: "var(--text-muted)" }}>1 USD =</span>
       </div>
 
       {/* Scrolling strip */}
@@ -80,21 +89,17 @@ export function MarketTicker() {
           {doubled.map((item, i) => (
             <div
               key={`${item.code}-${i}`}
-              className="shrink-0 flex items-center gap-1.5 px-4 border-r border-[#1E2A42]/40 h-full"
+              className="shrink-0 flex items-center gap-1.5 px-4 h-full border-r"
+              style={{ borderColor: "color-mix(in srgb, var(--bg-border) 40%, transparent)" }}
             >
               <span className="text-[11px] leading-none">{item.flag}</span>
-              <span className="text-gray-400 text-[11px] font-mono">{item.code}</span>
-              <span className="text-white text-[11px] font-mono font-semibold tabular-nums">
+              <span className="text-[11px] font-mono" style={{ color: "var(--text-secondary)" }}>{item.code}</span>
+              <span className="text-[11px] font-mono font-semibold tabular-nums" style={{ color: "var(--text-primary)" }}>
                 {formatRate(item.rate)}
               </span>
               <span
-                className={`text-[10px] font-mono tabular-nums ${
-                  item.change > 0.01
-                    ? "text-red-400"
-                    : item.change < -0.01
-                    ? "text-green-400"
-                    : "text-gray-600"
-                }`}
+                className="text-[10px] font-mono tabular-nums"
+                style={{ color: item.change > 0.01 ? "#EF4444" : item.change < -0.01 ? "#10B981" : "var(--text-muted)" }}
               >
                 {item.change > 0.01 ? "▲" : item.change < -0.01 ? "▼" : "·"}
                 {Math.abs(item.change) > 0.01 ? Math.abs(item.change).toFixed(2) + "%" : ""}
@@ -105,8 +110,9 @@ export function MarketTicker() {
       </div>
 
       {/* Date */}
-      <div className="shrink-0 flex items-center px-3 border-l border-[#1E2A42]">
-        <span className="text-gray-700 text-[10px] font-mono">
+      <div className="shrink-0 flex items-center px-3 border-l"
+           style={{ borderColor: "var(--sidebar-border)" }}>
+        <span className="text-[10px] font-mono" style={{ color: "var(--text-muted)" }}>
           {data?.latest?.date ?? "—"}
         </span>
       </div>

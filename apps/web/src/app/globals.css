@@ -4,89 +4,193 @@
 
 /* ============================================================
    MANSA Terminal — Design System
-   Palette sombre inspirée Bloomberg/Refinitiv
+   Dark mode (default) + Light mode via data-theme="light"
    ============================================================ */
 
-:root {
-  /* Couleurs primaires MANSA */
-  --mansa-green: #00D4AA;
-  --mansa-green-dark: #00A882;
-  --mansa-gold: #FFB800;
-  --mansa-blue: #3B82F6;
+/* ── DARK MODE (défaut) — Palette Teal professionnel / Noir ── */
+/* Palette : #0ea5a0 (teal) · #0a7a76 (teal foncé) · #0f2e2c (teal sombre)
+             #e0f5f4 (blanc teal) · #000000 (noir) */
+:root,
+[data-theme="dark"] {
+  --mansa-green:      #0ea5a0;   /* Teal — accent principal     */
+  --mansa-green-dark: #0a7a76;   /* Teal foncé — hover / actif  */
+  --mansa-gold:       #0ea5a0;
+  --mansa-blue:       #0d9490;   /* Teal chaud                  */
 
-  /* Backgrounds */
-  --bg-primary: #0A0E1A;
-  --bg-secondary: #0F1629;
-  --bg-card: #141B2E;
-  --bg-card-hover: #1A2236;
-  --bg-border: #1E2A42;
+  --bg-primary:       #000000;   /* Noir pur                    */
+  --bg-secondary:     #060a0a;   /* Noir teal                   */
+  --bg-card:          #0a1210;   /* Fond carte                  */
+  --bg-card-hover:    #0f1c1a;   /* Hover carte                 */
+  --bg-border:        #0f2e2c;   /* Bordure teal sombre         */
 
-  /* Textes */
-  --text-primary: #F1F5F9;
-  --text-secondary: #94A3B8;
-  --text-muted: #64748B;
+  --text-primary:     #ddf4f2;   /* Blanc teal — texte principal */
+  --text-secondary:   #4cbfba;   /* Teal clair — texte secondaire */
+  --text-muted:       #1e6e6a;   /* Teal sombre — texte discret  */
 
-  /* États */
-  --positive: #10B981;
-  --negative: #EF4444;
-  --warning: #F59E0B;
-  --neutral: #6B7280;
+  --positive:  #0ea5a0;
+  --negative:  #EF4444;
+  --warning:   #F59E0B;
+  --neutral:   #0a7a76;
+
+  /* Sidebar / TopBar */
+  --sidebar-bg:        #030d0c;
+  --sidebar-border:    #0d2a28;
+  --sidebar-item-bg:   #0a1210;
+  --topbar-bg:         #030d0c;
+  --topbar-border:     #0d2a28;
+  --input-bg:          #0a1210;
+  --input-border:      #0f2e2c;
+  --dropdown-bg:       #060a0a;
+  --card-bg:           #0a1210;
+  --card-border:       #0f2e2c;
+}
+
+/* ── LIGHT MODE — Palette Teal / Blanc ───────────────────── */
+[data-theme="light"] {
+  --mansa-green:      #0a7a76;   /* Teal foncé sur fond clair   */
+  --mansa-green-dark: #085e5b;
+  --mansa-gold:       #0ea5a0;
+  --mansa-blue:       #0a7a76;
+
+  --bg-primary:       #f0fafa;   /* Fond blanc teal             */
+  --bg-secondary:     #FFFFFF;
+  --bg-card:          #FFFFFF;
+  --bg-card-hover:    #f5fdfc;
+  --bg-border:        #c8ecea;   /* Bordure teal clair          */
+
+  --text-primary:     #051a19;   /* Noir teal                   */
+  --text-secondary:   #0a5c58;   /* Teal moyen                  */
+  --text-muted:       #3a8a86;
+
+  --positive:  #0a7a76;
+  --negative:  #DC2626;
+  --warning:   #D97706;
+  --neutral:   #085e5b;
+
+  --sidebar-bg:        #FFFFFF;
+  --sidebar-border:    #c8ecea;
+  --sidebar-item-bg:   #f5fdfc;
+  --topbar-bg:         #FFFFFF;
+  --topbar-border:     #c8ecea;
+  --input-bg:          #f5fdfc;
+  --input-border:      #c8ecea;
+  --dropdown-bg:       #FFFFFF;
+  --card-bg:           #FFFFFF;
+  --card-border:       #c8ecea;
 }
 
 /* Scrollbar stylisée */
 ::-webkit-scrollbar { width: 6px; height: 6px; }
 ::-webkit-scrollbar-track { background: var(--bg-secondary); }
-::-webkit-scrollbar-thumb {
-  background: var(--bg-border);
-  border-radius: 3px;
-}
-::-webkit-scrollbar-thumb:hover { background: #2A3A58; }
+::-webkit-scrollbar-thumb { background: var(--bg-border); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--text-muted); opacity: 0.5; }
 
 /* Animations */
 @keyframes shimmer {
-  0% { background-position: -200% 0; }
+  0%   { background-position: -200% 0; }
   100% { background-position: 200% 0; }
 }
-
 @keyframes fadeIn {
   from { opacity: 0; transform: translateY(4px); }
-  to { opacity: 1; transform: translateY(0); }
+  to   { opacity: 1; transform: translateY(0); }
 }
-
 @keyframes ticker {
   0%   { transform: translateX(0); }
   100% { transform: translateX(-50%); }
+}
+@keyframes pulse-ring {
+  0%   { transform: scale(1); opacity: 1; }
+  100% { transform: scale(1.6); opacity: 0; }
+}
+@keyframes slideInRight {
+  from { transform: translateX(100%); opacity: 0.4; }
+  to   { transform: translateX(0);    opacity: 1; }
 }
 
 /* Classes utilitaires MANSA */
 @layer components {
   .mansa-card {
-    @apply bg-[#141B2E] border border-[#1E2A42] rounded-xl;
+    background: var(--card-bg);
+    border: 1px solid var(--card-border);
+    @apply rounded-xl;
   }
-
   .mansa-card-hover {
-    @apply hover:bg-[#1A2236] hover:border-[#2A3A58] transition-colors duration-200;
+    transition: background 0.2s, border-color 0.2s;
+  }
+  .mansa-card-hover:hover {
+    background: var(--bg-card-hover);
+    border-color: var(--text-muted);
   }
 
-  .mansa-metric-positive {
-    @apply text-emerald-400 font-medium;
-  }
-
-  .mansa-metric-negative {
-    @apply text-red-400 font-medium;
-  }
+  .mansa-metric-positive { @apply font-medium; color: var(--positive); }
+  .mansa-metric-negative { @apply font-medium; color: var(--negative); }
 
   .mansa-badge {
-    @apply inline-flex items-center gap-1 px-2 py-0.5 rounded-full
-           text-xs font-medium bg-[#1E2A42] text-gray-300;
+    @apply inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium;
+    background: var(--bg-border);
+    color: var(--text-secondary);
   }
 
   .skeleton {
-    @apply bg-gradient-to-r from-[#141B2E] via-[#1E2A42] to-[#141B2E]
-           bg-[length:200%_100%] animate-[shimmer_1.5s_infinite];
+    background: linear-gradient(
+      90deg,
+      var(--bg-card) 25%,
+      var(--bg-border) 50%,
+      var(--bg-card) 75%
+    );
+    background-size: 200% 100%;
+    animation: shimmer 1.5s infinite;
   }
 
-  .animate-fade-in {
-    animation: fadeIn 0.3s ease-out;
+  .animate-fade-in { animation: fadeIn 0.3s ease-out; }
+  .animate-slide-in-right { animation: slideInRight 0.25s ease-out; }
+
+  .mansa-input {
+    @apply w-full rounded-lg px-4 py-2.5 text-sm transition-colors focus:outline-none;
+    background: var(--input-bg);
+    border: 1px solid var(--input-border);
+    color: var(--text-primary);
   }
+  .mansa-input::placeholder { color: var(--text-muted); }
+  .mansa-input:focus {
+    border-color: var(--mansa-green);
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--mansa-green) 20%, transparent);
+  }
+
+  .mansa-btn-primary {
+    @apply inline-flex items-center gap-2 px-4 py-2 rounded-lg
+           text-sm font-semibold text-white
+           focus:outline-none transition-all duration-200;
+    background: linear-gradient(135deg, var(--mansa-green), var(--mansa-green-dark));
+  }
+  .mansa-btn-primary:hover {
+    filter: brightness(1.1);
+  }
+  .mansa-btn-primary:focus {
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--mansa-green) 30%, transparent);
+  }
+
+  .mansa-btn-ghost {
+    @apply inline-flex items-center gap-2 px-4 py-2 rounded-lg
+           text-sm font-medium focus:outline-none transition-all duration-200;
+    color: var(--text-secondary);
+    border: 1px solid var(--bg-border);
+  }
+  .mansa-btn-ghost:hover {
+    background: var(--sidebar-item-bg);
+    color: var(--text-primary);
+    border-color: var(--text-muted);
+  }
+
+  /* Source badges */
+  .source-badge-imf    { @apply text-[10px] px-1.5 py-0.5 rounded font-mono bg-blue-500/10 text-blue-400; }
+  .source-badge-wb     { @apply text-[10px] px-1.5 py-0.5 rounded font-mono bg-emerald-500/10 text-emerald-400; }
+  .source-badge-who    { @apply text-[10px] px-1.5 py-0.5 rounded font-mono bg-purple-500/10 text-purple-400; }
+  .source-badge-ilo    { @apply text-[10px] px-1.5 py-0.5 rounded font-mono bg-orange-500/10 text-orange-400; }
+  .source-badge-fao    { @apply text-[10px] px-1.5 py-0.5 rounded font-mono bg-green-500/10 text-green-400; }
+  .source-badge-eia    { @apply text-[10px] px-1.5 py-0.5 rounded font-mono bg-amber-500/10 text-amber-400; }
+  .source-badge-nasa   { @apply text-[10px] px-1.5 py-0.5 rounded font-mono bg-sky-500/10 text-sky-400; }
+  .source-badge-emdat  { @apply text-[10px] px-1.5 py-0.5 rounded font-mono bg-red-500/10 text-red-400; }
+  .source-badge-mansa  { @apply text-[10px] px-1.5 py-0.5 rounded font-mono bg-teal-500/10 text-teal-400; }
+  .source-badge-comtrade { @apply text-[10px] px-1.5 py-0.5 rounded font-mono bg-violet-500/10 text-violet-400; }
 }

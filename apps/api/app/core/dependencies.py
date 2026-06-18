@@ -133,6 +133,24 @@ async def require_active_subscription(
     return current_user
 
 
+async def require_admin(
+    current_user: Annotated[User, Depends(get_current_active_user)],
+) -> User:
+    """
+    Réserve l'endpoint aux administrateurs (role == 'admin').
+
+    Le rôle est indépendant de l'abonnement : un admin peut administrer la
+    plateforme (déclencher l'ingestion, gérer les utilisateurs…) sans détenir
+    un plan payant. Promouvoir un compte : scripts/promote_admin.py.
+    """
+    if (current_user.role or "").lower() != "admin":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Accès réservé aux administrateurs.",
+        )
+    return current_user
+
+
 async def require_professional_plan(
     current_user: Annotated[User, Depends(get_current_active_user)],
     db: AsyncSession = Depends(get_db),

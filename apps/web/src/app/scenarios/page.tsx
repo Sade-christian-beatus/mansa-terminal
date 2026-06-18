@@ -1,0 +1,420 @@
+"use client";
+
+import { useState, useMemo, useEffect } from "react";
+import {
+  BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, ReferenceLine,
+} from "recharts";
+import { GitBranch, TrendingDown, TrendingUp, Info, Sliders, RotateCcw, ArrowDownRight, ArrowUpRight } from "lucide-react";
+import { macroApi } from "@/lib/api";
+import {
+  type CountryBase,
+  oilShockCompute, fedRateCompute, droughtSahelCompute,
+} from "@/lib/scenarios";
+
+// ── Données de base (top 15 pays) — baselines growth/inflation/dette
+//    remplacées par /macro/table (année de référence) au chargement ; les
+//    attributs structurels (oil_exporter, agri_pct, ext_debt_usd) restent
+//    constants. Sert aussi de repli si l'API est indisponible. ───────────────
+const BASE_DATA: Record<string, CountryBase> = {
+  NGA: { name: "Nigeria",       flag: "🇳🇬", region: "Afrique de l'Ouest", growth: 3.1,  inflation: 32.5, debt: 46.0, oil_exporter: true,  agri_pct: 24, ext_debt_usd: 42.0 },
+  ZAF: { name: "Afrique du Sud",flag: "🇿🇦", region: "Afrique Australe",   growth: 1.1,  inflation: 4.6,  debt: 75.0, oil_exporter: false, agri_pct: 2,  ext_debt_usd: 165.0 },
+  EGY: { name: "Égypte",        flag: "🇪🇬", region: "Afrique du Nord",    growth: 3.8,  inflation: 28.0, debt: 95.0, oil_exporter: false, agri_pct: 11, ext_debt_usd: 165.0 },
+  DZA: { name: "Algérie",       flag: "🇩🇿", region: "Afrique du Nord",    growth: 3.7,  inflation: 7.2,  debt: 55.0, oil_exporter: true,  agri_pct: 12, ext_debt_usd: 6.0  },
+  MAR: { name: "Maroc",         flag: "🇲🇦", region: "Afrique du Nord",    growth: 3.2,  inflation: 3.9,  debt: 70.0, oil_exporter: false, agri_pct: 14, ext_debt_usd: 58.0 },
+  ETH: { name: "Éthiopie",      flag: "🇪🇹", region: "Afrique de l'Est",   growth: 6.4,  inflation: 25.0, debt: 28.0, oil_exporter: false, agri_pct: 35, ext_debt_usd: 28.0 },
+  KEN: { name: "Kenya",         flag: "🇰🇪", region: "Afrique de l'Est",   growth: 5.0,  inflation: 6.3,  debt: 72.0, oil_exporter: false, agri_pct: 22, ext_debt_usd: 39.0 },
+  GHA: { name: "Ghana",         flag: "🇬🇭", region: "Afrique de l'Ouest", growth: 3.5,  inflation: 23.0, debt: 90.0, oil_exporter: false, agri_pct: 19, ext_debt_usd: 31.0 },
+  CIV: { name: "Côte d'Ivoire", flag: "🇨🇮", region: "Afrique de l'Ouest", growth: 6.2,  inflation: 4.0,  debt: 60.0, oil_exporter: false, agri_pct: 28, ext_debt_usd: 15.0 },
+  TZA: { name: "Tanzanie",      flag: "🇹🇿", region: "Afrique de l'Est",   growth: 5.3,  inflation: 4.5,  debt: 40.0, oil_exporter: false, agri_pct: 26, ext_debt_usd: 24.0 },
+  SEN: { name: "Sénégal",       flag: "🇸🇳", region: "Afrique de l'Ouest", growth: 7.1,  inflation: 5.0,  debt: 76.0, oil_exporter: true,  agri_pct: 17, ext_debt_usd: 14.0 },
+  CMR: { name: "Cameroun",      flag: "🇨🇲", region: "Afrique Centrale",   growth: 3.8,  inflation: 5.5,  debt: 45.0, oil_exporter: true,  agri_pct: 16, ext_debt_usd: 14.0 },
+  MLI: { name: "Mali",          flag: "🇲🇱", region: "Sahel",              growth: 3.5,  inflation: 3.5,  debt: 50.0, oil_exporter: false, agri_pct: 37, ext_debt_usd: 8.0  },
+  BFA: { name: "Burkina Faso",  flag: "🇧🇫", region: "Sahel",              growth: 2.5,  inflation: 3.8,  debt: 58.0, oil_exporter: false, agri_pct: 30, ext_debt_usd: 6.0  },
+  NER: { name: "Niger",         flag: "🇳🇪", region: "Sahel",              growth: 5.8,  inflation: 3.2,  debt: 55.0, oil_exporter: false, agri_pct: 40, ext_debt_usd: 7.0  },
+};
+
+// ── Définition des scénarios ──────────────────────────────────────────────────
+const SCENARIOS = {
+  oil_shock: {
+    id: "oil_shock",
+    label: "Choc pétrolier +20%",
+    icon: TrendingUp,
+    color: "#F59E0B",
+    description: "Simulation d'une hausse du prix du baril de 20%. Bénéfice pour les exportateurs, pression pour les importateurs.",
+    params: [
+      { key: "oil_pct", label: "Variation prix pétrole (%)", min: -50, max: 100, default: 20, step: 5 },
+    ],
+    compute: oilShockCompute,
+  },
+  fed_rate: {
+    id: "fed_rate",
+    label: "Hausse taux Fed +100bps",
+    icon: TrendingDown,
+    color: "#8B5CF6",
+    description: "Impact d'une hausse de 100 points de base du taux directeur de la Fed sur les économies africaines (flux de capitaux, dette externe).",
+    params: [
+      { key: "bps", label: "Hausse taux Fed (bps)", min: 25, max: 300, default: 100, step: 25 },
+    ],
+    compute: fedRateCompute,
+  },
+  drought_sahel: {
+    id: "drought_sahel",
+    label: "Sécheresse Sahel",
+    icon: TrendingDown,
+    color: "#ef4444",
+    description: "Impact d'une sécheresse sévère sur les pays du Sahel et les économies à forte dépendance agricole.",
+    params: [
+      { key: "agri_loss_pct", label: "Perte agricole (%)", min: 5, max: 50, default: 20, step: 5 },
+    ],
+    compute: droughtSahelCompute,
+  },
+};
+
+type ScenarioKey = keyof typeof SCENARIOS;
+
+const COLORS_BAR = { positive: "#00D4AA", negative: "#ef4444" };
+
+export default function ScenariosPage() {
+  const [selectedScenario, setSelectedScenario] = useState<ScenarioKey>("oil_shock");
+  const [params, setParams] = useState<Record<string, number>>({
+    oil_pct: 20, bps: 100, agri_loss_pct: 20,
+  });
+  const [selectedMetric, setSelectedMetric] = useState<"growth" | "inflation" | "debt">("growth");
+  const [regionFilter, setRegionFilter] = useState("Toutes");
+
+  // Baselines réelles depuis /macro/table (repli sur BASE_DATA statique)
+  const [baseData, setBaseData] = useState<Record<string, CountryBase>>(BASE_DATA);
+  const [refYear,  setRefYear]  = useState(2024);
+  const [isLive,   setIsLive]   = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const table = await macroApi.getTable({ year: 2024 });
+        if (cancelled || !table?.countries?.length) return;
+        const merged: Record<string, CountryBase> = {};
+        for (const [id, base] of Object.entries(BASE_DATA)) {
+          const row = table.countries.find((c) => c.id === id);
+          const v = row?.values ?? {};
+          merged[id] = {
+            ...base,
+            growth:    typeof v.NGDP_RPCH    === "number" ? Math.round(v.NGDP_RPCH * 10) / 10    : base.growth,
+            inflation: typeof v.PCPIPCH      === "number" ? Math.round(v.PCPIPCH * 10) / 10      : base.inflation,
+            debt:      typeof v.GGXWDG_NGDP  === "number" ? Math.round(v.GGXWDG_NGDP * 10) / 10  : base.debt,
+          };
+        }
+        setBaseData(merged);
+        setRefYear(table.year ?? 2024);
+        setIsLive(Boolean(table.is_live));
+      } catch {
+        /* repli silencieux sur BASE_DATA statique */
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  const scenario = SCENARIOS[selectedScenario];
+
+  const regions = useMemo(
+    () => ["Toutes", ...Array.from(new Set(Object.values(baseData).map((c) => c.region)))],
+    [baseData],
+  );
+
+  function resetParams() {
+    const p = scenario.params.reduce((acc, prm) => ({ ...acc, [prm.key]: prm.default }), {} as Record<string, number>);
+    setParams((prev) => ({ ...prev, ...p }));
+  }
+
+  const results = useMemo(() => {
+    return Object.entries(baseData)
+      .filter(([, country]) => regionFilter === "Toutes" || country.region === regionFilter)
+      .map(([id, country]) => {
+      const { growthDelta, inflationDelta, debtDelta } = scenario.compute(country, params);
+      return {
+        id,
+        name: country.name,
+        flag: country.flag,
+        region: country.region,
+        base: {
+          growth: country.growth,
+          inflation: country.inflation,
+          debt: country.debt,
+        },
+        scenario: {
+          growth: Math.round((country.growth + growthDelta) * 10) / 10,
+          inflation: Math.round((country.inflation + inflationDelta) * 10) / 10,
+          debt: Math.round((country.debt + debtDelta) * 10) / 10,
+        },
+        delta: {
+          growth: Math.round(growthDelta * 10) / 10,
+          inflation: Math.round(inflationDelta * 10) / 10,
+          debt: Math.round(debtDelta * 10) / 10,
+        },
+        oil_exporter: country.oil_exporter,
+      };
+    }).sort((a, b) => b.delta[selectedMetric] - a.delta[selectedMetric]);
+  }, [baseData, scenario, params, selectedMetric, regionFilter]);
+
+  // Pays le plus / le moins impacté sur la métrique courante
+  const mostImpacted  = results[0];
+  const leastImpacted = results[results.length - 1];
+  const avgDelta = results.length
+    ? results.reduce((s, r) => s + (r.delta[selectedMetric] ?? 0), 0) / results.length
+    : 0;
+
+  const metricLabel = { growth: "Croissance PIB (%)", inflation: "Inflation (%)", debt: "Dette % PIB" };
+
+  return (
+    <div className="flex-1 overflow-y-auto p-6 space-y-6">
+      {/* Header */}
+      <div className="flex items-start justify-between">
+        <div>
+          <h1 className="text-2xl font-bold flex items-center gap-2" style={{ color: "var(--text-primary)" }}>
+            <GitBranch size={24} style={{ color: "var(--mansa-green)" }} />
+            Analyse de Scénarios
+          </h1>
+          <p className="text-sm mt-1" style={{ color: "var(--text-muted)" }}>
+            Simulation de chocs macroéconomiques — impact sur les 15 principales économies africaines
+          </p>
+        </div>
+        <span
+          className="text-xs px-2.5 py-1 rounded-full font-medium"
+          style={isLive
+            ? { background: "rgba(16,185,129,0.12)", color: "#10B981", border: "1px solid rgba(16,185,129,0.25)" }
+            : { background: "rgba(245,158,11,0.12)", color: "#F59E0B", border: "1px solid rgba(245,158,11,0.25)" }}
+        >
+          {isLive ? `Données réelles ${refYear} · MANSA DB` : `Données de référence ${refYear}`}
+        </span>
+      </div>
+
+      {/* Sélecteur de scénario */}
+      <div className="grid grid-cols-3 gap-3">
+        {Object.values(SCENARIOS).map((sc) => {
+          const Icon = sc.icon;
+          const isActive = selectedScenario === sc.id;
+          return (
+            <button
+              key={sc.id}
+              onClick={() => setSelectedScenario(sc.id as ScenarioKey)}
+              className="p-4 rounded-2xl text-left transition-all border"
+              style={{
+                background: isActive ? `color-mix(in srgb, ${sc.color} 10%, var(--card-bg))` : "var(--card-bg)",
+                borderColor: isActive ? sc.color : "var(--bg-border)",
+              }}
+            >
+              <div className="flex items-center gap-2 mb-2">
+                <Icon size={16} style={{ color: sc.color }} />
+                <span className="text-sm font-bold" style={{ color: sc.color }}>{sc.label}</span>
+              </div>
+              <p className="text-xs" style={{ color: "var(--text-muted)" }}>{sc.description}</p>
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Paramètres du scénario */}
+      <div className="rounded-2xl border p-5" style={{ background: "var(--card-bg)", borderColor: "var(--bg-border)" }}>
+        <div className="flex items-center gap-2 mb-4">
+          <Sliders size={15} style={{ color: "var(--mansa-green)" }} />
+          <span className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>Paramètres</span>
+          <button onClick={resetParams}
+            className="ml-auto flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-lg transition-colors"
+            style={{ background: "var(--input-bg)", border: "1px solid var(--input-border)", color: "var(--text-muted)" }}
+            onMouseEnter={(e) => (e.currentTarget.style.color = "var(--mansa-green)")}
+            onMouseLeave={(e) => (e.currentTarget.style.color = "var(--text-muted)")}>
+            <RotateCcw size={11} /> Réinitialiser
+          </button>
+        </div>
+        <div className="grid grid-cols-1 gap-4">
+          {scenario.params.map((p) => (
+            <div key={p.key}>
+              <div className="flex justify-between mb-1">
+                <label className="text-xs font-medium" style={{ color: "var(--text-secondary)" }}>{p.label}</label>
+                <span className="text-xs font-bold" style={{ color: "var(--mansa-green)" }}>
+                  {params[p.key] > 0 ? "+" : ""}{params[p.key]}
+                </span>
+              </div>
+              <input
+                type="range"
+                min={p.min}
+                max={p.max}
+                step={p.step}
+                value={params[p.key]}
+                onChange={(e) => setParams((prev) => ({ ...prev, [p.key]: Number(e.target.value) }))}
+                className="w-full accent-[#00D4AA]"
+              />
+              <div className="flex justify-between text-[10px] mt-0.5" style={{ color: "var(--text-muted)" }}>
+                <span>{p.min}</span>
+                <span>{p.max}</span>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Filtre région */}
+      <div className="flex gap-1.5 flex-wrap items-center">
+        <span className="text-xs font-medium mr-1" style={{ color: "var(--text-muted)" }}>Région :</span>
+        {regions.map((rg) => (
+          <button key={rg} onClick={() => setRegionFilter(rg)}
+            className="px-2.5 py-1 rounded-full text-xs font-medium border transition-all"
+            style={regionFilter === rg
+              ? { background: "color-mix(in srgb, var(--mansa-green) 14%, transparent)", borderColor: "var(--mansa-green)", color: "var(--mansa-green)" }
+              : { background: "var(--card-bg)", borderColor: "var(--bg-border)", color: "var(--text-muted)" }}>
+            {rg === "Toutes" ? "Toutes" : rg}
+          </button>
+        ))}
+      </div>
+
+      {/* Pays le plus / le moins impacté + impact moyen */}
+      {results.length > 0 && (
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          {[
+            { card: mostImpacted,  title: "Plus impacté",  icon: ArrowUpRight },
+            { card: leastImpacted, title: "Moins impacté", icon: ArrowDownRight },
+          ].map(({ card, title, icon: Icon }) => {
+            const d = card.delta[selectedMetric] ?? 0;
+            const c = d >= 0 ? "#00D4AA" : "#ef4444";
+            return (
+              <div key={title} className="rounded-2xl border p-4 flex items-center gap-3"
+                   style={{ background: "var(--card-bg)", borderColor: "var(--bg-border)" }}>
+                <span className="text-2xl">{card.flag}</span>
+                <div className="min-w-0 flex-1">
+                  <p className="text-[10px] uppercase tracking-wider" style={{ color: "var(--text-muted)" }}>{title}</p>
+                  <p className="text-sm font-semibold truncate" style={{ color: "var(--text-primary)" }}>{card.name}</p>
+                </div>
+                <div className="flex items-center gap-1" style={{ color: c }}>
+                  <Icon size={14} />
+                  <span className="text-base font-bold font-mono">{d > 0 ? "+" : ""}{d.toFixed(1)}</span>
+                </div>
+              </div>
+            );
+          })}
+          <div className="rounded-2xl border p-4 flex items-center justify-between"
+               style={{ background: "var(--card-bg)", borderColor: "var(--bg-border)" }}>
+            <div>
+              <p className="text-[10px] uppercase tracking-wider" style={{ color: "var(--text-muted)" }}>Impact moyen</p>
+              <p className="text-xs" style={{ color: "var(--text-muted)" }}>{results.length} pays</p>
+            </div>
+            <span className="text-xl font-bold font-mono" style={{ color: avgDelta >= 0 ? "#00D4AA" : "#ef4444" }}>
+              {avgDelta > 0 ? "+" : ""}{avgDelta.toFixed(1)}
+            </span>
+          </div>
+        </div>
+      )}
+
+      {/* Sélecteur de métrique */}
+      <div className="flex gap-2">
+        {(["growth", "inflation", "debt"] as const).map((m) => (
+          <button
+            key={m}
+            onClick={() => setSelectedMetric(m)}
+            className="px-3 py-1.5 rounded-lg text-xs font-semibold transition-all"
+            style={{
+              background: selectedMetric === m ? "var(--mansa-green)" : "var(--input-bg)",
+              color: selectedMetric === m ? "#000" : "var(--text-secondary)",
+              border: "1px solid var(--input-border)",
+            }}
+          >
+            {metricLabel[m]}
+          </button>
+        ))}
+      </div>
+
+      {/* Graphique impact */}
+      <div className="rounded-2xl border p-5" style={{ background: "var(--card-bg)", borderColor: "var(--bg-border)" }}>
+        <h3 className="text-sm font-semibold mb-4" style={{ color: "var(--text-primary)" }}>
+          Impact scénario sur {metricLabel[selectedMetric].toLowerCase()}
+        </h3>
+        <ResponsiveContainer width="100%" height={300}>
+          <BarChart data={results} margin={{ top: 5, right: 10, bottom: 5, left: 10 }}>
+            <XAxis
+              dataKey="flag"
+              tick={{ fontSize: 18 }}
+              tickLine={false}
+              axisLine={false}
+            />
+            <YAxis
+              tick={{ fontSize: 11, fill: "var(--text-muted)" }}
+              tickLine={false}
+              axisLine={false}
+              tickFormatter={(v) => `${v > 0 ? "+" : ""}${v}`}
+            />
+            <Tooltip
+              contentStyle={{ background: "var(--dropdown-bg)", border: "1px solid var(--bg-border)", borderRadius: 12, fontSize: 12 }}
+              labelFormatter={(_, payload) => payload?.[0]?.payload?.name ?? ""}
+              formatter={(val: number) => [`${val > 0 ? "+" : ""}${val}`, "Variation"]}
+            />
+            <ReferenceLine y={0} stroke="var(--bg-border)" />
+            <Bar dataKey={`delta.${selectedMetric}`} radius={[4, 4, 0, 0]}>
+              {results.map((entry) => (
+                <Cell
+                  key={entry.id}
+                  fill={(entry.delta[selectedMetric] ?? 0) >= 0 ? COLORS_BAR.positive : COLORS_BAR.negative}
+                />
+              ))}
+            </Bar>
+          </BarChart>
+        </ResponsiveContainer>
+      </div>
+
+      {/* Tableau détaillé */}
+      <div className="rounded-2xl border overflow-hidden" style={{ borderColor: "var(--bg-border)" }}>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr style={{ background: "var(--input-bg)", borderBottom: "1px solid var(--bg-border)" }}>
+                <th className="px-4 py-3 text-left font-semibold" style={{ color: "var(--text-muted)" }}>Pays</th>
+                <th className="px-4 py-3 text-right font-semibold" style={{ color: "var(--text-muted)" }}>Croissance base</th>
+                <th className="px-4 py-3 text-right font-semibold" style={{ color: "#F59E0B" }}>→ Scénario</th>
+                <th className="px-4 py-3 text-right font-semibold" style={{ color: "var(--text-muted)" }}>Inflation base</th>
+                <th className="px-4 py-3 text-right font-semibold" style={{ color: "#F59E0B" }}>→ Scénario</th>
+                <th className="px-4 py-3 text-right font-semibold" style={{ color: "var(--text-muted)" }}>Dette base</th>
+                <th className="px-4 py-3 text-right font-semibold" style={{ color: "#F59E0B" }}>→ Scénario</th>
+              </tr>
+            </thead>
+            <tbody>
+              {results.map((r, idx) => (
+                <tr
+                  key={r.id}
+                  style={{ borderBottom: idx < results.length - 1 ? "1px solid var(--bg-border)" : "none" }}
+                >
+                  <td className="px-4 py-3">
+                    <div className="flex items-center gap-2">
+                      <span className="text-lg">{r.flag}</span>
+                      <div>
+                        <div className="font-semibold" style={{ color: "var(--text-primary)" }}>{r.name}</div>
+                        <div className="text-xs" style={{ color: "var(--text-muted)" }}>{r.region}</div>
+                      </div>
+                    </div>
+                  </td>
+                  {(["growth", "inflation", "debt"] as const).map((m) => (
+                    <>
+                      <td key={`base-${m}`} className="px-4 py-3 text-right tabular-nums" style={{ color: "var(--text-secondary)" }}>
+                        {r.base[m].toFixed(1)}%
+                      </td>
+                      <td key={`sc-${m}`} className="px-4 py-3 text-right tabular-nums font-semibold">
+                        <span style={{ color: r.delta[m] >= 0 ? "#00D4AA" : "#ef4444" }}>
+                          {r.scenario[m].toFixed(1)}%
+                        </span>
+                        <span className="text-[10px] ml-1" style={{ color: r.delta[m] >= 0 ? "#00D4AA" : "#ef4444" }}>
+                          ({r.delta[m] >= 0 ? "+" : ""}{r.delta[m].toFixed(1)})
+                        </span>
+                      </td>
+                    </>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <p className="text-xs" style={{ color: "var(--text-muted)" }}>
+        <Info size={10} className="inline mr-1" />
+        Modèle de simulation simplifié basé sur les élasticités macro standard (FMI/BM). Résultats indicatifs — non substituables à une analyse DSA formelle.
+      </p>
+    </div>
+  );
+}

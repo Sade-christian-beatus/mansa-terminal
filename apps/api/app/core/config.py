@@ -72,8 +72,14 @@ class Settings(BaseSettings):
 
     # Anthropic
     ANTHROPIC_API_KEY: str = ""
-    ANTHROPIC_MODEL_ID: str = "claude-sonnet-4-5"
-    ANTHROPIC_MAX_TOKENS: int = 2000
+    ANTHROPIC_MODEL_ID: str = "claude-sonnet-4-6"
+    ANTHROPIC_MAX_TOKENS: int = 4096
+
+    # Embeddings — RAG sémantique (OpenAI text-embedding-3-small, 1536 dim)
+    # Si OPENAI_API_KEY est vide, le RAG retombe sur la recherche par country_id.
+    OPENAI_API_KEY: str = ""
+    EMBEDDING_MODEL: str = "text-embedding-3-small"
+    EMBEDDING_DIM: int = 1536
 
     # Observabilité
     SENTRY_DSN: str = ""
@@ -110,6 +116,15 @@ class Settings(BaseSettings):
     ACLED_API_KEY: str = ""
     ACLED_EMAIL: str = ""
     NASA_EARTHDATA_TOKEN: str = ""
+    NASA_FIRMS_MAP_KEY: str = ""   # firms.modaps.eosdis.nasa.gov — feux actifs (VIIRS)
+    ODFA_BASE_URL: str = "https://burkinafaso.opendataforafrica.org"  # Open Data for Africa / Knoema (SSN national)
+
+    # Déclenchement de la ré-ingestion depuis l'app (bouton "Mettre à jour")
+    # Lance le workflow GitHub Actions data-ingest.yml via workflow_dispatch.
+    GITHUB_INGEST_TOKEN: str = ""                               # PAT avec scope actions:write
+    GITHUB_REPO: str = "Sade-christian-beatus/mansa-terminal"   # owner/repo
+    GITHUB_INGEST_WORKFLOW: str = "data-ingest.yml"
+    GITHUB_INGEST_REF: str = "main"
 
     # AWS — hors scope MVP
     AWS_ACCESS_KEY_ID: str = ""
@@ -117,11 +132,9 @@ class Settings(BaseSettings):
     AWS_REGION: str = "eu-west-1"
     S3_BUCKET_DATA_LAKE: str = "mansa-data-lake"
 
-    # Email — hors scope MVP
-    SMTP_HOST: str = "smtp.gmail.com"
-    SMTP_PORT: int = 587
-    SMTP_USER: str = ""
-    SMTP_PASSWORD: str = ""
+    # Email — Resend API (https://resend.com)
+    RESEND_API_KEY: str = ""
+    EMAIL_FROM: str = "MANSA Terminal <noreply@mansa-terminal.com>"
 
     @property
     def is_production(self) -> bool:
