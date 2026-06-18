@@ -9,12 +9,12 @@ Conserve exactement les noms de fichiers ci-dessous (sensibles à la casse).
 
 | Fichier | Où | Ratio / taille conseillés |
 |---|---|---|
-| `hero-africa.jpg` | Accueil — bandeau hero | 16:6 paysage · ≥ 1600×900 |
-| `accueil-data.jpg` | Accueil — bande « Données » | 4:3 · ≥ 1000×750 |
-| `accueil-ai.jpg` | Accueil — bande « IA » | 4:3 · ≥ 1000×750 |
-| `onboarding-1.jpg` | Onboarding écran 1 | 1:1 ou 4:3 · ≥ 900×900 |
-| `onboarding-2.jpg` | Onboarding écran 2 | 1:1 ou 4:3 · ≥ 900×900 |
-| `onboarding-3.jpg` | Onboarding écran 3 | 1:1 ou 4:3 · ≥ 900×900 |
+| `hero-africa.png` | Accueil — bandeau hero | 16:6 paysage · ≥ 1600×900 |
+| `accueil-data.png` | Accueil — bande « Données » | 4:3 · ≥ 1000×750 |
+| `accueil-ai.png` | Accueil — bande « IA » | 4:3 · ≥ 1000×750 |
+| `onboarding-1.png` | Onboarding écran 1 | 1:1 ou 4:3 · ≥ 900×900 |
+| `onboarding-2.png` | Onboarding écran 2 | 1:1 ou 4:3 · ≥ 900×900 |
+| `onboarding-3.png` | Onboarding écran 3 | 1:1 ou 4:3 · ≥ 900×900 |
 
 ---
 
@@ -23,33 +23,33 @@ Conserve exactement les noms de fichiers ci-dessous (sensibles à la casse).
 Style commun à viser : **photoréaliste, lumière chaude, palette sarcelle/vert (#0EA5A0) et
 bleu nuit, professionnel, premium, sans texte ni logo**.
 
-### `hero-africa.jpg`
+### `hero-africa.png`
 > Cinematic aerial photograph of a modern African city skyline at golden hour (blend of
 > Lagos / Nairobi / Casablanca energy), glass towers and warm streetlights, faint glowing
 > data-network lines over the continent, deep navy sky, teal accent lighting. Premium fintech
 > mood, photorealistic, no text, no logos. 16:9 wide.
 
-### `accueil-data.jpg`
+### `accueil-data.png`
 > Close-up of a sleek financial data dashboard on a screen showing African macroeconomic charts
 > and an outline map of Africa, teal and amber highlights on dark UI, shallow depth of field,
 > professional studio lighting, photorealistic, no readable text.
 
-### `accueil-ai.jpg`
+### `accueil-ai.png`
 > Abstract visualization of artificial intelligence analyzing African economic data: glowing
 > neural network nodes forming the shape of the African continent, teal-to-blue gradient,
 > dark background, elegant and high-tech, photorealistic render, no text.
 
-### `onboarding-1.jpg`
+### `onboarding-1.png`
 > Confident African business analyst looking at a large interactive map of Africa with economic
 > indicators, modern office, warm natural light, teal accent, photorealistic, optimistic tone,
 > no text. Square composition.
 
-### `onboarding-2.jpg`
+### `onboarding-2.png`
 > Macro-economic data come to life: floating holographic charts (GDP, inflation, debt) above a
 > stylized African continent, teal and amber data points, dark premium background, photorealistic,
 > no readable text. Square composition.
 
-### `onboarding-3.jpg`
+### `onboarding-3.png`
 > An African professional starting their work session at a sleek terminal, multiple screens with
 > green financial charts, sunrise through the window, hopeful and energetic, photorealistic,
 > teal brand accent, no text. Square composition.

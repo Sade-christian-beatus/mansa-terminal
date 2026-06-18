@@ -25,7 +25,7 @@ const SCREENS = [
     subtitle: "Africa's AI-Powered Macro-Fiscal Intelligence Platform",
     desc: "La première plateforme d'intelligence macroéconomique africaine en temps réel — conçue pour les investisseurs, les analystes et les décideurs.",
     visual: "globe",
-    image: "/images/onboarding-1.jpg",
+    image: "/images/onboarding-1.png",
     features: [
       "54 économies africaines couvertes",
       "8 communautés économiques régionales",
@@ -42,7 +42,7 @@ const SCREENS = [
     subtitle: "141 indicateurs · 14 sources · MANSA AI spécialisé Afrique",
     desc: "PIB, inflation, dette, marchés, climat — et MANSA AI qui lit la base en temps réel pour rédiger des analyses macro-fiscales sourcées, en français comme en anglais.",
     visual: "ai",
-    image: "/images/onboarding-2.jpg",
+    image: "/images/onboarding-2.png",
     features: [
       "Séries temporelles 1990–2025 · export CSV/Excel/JSON",
       "Marchés, corrélations, scénarios & prévisions",
@@ -59,7 +59,7 @@ const SCREENS = [
     subtitle: "Votre plateforme est prête",
     desc: "Accédez au dashboard principal pour démarrer votre analyse macroéconomique de l'Afrique. Toutes les données sont disponibles immédiatement.",
     visual: "start",
-    image: "/images/onboarding-3.jpg",
+    image: "/images/onboarding-3.png",
     features: [
       "Dashboard interactif disponible",
       "MANSA AI activé et prêt",

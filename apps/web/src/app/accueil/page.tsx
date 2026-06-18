@@ -102,7 +102,7 @@ export default function AccueilPage() {
       >
         {/* Image de fond (IA) + voile de lisibilité */}
         <ImageWithFallback
-          src="/images/hero-africa.jpg"
+          src="/images/hero-africa.png"
           alt="Skyline d'une métropole africaine au crépuscule"
           priority
           className="absolute inset-0"
@@ -202,7 +202,7 @@ export default function AccueilPage() {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {[
           {
-            src: "/images/accueil-data.jpg",
+            src: "/images/accueil-data.png",
             from: "var(--mansa-green)", to: "#0EA5A0",
             icon: BarChart2,
             badge: "Données",
@@ -211,7 +211,7 @@ export default function AccueilPage() {
             href: "/indicators", cta: "Explorer les données",
           },
           {
-            src: "/images/accueil-ai.jpg",
+            src: "/images/accueil-ai.png",
             from: "#8B5CF6", to: "#3B82F6",
             icon: Sparkles,
             badge: "Intelligence",
