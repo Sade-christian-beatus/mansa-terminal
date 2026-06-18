@@ -29,6 +29,7 @@ on:
           - imf
           - worldbank
           - extra
+          - odfa
       dry_run:
         description: "Dry-run (aucune écriture DB)"
         required: false
@@ -79,16 +80,18 @@ jobs:
         run: |
           SOURCE="${{ github.event.inputs.source || 'all' }}"
           DRY_RUN="${{ github.event.inputs.dry_run || 'false' }}"
-          RUN_IMF="false"; RUN_WB="false"; RUN_EXTRA="false"
+          RUN_IMF="false"; RUN_WB="false"; RUN_EXTRA="false"; RUN_ODFA="false"
           if [[ "$SOURCE" == "all" || "$SOURCE" == "imf" ]];       then RUN_IMF="true";   fi
           if [[ "$SOURCE" == "all" || "$SOURCE" == "worldbank" ]];  then RUN_WB="true";    fi
           if [[ "$SOURCE" == "all" || "$SOURCE" == "extra" ]];      then RUN_EXTRA="true"; fi
+          if [[ "$SOURCE" == "all" || "$SOURCE" == "odfa" ]];       then RUN_ODFA="true";  fi
           # Le mensuel (1er du mois) lance tout ; l'hebdo (lundi) lance IMF+WB seulement
           echo "run_imf=$RUN_IMF"     >> "$GITHUB_OUTPUT"
           echo "run_wb=$RUN_WB"       >> "$GITHUB_OUTPUT"
           echo "run_extra=$RUN_EXTRA" >> "$GITHUB_OUTPUT"
+          echo "run_odfa=$RUN_ODFA"   >> "$GITHUB_OUTPUT"
           echo "dry_run=$DRY_RUN"     >> "$GITHUB_OUTPUT"
-          echo "Source: $SOURCE | dry-run: $DRY_RUN | IMF: $RUN_IMF | WB: $RUN_WB | Extra: $RUN_EXTRA"
+          echo "Source: $SOURCE | dry-run: $DRY_RUN | IMF: $RUN_IMF | WB: $RUN_WB | Extra: $RUN_EXTRA | ODFA: $RUN_ODFA"
 
       # ── IMF WEO ──────────────────────────────────────────────────────────
       - name: Ingest IMF WEO
@@ -110,6 +113,13 @@ jobs:
         run: |
           ARGS="${{ steps.sources.outputs.dry_run == 'true' && '--dry-run' || '' }}"
           python scripts/ingest_extra.py $ARGS
+
+      # ── Sources nationales ODFA / Knoema (INSD Burkina Faso, pilote) ─────
+      - name: Ingest ODFA national sources (INSD)
+        if: steps.sources.outputs.run_odfa == 'true'
+        run: |
+          ARGS="${{ steps.sources.outputs.dry_run == 'true' && '--dry-run' || '' }}"
+          python scripts/ingest_odfa.py --country BFA --limit 40 $ARGS
 
       # ── Keepalive backend ────────────────────────────────────────────────
       - name: Ping Render API (keepalive)

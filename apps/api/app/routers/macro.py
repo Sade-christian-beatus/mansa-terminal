@@ -25,7 +25,7 @@ from app.data.national_sources import get_national_sources, NATIONAL_SOURCE_TAGS
 log = logging.getLogger("mansa.macro")
 
 # Sources d'ingestion déclenchables depuis l'app (mappées au workflow data-ingest.yml)
-INGEST_SOURCES = {"all", "imf", "worldbank", "extra"}
+INGEST_SOURCES = {"all", "imf", "worldbank", "extra", "odfa"}
 
 router = APIRouter()
 
@@ -56,6 +56,7 @@ class NationalSourcesResponse(BaseModel):
     country_name: str
     institutions: NationalInstitutions
     indicators: dict[str, list[IndicatorPoint]]
+    indicator_names: dict[str, str] = {}   # code → libellé lisible (ex. séries ODFA/INSD)
 
 class CountrySummary(BaseModel):
     id: str
@@ -264,6 +265,7 @@ async def get_country_national_sources(
     data_points = result.scalars().all()
 
     indicators_grouped: dict[str, list[IndicatorPoint]] = {}
+    indicator_names: dict[str, str] = {}
     for point in data_points:
         if point.value is None:
             continue
@@ -275,12 +277,15 @@ async def get_country_national_sources(
                 source=point.source or "",
             )
         )
+        if point.indicator_name and point.indicator_code not in indicator_names:
+            indicator_names[point.indicator_code] = point.indicator_name
 
     return NationalSourcesResponse(
         country_id=country.id,
         country_name=country.name_en,
         institutions=get_national_sources(cid),
         indicators=indicators_grouped,
+        indicator_names=indicator_names,
     )
 
 

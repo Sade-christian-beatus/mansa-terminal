@@ -624,7 +624,7 @@ function NationalSourcesSection({ countryId, fallbackInflation }: {
               {indicators.map((pt) => (
                 <div key={pt.code} className="rounded-xl p-3" style={{ background: "var(--bg-border)" }}>
                   <p className="text-[11px] mb-1 leading-tight" style={{ color: "var(--text-muted)" }}>
-                    {NATIONAL_IND_LABELS[pt.code] ?? pt.code}
+                    {data?.indicator_names?.[pt.code] ?? NATIONAL_IND_LABELS[pt.code] ?? pt.code}
                   </p>
                   <p className="text-lg font-bold font-mono" style={{ color: "var(--text-primary)" }}>
                     {pt.value.toLocaleString("fr-FR", { maximumFractionDigits: 2 })}

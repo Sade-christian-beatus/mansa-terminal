@@ -158,6 +158,7 @@ export interface NationalSourcesResult {
     others: Institution[];
   };
   indicators: Record<string, { period: string; value: number; unit: string | null; source: string }[]>;
+  indicator_names?: Record<string, string>;
 }
 
 // ── Helpers AI Analyst ──────────────────────────────────────────────────
