@@ -82,6 +82,7 @@ export interface AuthUser {
   full_name?: string | null;
   organization?: string | null;
   is_verified: boolean;
+  role?: string;
 }
 
 export const authApi = {

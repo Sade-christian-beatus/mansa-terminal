@@ -18,7 +18,7 @@ from app.core.config import settings
 from app.core.limiter import limiter
 
 from app.core.database import get_db
-from app.core.dependencies import require_active_subscription
+from app.core.dependencies import require_active_subscription, require_admin
 from app.models.models import User, Country, MacroIndicator, DataIngestionLog
 from app.data.national_sources import get_national_sources, NATIONAL_SOURCE_TAGS
 
@@ -404,7 +404,7 @@ class RefreshResponse(BaseModel):
 @limiter.limit("4/hour")
 async def trigger_data_refresh(
     request: Request,
-    current_user: Annotated[User, Depends(require_active_subscription)],
+    current_user: Annotated[User, Depends(require_admin)],
     source: str = Query("all", description="Source à ré-ingérer : all | imf | worldbank | extra"),
 ):
     """
