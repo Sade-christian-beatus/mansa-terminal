@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useCallback } from "react";
 import {
   Zap, TrendingUp, TrendingDown, AlertTriangle, Anchor,
   Satellite, Flame, Cloud, Droplets, Activity, RefreshCw,
@@ -11,6 +11,7 @@ import {
 } from "recharts";
 import { ExportModal, ALL_DATA_SOURCES } from "@/components/common/ExportModal";
 import type { ExportRow } from "@/lib/export-utils";
+import { alertsApi, conflictsApi } from "@/lib/api";
 
 /* ── Types ────────────────────────────────────────────────── */
 interface Signal {
@@ -30,7 +31,9 @@ interface Signal {
   region: string;
 }
 
-const SIGNALS: Signal[] = [
+// Repli « démo » utilisé tant que l'API ne renvoie pas d'alertes réelles
+// (pipeline non exécuté, hors-ligne, ou plan sans accès). Voir loadSignals().
+const DEMO_SIGNALS: Signal[] = [
   {
     id: "1", country: "Éthiopie", flag: "🇪🇹", type: "conflict", severity: "high",
     title: "Escalade conflit Tigray", region: "Est",
@@ -311,6 +314,50 @@ function TimelineItem({ sig }: { sig: Signal }) {
   );
 }
 
+/* ── Mapping données réelles → Signal ──────────────────────────
+   /alerts/macro  → signaux économiques (inflation, dette, déficit…)
+   /acled/events  → signaux de conflit (UCDP/ACLED)
+   Sévérité API (critical/high/medium) → tiers UI (high/medium/low). */
+const API_SEVERITY: Record<string, Signal["severity"]> = {
+  critical: "high", high: "medium", medium: "low", low: "low",
+};
+
+interface MacroAlert {
+  id: string; country_name: string; flag: string;
+  indicator_label: string; value: number; unit: string;
+  severity: string; message: string; period: string;
+}
+interface ConflictEvent {
+  country_id: string; name: string; flag: string; region: string;
+  events_2024: number; fatalities_2024: number; trend: string;
+  risk_level: string; notes?: string;
+}
+
+function alertToSignal(a: MacroAlert): Signal {
+  return {
+    id: `macro-${a.id}`, country: a.country_name, flag: a.flag || "🌍",
+    type: "economic", severity: API_SEVERITY[a.severity] ?? "low",
+    title: `${a.indicator_label} — ${a.country_name}`, region: "",
+    desc: a.message, source: "IMF WEO / MANSA DB",
+    indicator: a.indicator_label,
+    value: `${a.value}${a.unit ? " " + a.unit : ""}`,
+    change: 0, date: a.period,
+  };
+}
+
+function eventToSignal(e: ConflictEvent): Signal {
+  const change = e.trend === "increasing" ? 1 : e.trend === "decreasing" ? -1 : 0;
+  return {
+    id: `acled-${e.country_id}`, country: e.name, flag: e.flag || "🌍",
+    type: "conflict", severity: API_SEVERITY[e.risk_level] ?? "low",
+    title: `Conflit armé — ${e.name}`, region: e.region || "",
+    desc: e.notes || `${e.events_2024.toLocaleString("fr")} événements violents, ${e.fatalities_2024.toLocaleString("fr")} décès (2024).`,
+    source: "UCDP / ACLED", indicator: "Événements violents",
+    value: `${e.events_2024.toLocaleString("fr")} évén.`,
+    change, date: "2024",
+  };
+}
+
 /* ══════════════════════════════════════════════════════════════
    PAGE PRINCIPALE
 ══════════════════════════════════════════════════════════════ */
@@ -321,18 +368,55 @@ export default function SignalsPage() {
   const [exportOpen,     setExportOpen]     = useState(false);
   const [selected,       setSelected]       = useState<Signal | null>(null);
 
+  const [signals, setSignals] = useState<Signal[]>(DEMO_SIGNALS);
+  const [isLive,  setIsLive]  = useState(false);
+  const [loading, setLoading] = useState(true);
+
+  const loadSignals = useCallback(async () => {
+    setLoading(true);
+    try {
+      const [alertsRes, conflictRes] = await Promise.allSettled([
+        alertsApi.getMacroAlerts({ limit: 60 }),
+        conflictsApi.getEvents({ limit: 12, sort_by: "fatalities_2024" }),
+      ]);
+      const live: Signal[] = [];
+      if (alertsRes.status === "fulfilled") {
+        const alerts = (alertsRes.value as { alerts?: MacroAlert[] })?.alerts ?? [];
+        live.push(...alerts.map(alertToSignal));
+      }
+      if (conflictRes.status === "fulfilled") {
+        const events = (conflictRes.value as { events?: ConflictEvent[] })?.events ?? [];
+        live.push(...events.filter((e) => e.risk_level !== "low").map(eventToSignal));
+      }
+      if (live.length > 0) {
+        setSignals(live);
+        setIsLive(true);
+      } else {
+        setSignals(DEMO_SIGNALS);
+        setIsLive(false);
+      }
+    } catch {
+      setSignals(DEMO_SIGNALS);
+      setIsLive(false);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { loadSignals(); }, [loadSignals]);
+
   const filtered = useMemo(() =>
-    SIGNALS.filter((s) =>
+    signals.filter((s) =>
       (typeFilter     === "all" || s.type     === typeFilter) &&
       (severityFilter === "all" || s.severity === severityFilter)
-    ), [typeFilter, severityFilter]);
+    ), [signals, typeFilter, severityFilter]);
 
-  const highCount   = SIGNALS.filter((s) => s.severity === "high").length;
-  const mediumCount = SIGNALS.filter((s) => s.severity === "medium").length;
-  const lowCount    = SIGNALS.filter((s) => s.severity === "low").length;
+  const highCount   = signals.filter((s) => s.severity === "high").length;
+  const mediumCount = signals.filter((s) => s.severity === "medium").length;
+  const lowCount    = signals.filter((s) => s.severity === "low").length;
 
   const handleExportData = async (_sources: string[], _yFrom: number, _yTo: number): Promise<ExportRow[]> =>
-    SIGNALS.map((s) => ({
+    signals.map((s) => ({
       country: s.country, type: s.type, severity: s.severity,
       title: s.title, indicator: s.indicator, value: s.value,
       change_pct: s.change, source: s.source, date: s.date,
@@ -349,9 +433,11 @@ export default function SignalsPage() {
         <div className="flex items-start justify-between gap-4 flex-wrap">
           <div>
             <div className="flex items-center gap-2 mb-1.5">
-              <div className="w-2 h-2 rounded-full animate-pulse" style={{ background: "#EF4444" }} />
-              <span className="text-[10px] font-bold uppercase tracking-widest" style={{ color: "#EF4444" }}>
-                LIVE · HAUTE FRÉQUENCE
+              <div className="w-2 h-2 rounded-full animate-pulse"
+                   style={{ background: isLive ? "#10B981" : "#F59E0B" }} />
+              <span className="text-[10px] font-bold uppercase tracking-widest"
+                    style={{ color: isLive ? "#10B981" : "#F59E0B" }}>
+                {isLive ? "LIVE · HAUTE FRÉQUENCE" : "DÉMO · DONNÉES DE DÉMONSTRATION"}
               </span>
             </div>
             <h1 className="text-2xl font-bold" style={{ color: "var(--text-primary)" }}>
@@ -379,9 +465,10 @@ export default function SignalsPage() {
               style={{ background: "var(--input-bg)", borderColor: "var(--card-border)", color: "var(--text-muted)" }}>
               <Download size={12} /> Exporter
             </button>
-            <button className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs transition-all"
+            <button onClick={loadSignals} disabled={loading}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs transition-all disabled:opacity-50"
               style={{ background: "var(--input-bg)", borderColor: "var(--card-border)", color: "var(--text-muted)" }}>
-              <RefreshCw size={12} /> Actualiser
+              <RefreshCw size={12} className={loading ? "animate-spin" : ""} /> Actualiser
             </button>
           </div>
         </div>
@@ -389,11 +476,11 @@ export default function SignalsPage() {
 
       {/* ── KPI Grid ── */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-        <StatBubble label="Signaux actifs" value={SIGNALS.length} icon={Radio}    color="var(--mansa-green)" />
+        <StatBubble label="Signaux actifs" value={signals.length} icon={Radio}    color="var(--mansa-green)" />
         <StatBubble label="Critiques"      value={highCount}      icon={Flame}    color="#EF4444" />
         <StatBubble label="Modérés"        value={mediumCount}    icon={AlertTriangle} color="#F59E0B" />
         <StatBubble label="Faibles"        value={lowCount}       icon={Shield}   color="#10B981" />
-        <StatBubble label="Pays couverts"  value={new Set(SIGNALS.map((s) => s.country)).size} icon={Activity} color="#3B82F6" />
+        <StatBubble label="Pays couverts"  value={new Set(signals.map((s) => s.country)).size} icon={Activity} color="#3B82F6" />
       </div>
 
       {/* ── Filtres ── */}

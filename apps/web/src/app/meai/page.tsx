@@ -62,11 +62,52 @@ const FORECAST_INDICATORS = [
   { code: "BCA_NGDPD",   label: "Compte courant (% PIB)" },
 ];
 
-const RADAR_DATA = MEAI_COMPONENTS.map((c) => ({
-  subject: c.subject,
-  score:   Math.round(50 + Math.random() * 20 - 10),
-  fullMark: 100,
-}));
+/* ── Calcul du MEAI sur données réelles (/macro/table) ──────────────
+   Chaque indicateur est normalisé min-max (0–100) sur l'ensemble des
+   pays, avec une direction (croissance/compte courant = haut meilleur ;
+   inflation/dette = bas meilleur). Le score pays = somme pondérée des
+   6 composantes ; une composante sans indicateur disponible = 50 (neutre). */
+type TableCountry = { id: string; name: string; region: string | null; values: Record<string, number> };
+
+const MEAI_DIRECTIONS: Record<string, "up" | "down"> = {
+  NGDP_RPCH: "up", PCPIPCH: "down", GGXWDG_NGDP: "down",
+  BCA_NGDPD: "up", ENDA_XDC_USD_RATE: "down", FX_RESERVES: "up",
+};
+
+function computeMeai(countries: TableCountry[]) {
+  const stats: Record<string, { min: number; max: number }> = {};
+  for (const code of Object.keys(MEAI_DIRECTIONS)) {
+    const vals = countries
+      .map((c) => c.values[code])
+      .filter((v): v is number => typeof v === "number");
+    if (vals.length) stats[code] = { min: Math.min(...vals), max: Math.max(...vals) };
+  }
+  const norm = (code: string, v: number): number | null => {
+    const s = stats[code];
+    if (!s) return null;
+    const t = s.max === s.min ? 0.5 : (v - s.min) / (s.max - s.min);
+    return (MEAI_DIRECTIONS[code] === "up" ? t : 1 - t) * 100;
+  };
+
+  const perCountry = new Map<string, { score: number; comps: number[] }>();
+  const compSums = MEAI_COMPONENTS.map(() => 0);
+  for (const c of countries) {
+    const comps = MEAI_COMPONENTS.map((comp) => {
+      const subs = comp.indicators
+        .map((code) => { const v = c.values[code]; return typeof v === "number" ? norm(code, v) : null; })
+        .filter((x): x is number => x !== null);
+      return subs.length ? subs.reduce((a, b) => a + b, 0) / subs.length : 50;
+    });
+    const score = comps.reduce((acc, s, i) => acc + s * MEAI_COMPONENTS[i].weight, 0);
+    perCountry.set(c.id, { score, comps });
+    comps.forEach((s, i) => { compSums[i] += s; });
+  }
+  const n = countries.length || 1;
+  const componentScores = compSums.map((sum) => sum / n);
+  const allScores = [...perCountry.values()].map((p) => p.score);
+  const global = allScores.length ? allScores.reduce((a, b) => a + b, 0) / allScores.length : 50;
+  return { perCountry, componentScores, global };
+}
 
 function ScoreGauge({ score }: { score: number }) {
   const color = score >= 60 ? "#10B981" : score >= 50 ? "#F59E0B" : "#EF4444";
@@ -261,7 +302,46 @@ function ForecastTab() {
 
 export default function MEAIPage() {
   const [tab, setTab] = useState<"overview" | "countries" | "forecasts" | "methodology">("overview");
-  const isPositive = MEAI_CHANGE >= 0;
+
+  // Données MEAI calculées sur /macro/table (repli sur les constantes statiques)
+  const [globalScore,     setGlobalScore]     = useState(MEAI_GLOBAL_SCORE);
+  const [meaiChange,      setMeaiChange]      = useState(MEAI_CHANGE);
+  const [componentScores, setComponentScores] = useState<number[]>([58, 49, 55, 51, 47, 54]);
+  const [countryScores,   setCountryScores]   = useState(COUNTRY_SCORES);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const [cur, prev] = await Promise.all([
+          macroApi.getTable({ year: 2024 }),
+          macroApi.getTable({ year: 2023 }).catch(() => null),
+        ]);
+        if (cancelled || !cur?.countries?.length) return;
+        const c = computeMeai(cur.countries as TableCountry[]);
+        const p = prev?.countries?.length ? computeMeai(prev.countries as TableCountry[]) : null;
+
+        setGlobalScore(Math.round(c.global * 10) / 10);
+        if (p) setMeaiChange(Math.round((c.global - p.global) * 10) / 10);
+        setComponentScores(c.componentScores.map((s) => Math.round(s)));
+        setCountryScores(COUNTRY_SCORES.map((cs) => {
+          const cur2 = c.perCountry.get(cs.code);
+          if (!cur2) return cs;
+          const score  = Math.round(cur2.score);
+          const prev2  = p?.perCountry.get(cs.code);
+          const trend  = prev2 ? Math.round((cur2.score - prev2.score) * 10) / 10 : cs.trend;
+          const status = score >= 60 ? "Expansion" : score >= 50 ? "Modéré" : "Contraction";
+          return { ...cs, score, trend, status };
+        }));
+      } catch { /* repli silencieux sur les constantes statiques */ }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  const isPositive = meaiChange >= 0;
+  const radarData = MEAI_COMPONENTS.map((comp, i) => ({
+    subject: comp.subject, score: componentScores[i] ?? 50, fullMark: 100,
+  }));
 
   return (
     <div className="space-y-5 animate-fade-in">
@@ -298,14 +378,14 @@ export default function MEAIPage() {
              style={{ background: "var(--card-bg)", border: "1px solid var(--card-border)" }}>
           <p className="text-xs font-semibold uppercase tracking-wider mb-4"
              style={{ color: "var(--text-muted)" }}>Score Global</p>
-          <ScoreGauge score={MEAI_GLOBAL_SCORE} />
+          <ScoreGauge score={globalScore} />
           <div className="flex items-center gap-1 mt-3">
             {isPositive
               ? <TrendingUp size={13} style={{ color: "#10B981" }} />
               : <TrendingDown size={13} style={{ color: "#EF4444" }} />}
             <span className="text-xs font-mono font-semibold"
                   style={{ color: isPositive ? "#10B981" : "#EF4444" }}>
-              {isPositive ? "+" : ""}{MEAI_CHANGE.toFixed(1)} vs M-1
+              {isPositive ? "+" : ""}{meaiChange.toFixed(1)} vs N-1
             </span>
           </div>
         </div>
@@ -316,7 +396,7 @@ export default function MEAIPage() {
              style={{ color: "var(--text-muted)" }}>Composantes (pondérées)</p>
           <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
             {MEAI_COMPONENTS.map((c, i) => {
-              const score = [58, 49, 55, 51, 47, 54][i];
+              const score = componentScores[i] ?? 50;
               return (
                 <div key={c.subject} className="rounded-xl p-3" style={{ background: "var(--bg-border)" }}>
                   <div className="flex items-center justify-between mb-2">
@@ -391,7 +471,7 @@ export default function MEAIPage() {
               Profil composantes MEAI
             </h3>
             <ResponsiveContainer width="100%" height={200}>
-              <RadarChart data={RADAR_DATA}>
+              <RadarChart data={radarData}>
                 <PolarGrid stroke="var(--bg-border)" />
                 <PolarAngleAxis dataKey="subject" tick={{ fill: "var(--text-muted)", fontSize: 10 }} />
                 <PolarRadiusAxis angle={30} domain={[0, 100]} tick={false} />
@@ -417,7 +497,7 @@ export default function MEAIPage() {
             <span className="text-center">Variation M/M</span>
             <span className="text-center">Statut</span>
           </div>
-          {[...COUNTRY_SCORES].sort((a, b) => b.score - a.score).map((c, i) => {
+          {[...countryScores].sort((a, b) => b.score - a.score).map((c, i) => {
             const statusCfg = STATUS_CONFIG[c.status as keyof typeof STATUS_CONFIG];
             return (
               <div key={c.country}
