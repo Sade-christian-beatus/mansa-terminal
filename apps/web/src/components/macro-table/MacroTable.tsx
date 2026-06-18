@@ -1,10 +1,11 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Search, ArrowUpDown, ArrowUp, ArrowDown, Download, Sparkles,
   GitCompareArrows, SlidersHorizontal, RotateCcw, ChevronLeft, ChevronRight,
+  RefreshCw, CloudDownload,
 } from "lucide-react";
 
 import { macroApi } from "@/lib/api";
@@ -69,12 +70,23 @@ export function MacroTable() {
   const [showCompare, setShowCompare] = useState(false);
   const [briefId, setBriefId]       = useState<string | null>(null);
   const [toast, setToast]           = useState("");
+  const [updating, setUpdating]     = useState(false);
+
+  const queryClient = useQueryClient();
 
   // ── Données réelles + repli ─────────────────────────────────────────────────
-  const { data: apiResp } = useQuery({
+  const { data: apiResp, isFetching } = useQuery({
     queryKey: ["macro-table", year],
     queryFn: () => macroApi.getTable({ year }),
     staleTime: 1000 * 60 * 30,
+    retry: false,
+  });
+
+  // Fraîcheur des données (dernière ingestion réussie)
+  const { data: freshness } = useQuery({
+    queryKey: ["macro-freshness"],
+    queryFn: () => macroApi.getFreshness(),
+    staleTime: 1000 * 60 * 5,
     retry: false,
   });
 
@@ -212,6 +224,32 @@ export function MacroTable() {
 
   const openBrief = () => setBriefId(selectedId ?? rows[0]?.id ?? null);
 
+  // Rafraîchir l'affichage : refetch immédiat (cache invalidé)
+  const onRefresh = () => {
+    queryClient.invalidateQueries({ queryKey: ["macro-table"] });
+    queryClient.invalidateQueries({ queryKey: ["macro-freshness"] });
+    fireToast("Données rechargées depuis le serveur");
+  };
+
+  // Mettre à jour les données : déclenche la ré-ingestion côté serveur
+  const onUpdate = async () => {
+    if (updating) return;
+    setUpdating(true);
+    try {
+      const r = await macroApi.refresh("all");
+      fireToast(r?.message ?? "Ré-ingestion lancée");
+    } catch (e) {
+      const detail = (e as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
+      fireToast(detail ?? "Mise à jour indisponible pour le moment");
+    } finally {
+      setUpdating(false);
+    }
+  };
+
+  const freshnessLabel = freshness?.last_updated
+    ? new Date(freshness.last_updated).toLocaleString("fr-FR", { dateStyle: "medium", timeStyle: "short" })
+    : null;
+
   // Pagination — fenêtre de 5 boutons
   const pageBtns = useMemo(() => {
     let lo = Math.max(0, curPage - 2);
@@ -234,8 +272,25 @@ export function MacroTable() {
             {rows.length} pays africains · {presentDefs.length} indicateurs · FMI WEO · Banque Mondiale WDI
             {!isLive && <span className="ml-2 px-1.5 py-0.5 rounded text-[10px] font-bold uppercase" style={{ background: `${MANSA_GOLD}22`, color: MANSA_GOLD }}>réf. 2024</span>}
           </p>
+          {freshnessLabel && (
+            <p className="text-[11px] mt-0.5" style={{ color: "var(--text-muted)" }}>
+              Dernière mise à jour des données : {freshnessLabel}
+            </p>
+          )}
         </div>
         <div className="flex items-center gap-2 flex-wrap">
+          <button onClick={onRefresh} disabled={isFetching}
+            title={freshnessLabel ? `Recharger l'affichage · dernière ingestion : ${freshnessLabel}` : "Recharger l'affichage"}
+            className="flex items-center gap-2 text-xs font-semibold px-3.5 py-2 rounded-lg border transition-colors disabled:opacity-60"
+            style={{ background: "var(--input-bg)", borderColor: "var(--input-border)", color: "var(--text-secondary)" }}>
+            <RefreshCw size={14} className={isFetching ? "animate-spin" : ""} /> Rafraîchir
+          </button>
+          <button onClick={onUpdate} disabled={updating}
+            title="Relancer l'ingestion des sources (FMI, Banque Mondiale…) et mettre la base à jour"
+            className="flex items-center gap-2 text-xs font-semibold px-3.5 py-2 rounded-lg border transition-colors disabled:opacity-60"
+            style={{ background: "var(--input-bg)", borderColor: "var(--input-border)", color: "var(--text-secondary)" }}>
+            <CloudDownload size={14} className={updating ? "animate-pulse" : ""} /> {updating ? "Lancement…" : "Mettre à jour"}
+          </button>
           <button onClick={() => (compareIds.length >= 2 ? setShowCompare(true) : fireToast("Cochez au moins 2 pays à comparer"))}
             className="flex items-center gap-2 text-xs font-semibold px-3.5 py-2 rounded-lg border transition-colors"
             style={{ borderColor: "var(--mansa-green)", color: "var(--mansa-green)", background: "transparent" }}>

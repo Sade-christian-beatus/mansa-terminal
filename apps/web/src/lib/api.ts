@@ -119,7 +119,19 @@ export const macroApi = {
       is_live: boolean;
     }>("/macro/table", { params }),
 
-  getFreshness: () => api.get("/macro/freshness"),
+  getFreshness: () =>
+    api.get<{
+      sources: { source: string; last_updated: string | null; total_records: number; run_count: number }[];
+      last_updated: string | null;
+      is_live: boolean;
+      note?: string;
+    }>("/macro/freshness"),
+
+  /** Déclenche la ré-ingestion serveur (workflow GitHub Actions data-ingest.yml). */
+  refresh: (source: "all" | "imf" | "worldbank" | "extra" = "all") =>
+    api.post<{ triggered: boolean; source: string; message: string; workflow_url: string | null }>(
+      "/macro/refresh", null, { params: { source } },
+    ),
 
   getExport: (params?: { sources?: string; year_from?: number; year_to?: number }) =>
     api.get("/macro/export", { params }),

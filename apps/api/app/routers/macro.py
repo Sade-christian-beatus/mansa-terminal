@@ -4,20 +4,28 @@ Données macro-fiscales des 54 pays africains
 """
 import csv
 import io
+import logging
 from typing import Annotated, Optional
 
+import httpx
 from fastapi import APIRouter, Depends, Query, HTTPException, Request
 from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, and_, func
 from pydantic import BaseModel
 
+from app.core.config import settings
 from app.core.limiter import limiter
 
 from app.core.database import get_db
 from app.core.dependencies import require_active_subscription
 from app.models.models import User, Country, MacroIndicator, DataIngestionLog
 from app.data.national_sources import get_national_sources, NATIONAL_SOURCE_TAGS
+
+log = logging.getLogger("mansa.macro")
+
+# Sources d'ingestion déclenchables depuis l'app (mappées au workflow data-ingest.yml)
+INGEST_SOURCES = {"all", "imf", "worldbank", "extra"}
 
 router = APIRouter()
 
@@ -378,6 +386,71 @@ async def get_data_freshness(
         "last_updated": most_recent,
         "is_live": most_recent is not None,
     }
+
+
+class RefreshResponse(BaseModel):
+    triggered: bool
+    source: str
+    message: str
+    workflow_url: str | None = None
+
+
+@router.post("/refresh", response_model=RefreshResponse, status_code=202)
+@limiter.limit("4/hour")
+async def trigger_data_refresh(
+    request: Request,
+    current_user: Annotated[User, Depends(require_active_subscription)],
+    source: str = Query("all", description="Source à ré-ingérer : all | imf | worldbank | extra"),
+):
+    """
+    Déclenche la ré-ingestion des données macro via le workflow GitHub Actions
+    `data-ingest.yml` (workflow_dispatch). Alimente le bouton « Mettre à jour les
+    données » du tableau de bord.
+
+    Nécessite la configuration serveur `GITHUB_INGEST_TOKEN` (PAT scope
+    actions:write) + `GITHUB_REPO`. Renvoie 202 si le déclenchement a abouti.
+    Le rafraîchissement de l'affichage est géré côté client (refetch immédiat) ;
+    les nouvelles valeurs apparaissent une fois le pipeline terminé.
+    """
+    src = source.strip().lower()
+    if src not in INGEST_SOURCES:
+        raise HTTPException(status_code=400, detail=f"Source invalide. Choix : {sorted(INGEST_SOURCES)}")
+
+    if not settings.GITHUB_INGEST_TOKEN:
+        raise HTTPException(
+            status_code=503,
+            detail="Ré-ingestion non configurée côté serveur (GITHUB_INGEST_TOKEN absent). "
+                   "Le pipeline tourne automatiquement (hebdo/mensuel) ; utilisez « Rafraîchir » pour recharger l'affichage.",
+        )
+
+    owner_repo = settings.GITHUB_REPO
+    wf = settings.GITHUB_INGEST_WORKFLOW
+    url = f"https://api.github.com/repos/{owner_repo}/actions/workflows/{wf}/dispatches"
+    payload = {"ref": settings.GITHUB_INGEST_REF, "inputs": {"source": src, "dry_run": "false"}}
+    headers = {
+        "Authorization": f"Bearer {settings.GITHUB_INGEST_TOKEN}",
+        "Accept": "application/vnd.github+json",
+        "X-GitHub-Api-Version": "2022-11-28",
+    }
+
+    try:
+        async with httpx.AsyncClient(timeout=15) as client:
+            resp = await client.post(url, json=payload, headers=headers)
+    except httpx.HTTPError as exc:
+        log.error("Échec déclenchement ingestion: %s", exc)
+        raise HTTPException(status_code=502, detail="Impossible de contacter GitHub Actions.")
+
+    if resp.status_code == 204:
+        log.info("Ingestion déclenchée par user=%s source=%s", current_user.id, src)
+        return RefreshResponse(
+            triggered=True,
+            source=src,
+            message=f"Ré-ingestion « {src} » lancée. Les données seront à jour dans quelques minutes.",
+            workflow_url=f"https://github.com/{owner_repo}/actions/workflows/{wf}",
+        )
+
+    log.error("GitHub dispatch a échoué: %s %s", resp.status_code, resp.text[:300])
+    raise HTTPException(status_code=502, detail=f"GitHub a refusé le déclenchement (HTTP {resp.status_code}).")
 
 
 @router.get("/regions/{zone}")
