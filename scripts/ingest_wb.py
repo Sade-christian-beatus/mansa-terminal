@@ -38,16 +38,7 @@ AFRICAN_ISO3 = {
     "COM", "STP", "BDI",
 }
 
-# ISO-2 pour l'URL WB (API v2 utilise iso2)
-AFRICAN_ISO2 = [
-    "NG", "ZA", "KE", "GH", "EG", "MA", "TN", "SN", "CI", "CM",
-    "TZ", "UG", "ET", "RW", "CD", "MZ", "ZM", "AO", "BW", "MU",
-    "BJ", "BF", "GW", "ML", "NE", "TG", "CF", "TD", "CG", "GQ",
-    "GA", "MG", "MW", "ZW", "NA", "GN", "DZ", "LY", "SD", "SO",
-    "ER", "DJ", "SS", "SL", "LR", "GM", "CV", "MR", "LS", "SZ",
-    "KM", "ST", "BI",
-]
-COUNTRIES_PARAM = ";".join(AFRICAN_ISO2)
+# country/all évite les URL multi-pays trop longues (WAF 403 avec `;`-séparés)
 
 WB_INDICATORS = {
     "NY.GDP.MKTP.CD":    ("GDP Nominal USD", "USD"),
@@ -98,7 +89,7 @@ LOG_SQL = """
 @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=2, max=30))
 async def fetch_wb_indicator(client: httpx.AsyncClient, indicator: str) -> list[dict]:
     """Récupère un indicateur WB pour tous les pays africains (avec pagination)."""
-    url = f"{WB_BASE}/country/{COUNTRIES_PARAM}/indicator/{indicator}"
+    url = f"{WB_BASE}/country/all/indicator/{indicator}"
     all_records: list[dict] = []
     page = 1
 
