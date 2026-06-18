@@ -1,17 +1,23 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, ReferenceLine,
 } from "recharts";
 import { GitBranch, TrendingDown, TrendingUp, Info, Sliders } from "lucide-react";
+import { macroApi } from "@/lib/api";
 
-// ── Données de base statiques (top 15 pays africains) ────────────────────────
-const BASE_DATA: Record<string, {
+type CountryBase = {
   name: string; flag: string; region: string;
   growth: number; inflation: number; debt: number;
   oil_exporter: boolean; agri_pct: number; ext_debt_usd: number;
-}> = {
+};
+
+// ── Données de base (top 15 pays) — baselines growth/inflation/dette
+//    remplacées par /macro/table (année de référence) au chargement ; les
+//    attributs structurels (oil_exporter, agri_pct, ext_debt_usd) restent
+//    constants. Sert aussi de repli si l'API est indisponible. ───────────────
+const BASE_DATA: Record<string, CountryBase> = {
   NGA: { name: "Nigeria",       flag: "🇳🇬", region: "Afrique de l'Ouest", growth: 3.1,  inflation: 32.5, debt: 46.0, oil_exporter: true,  agri_pct: 24, ext_debt_usd: 42.0 },
   ZAF: { name: "Afrique du Sud",flag: "🇿🇦", region: "Afrique Australe",   growth: 1.1,  inflation: 4.6,  debt: 75.0, oil_exporter: false, agri_pct: 2,  ext_debt_usd: 165.0 },
   EGY: { name: "Égypte",        flag: "🇪🇬", region: "Afrique du Nord",    growth: 3.8,  inflation: 28.0, debt: 95.0, oil_exporter: false, agri_pct: 11, ext_debt_usd: 165.0 },
@@ -96,10 +102,42 @@ export default function ScenariosPage() {
   });
   const [selectedMetric, setSelectedMetric] = useState<"growth" | "inflation" | "debt">("growth");
 
+  // Baselines réelles depuis /macro/table (repli sur BASE_DATA statique)
+  const [baseData, setBaseData] = useState<Record<string, CountryBase>>(BASE_DATA);
+  const [refYear,  setRefYear]  = useState(2024);
+  const [isLive,   setIsLive]   = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const table = await macroApi.getTable({ year: 2024 });
+        if (cancelled || !table?.countries?.length) return;
+        const merged: Record<string, CountryBase> = {};
+        for (const [id, base] of Object.entries(BASE_DATA)) {
+          const row = table.countries.find((c) => c.id === id);
+          const v = row?.values ?? {};
+          merged[id] = {
+            ...base,
+            growth:    typeof v.NGDP_RPCH    === "number" ? Math.round(v.NGDP_RPCH * 10) / 10    : base.growth,
+            inflation: typeof v.PCPIPCH      === "number" ? Math.round(v.PCPIPCH * 10) / 10      : base.inflation,
+            debt:      typeof v.GGXWDG_NGDP  === "number" ? Math.round(v.GGXWDG_NGDP * 10) / 10  : base.debt,
+          };
+        }
+        setBaseData(merged);
+        setRefYear(table.year ?? 2024);
+        setIsLive(Boolean(table.is_live));
+      } catch {
+        /* repli silencieux sur BASE_DATA statique */
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
   const scenario = SCENARIOS[selectedScenario];
 
   const results = useMemo(() => {
-    return Object.entries(BASE_DATA).map(([id, country]) => {
+    return Object.entries(baseData).map(([id, country]) => {
       const { growthDelta, inflationDelta, debtDelta } = scenario.compute(country, params);
       return {
         id,
@@ -124,7 +162,7 @@ export default function ScenariosPage() {
         oil_exporter: country.oil_exporter,
       };
     }).sort((a, b) => b.delta[selectedMetric] - a.delta[selectedMetric]);
-  }, [selectedScenario, params, selectedMetric]);
+  }, [baseData, scenario, params, selectedMetric]);
 
   const metricLabel = { growth: "Croissance PIB (%)", inflation: "Inflation (%)", debt: "Dette % PIB" };
 
@@ -143,9 +181,11 @@ export default function ScenariosPage() {
         </div>
         <span
           className="text-xs px-2.5 py-1 rounded-full font-medium"
-          style={{ background: "rgba(245,158,11,0.12)", color: "#F59E0B", border: "1px solid rgba(245,158,11,0.25)" }}
+          style={isLive
+            ? { background: "rgba(16,185,129,0.12)", color: "#10B981", border: "1px solid rgba(16,185,129,0.25)" }
+            : { background: "rgba(245,158,11,0.12)", color: "#F59E0B", border: "1px solid rgba(245,158,11,0.25)" }}
         >
-          Données de référence 2024
+          {isLive ? `Données réelles ${refYear} · MANSA DB` : `Données de référence ${refYear}`}
         </span>
       </div>
 

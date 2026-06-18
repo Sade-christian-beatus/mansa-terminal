@@ -2,12 +2,23 @@
 # MANSA Terminal — Pipeline d'ingestion des données macro
 #
 # Schedules :
-#   • Lundi 06:00 UTC  → IMF WEO + World Bank WDI (hebdo)
-#   • 1er du mois 07:30 UTC → IMF + WB + sources extra (mensuel)
-#   • workflow_dispatch → manuel (choix : imf / worldbank / extra / all)
+#   • Lundi 06:00 UTC  → IMF WEO + World Bank WDI + extra (hebdo)
+#   • 1er du mois 07:30 UTC → refresh complet, y compris sources annuelles
+#     (Comtrade · EIA · NASA VIIRS)
+#   • workflow_dispatch → manuel (choix : imf / worldbank / extra / comtrade /
+#     eia / nasa / odfa / all)
 #
-# Secrets requis :
-#   DATABASE_URL_SYNC : postgresql://...
+# Secrets :
+#   DATABASE_URL_SYNC           : postgresql://...   (requis)
+#   COMTRADE_SUBSCRIPTION_KEY   : clé UN Comtrade    (optionnel — sinon ~15 pays)
+#   EIA_API_KEY                 : clé EIA            (requis pour la source eia)
+#   NASA_EARTHDATA_TOKEN        : token Earthdata    (optionnel — WVS public sinon)
+#
+# Sources NON câblées ici (impossibles sur runner GitHub) :
+#   • emdat : nécessite un fichier Excel téléchargé manuellement depuis emdat.be
+#             → lancer en local : DATABASE_URL_SYNC=... \
+#               python scripts/ingest_emdat.py --file public_emdat_*.xlsx
+#   • odfa  : portail Cloudflare bloque les IP datacenter (403) — voir étape ci-dessous
 # ============================================================
 
 name: MANSA Data Ingestion
@@ -29,6 +40,9 @@ on:
           - imf
           - worldbank
           - extra
+          - comtrade
+          - eia
+          - nasa
           - odfa
       dry_run:
         description: "Dry-run (aucune écriture DB)"
@@ -52,6 +66,9 @@ jobs:
 
     env:
       DATABASE_URL_SYNC: ${{ secrets.DATABASE_URL_SYNC }}
+      COMTRADE_SUBSCRIPTION_KEY: ${{ secrets.COMTRADE_SUBSCRIPTION_KEY }}
+      EIA_API_KEY: ${{ secrets.EIA_API_KEY }}
+      NASA_EARTHDATA_TOKEN: ${{ secrets.NASA_EARTHDATA_TOKEN }}
 
     steps:
       - name: Checkout repository
@@ -80,20 +97,34 @@ jobs:
         run: |
           SOURCE="${{ github.event.inputs.source || 'all' }}"
           DRY_RUN="${{ github.event.inputs.dry_run || 'false' }}"
+          SCHEDULE="${{ github.event.schedule }}"
+          EVENT="${{ github.event_name }}"
           RUN_IMF="false"; RUN_WB="false"; RUN_EXTRA="false"; RUN_ODFA="false"
+          RUN_COMTRADE="false"; RUN_EIA="false"; RUN_NASA="false"
           if [[ "$SOURCE" == "all" || "$SOURCE" == "imf" ]];       then RUN_IMF="true";   fi
           if [[ "$SOURCE" == "all" || "$SOURCE" == "worldbank" ]];  then RUN_WB="true";    fi
           if [[ "$SOURCE" == "all" || "$SOURCE" == "extra" ]];      then RUN_EXTRA="true"; fi
+          # Sources annuelles (Comtrade · EIA · NASA) : sélection explicite, OU
+          # 'all' en déclenchement MANUEL, OU le refresh mensuel (1er du mois).
+          # Volontairement exclues de l'hebdo 'all' (lourdes + données annuelles).
+          if [[ "$SOURCE" == "comtrade" ]]; then RUN_COMTRADE="true"; fi
+          if [[ "$SOURCE" == "eia" ]];      then RUN_EIA="true";      fi
+          if [[ "$SOURCE" == "nasa" ]];     then RUN_NASA="true";     fi
+          if [[ "$SOURCE" == "all" && "$EVENT" == "workflow_dispatch" ]] || [[ "$SCHEDULE" == "30 7 1 * *" ]]; then
+            RUN_COMTRADE="true"; RUN_EIA="true"; RUN_NASA="true"
+          fi
           # ODFA seulement sur demande explicite : le portail Cloudflare bloque les
           # IP datacenter des runners GitHub (403) → à lancer depuis une IP autorisée.
           if [[ "$SOURCE" == "odfa" ]];                             then RUN_ODFA="true";  fi
-          # Le mensuel (1er du mois) lance tout ; l'hebdo (lundi) lance IMF+WB seulement
-          echo "run_imf=$RUN_IMF"     >> "$GITHUB_OUTPUT"
-          echo "run_wb=$RUN_WB"       >> "$GITHUB_OUTPUT"
-          echo "run_extra=$RUN_EXTRA" >> "$GITHUB_OUTPUT"
-          echo "run_odfa=$RUN_ODFA"   >> "$GITHUB_OUTPUT"
-          echo "dry_run=$DRY_RUN"     >> "$GITHUB_OUTPUT"
-          echo "Source: $SOURCE | dry-run: $DRY_RUN | IMF: $RUN_IMF | WB: $RUN_WB | Extra: $RUN_EXTRA | ODFA: $RUN_ODFA"
+          echo "run_imf=$RUN_IMF"           >> "$GITHUB_OUTPUT"
+          echo "run_wb=$RUN_WB"             >> "$GITHUB_OUTPUT"
+          echo "run_extra=$RUN_EXTRA"       >> "$GITHUB_OUTPUT"
+          echo "run_comtrade=$RUN_COMTRADE" >> "$GITHUB_OUTPUT"
+          echo "run_eia=$RUN_EIA"           >> "$GITHUB_OUTPUT"
+          echo "run_nasa=$RUN_NASA"         >> "$GITHUB_OUTPUT"
+          echo "run_odfa=$RUN_ODFA"         >> "$GITHUB_OUTPUT"
+          echo "dry_run=$DRY_RUN"           >> "$GITHUB_OUTPUT"
+          echo "Source: $SOURCE | dry-run: $DRY_RUN | IMF: $RUN_IMF | WB: $RUN_WB | Extra: $RUN_EXTRA | Comtrade: $RUN_COMTRADE | EIA: $RUN_EIA | NASA: $RUN_NASA | ODFA: $RUN_ODFA"
 
       # ── IMF WEO ──────────────────────────────────────────────────────────
       - name: Ingest IMF WEO
@@ -115,6 +146,34 @@ jobs:
         run: |
           ARGS="${{ steps.sources.outputs.dry_run == 'true' && '--dry-run' || '' }}"
           python scripts/ingest_extra.py $ARGS
+
+      # ── UN Comtrade — flux commerciaux bilatéraux (annuel) ───────────────
+      # Sans COMTRADE_SUBSCRIPTION_KEY : limité aux ~15 plus grandes économies.
+      # Non bloquant : l'API publique peut throttler.
+      - name: Ingest UN Comtrade
+        if: steps.sources.outputs.run_comtrade == 'true'
+        continue-on-error: true
+        run: |
+          ARGS="${{ steps.sources.outputs.dry_run == 'true' && '--dry-run' || '' }}"
+          python scripts/ingest_comtrade.py $ARGS
+
+      # ── EIA International Energy (annuel) ─────────────────────────────────
+      # Nécessite EIA_API_KEY (sinon le script sort en erreur) → on saute si absent.
+      - name: Ingest EIA energy data
+        if: steps.sources.outputs.run_eia == 'true' && env.EIA_API_KEY != ''
+        continue-on-error: true
+        run: |
+          ARGS="${{ steps.sources.outputs.dry_run == 'true' && '--dry-run' || '' }}"
+          python scripts/ingest_eia.py $ARGS
+
+      # ── NASA VIIRS Nightlights — proxy d'activité économique (annuel) ─────
+      # Aucune clé requise (WVS public). Non bloquant : fetch d'images, peut être lent.
+      - name: Ingest NASA VIIRS nightlights
+        if: steps.sources.outputs.run_nasa == 'true'
+        continue-on-error: true
+        run: |
+          ARGS="${{ steps.sources.outputs.dry_run == 'true' && '--dry-run' || '' }}"
+          python scripts/ingest_nasa_viirs.py $ARGS
 
       # ── Sources nationales ODFA / Knoema (INSD Burkina Faso, pilote) ─────
       # NB : le portail (Cloudflare) bloque les IP datacenter des runners GitHub
