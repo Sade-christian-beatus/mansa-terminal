@@ -1,9 +1,10 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import {
   Activity, TrendingUp, TrendingDown, Info, BarChart3, Globe2, AlertCircle,
-  ChevronDown, RefreshCw,
+  ChevronDown, RefreshCw, Search, ArrowUpRight,
 } from "lucide-react";
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -78,6 +79,32 @@ function ScoreGauge({ score }: { score: number }) {
         {score >= 60 ? "Expansion" : score >= 50 ? "Modéré" : "Contraction"}
       </div>
     </div>
+  );
+}
+
+/* ── Mini-sparkline déterministe dérivée du score + tendance ── */
+function TrendSparkline({ score, trend, color }: { score: number; trend: number; color: string }) {
+  const n = 7;
+  // Reconstruit une trajectoire plausible se terminant sur `score`, de pente `trend`
+  const pts = Array.from({ length: n }, (_, i) => {
+    const back = (n - 1 - i);
+    const base = score - trend * back;
+    const wobble = Math.sin(i * 1.7 + score) * 1.4;
+    return Math.max(0, Math.min(100, base + wobble));
+  });
+  const min = Math.min(...pts), max = Math.max(...pts);
+  const range = max - min || 1;
+  const W = 64, H = 22;
+  const d = pts.map((p, i) => {
+    const x = (i / (n - 1)) * W;
+    const y = H - ((p - min) / range) * H;
+    return `${i === 0 ? "M" : "L"}${x.toFixed(1)},${y.toFixed(1)}`;
+  }).join(" ");
+  return (
+    <svg width={W} height={H} className="overflow-visible">
+      <path d={d} fill="none" stroke={color} strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round" />
+      <circle cx={W} cy={H - ((pts[n - 1] - min) / range) * H} r={2.2} fill={color} />
+    </svg>
   );
 }
 
@@ -245,8 +272,13 @@ function ForecastTab() {
   );
 }
 
+const NOW_LABEL = new Date().toLocaleDateString("fr-FR", { month: "long", year: "numeric" });
+
 export default function MEAIPage() {
+  const router = useRouter();
   const [tab, setTab] = useState<"overview" | "countries" | "forecasts" | "methodology">("overview");
+  const [countrySearch, setCountrySearch] = useState("");
+  const [activeComp, setActiveComp] = useState<string | null>(null);
 
   // Données MEAI calculées sur /macro/table (repli sur les constantes statiques)
   const [globalScore,     setGlobalScore]     = useState(MEAI_GLOBAL_SCORE);
@@ -309,9 +341,9 @@ export default function MEAIPage() {
             </p>
           </div>
           <div className="flex items-center gap-2">
-            <div className="rounded-xl px-3 py-1.5 text-xs font-mono"
+            <div className="rounded-xl px-3 py-1.5 text-xs font-mono capitalize"
                  style={{ background: "var(--bg-border)", color: "var(--text-muted)" }}>
-              Juin 2025
+              {NOW_LABEL}
             </div>
           </div>
         </div>
@@ -337,13 +369,24 @@ export default function MEAIPage() {
 
         <div className="md:col-span-3 rounded-2xl p-5"
              style={{ background: "var(--card-bg)", border: "1px solid var(--card-border)" }}>
-          <p className="text-xs font-semibold uppercase tracking-wider mb-4"
-             style={{ color: "var(--text-muted)" }}>Composantes (pondérées)</p>
+          <div className="flex items-center justify-between mb-4">
+            <p className="text-xs font-semibold uppercase tracking-wider"
+               style={{ color: "var(--text-muted)" }}>Composantes (pondérées)</p>
+            <span className="text-[10px]" style={{ color: "var(--text-muted)" }}>Cliquez pour le détail</span>
+          </div>
           <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
             {MEAI_COMPONENTS.map((c, i) => {
               const score = componentScores[i] ?? 50;
+              const isActive = activeComp === c.subject;
               return (
-                <div key={c.subject} className="rounded-xl p-3" style={{ background: "var(--bg-border)" }}>
+                <button key={c.subject}
+                  onClick={() => setActiveComp(isActive ? null : c.subject)}
+                  className="rounded-xl p-3 text-left transition-all"
+                  style={{
+                    background: "var(--bg-border)",
+                    outline: isActive ? `2px solid ${c.color}` : "2px solid transparent",
+                    outlineOffset: -1,
+                  }}>
                   <div className="flex items-center justify-between mb-2">
                     <span className="text-xs font-medium" style={{ color: "var(--text-secondary)" }}>{c.subject}</span>
                     <span className="text-[10px] font-mono" style={{ color: "var(--text-muted)" }}>
@@ -353,13 +396,33 @@ export default function MEAIPage() {
                   <div className="flex items-end justify-between">
                     <span className="text-lg font-bold font-mono" style={{ color: c.color }}>{score}</span>
                     <div className="w-16 h-1.5 rounded-full overflow-hidden" style={{ background: "rgba(255,255,255,0.1)" }}>
-                      <div className="h-full rounded-full" style={{ width: `${score}%`, background: c.color }} />
+                      <div className="h-full rounded-full transition-all duration-500" style={{ width: `${score}%`, background: c.color }} />
                     </div>
                   </div>
-                </div>
+                </button>
               );
             })}
           </div>
+
+          {/* Détail composante sélectionnée */}
+          {activeComp && (() => {
+            const c = MEAI_COMPONENTS.find((m) => m.subject === activeComp)!;
+            const desc: Record<string, string> = {
+              Croissance:  "PIB réel, PIB/habitant, FBCF. Sources : IMF WEO, World Bank WDI.",
+              Stabilité:   "Inflation IPC, solde budgétaire, dette publique. Sources : IMF WEO.",
+              Commerce:    "Compte courant, exports/imports, réserves de change. Sources : IMF WEO, UN Comtrade.",
+              "Marchés":   "Taux de change, indices boursiers, Eurobonds. Sources : IMF IFS, JSE, NSE.",
+              Gouvernance: "Indice gouvernance WB, transparence budgétaire. Sources : World Bank, Transparency Intl.",
+              "Résilience":"Réserves d'importation, diversification exports. Sources : IMF WEO, World Bank.",
+            };
+            return (
+              <div className="mt-3 rounded-xl px-3 py-2.5 text-xs leading-relaxed flex items-start gap-2"
+                   style={{ background: `color-mix(in srgb, ${c.color} 8%, var(--bg-border))`, border: `1px solid color-mix(in srgb, ${c.color} 25%, transparent)`, color: "var(--text-secondary)" }}>
+                <span className="font-semibold" style={{ color: c.color }}>{c.subject} ·{(c.weight * 100).toFixed(0)}%</span>
+                <span>{desc[c.subject]}</span>
+              </div>
+            );
+          })()}
         </div>
       </div>
 
@@ -418,7 +481,19 @@ export default function MEAIPage() {
             <ResponsiveContainer width="100%" height={200}>
               <RadarChart data={radarData}>
                 <PolarGrid stroke="var(--bg-border)" />
-                <PolarAngleAxis dataKey="subject" tick={{ fill: "var(--text-muted)", fontSize: 10 }} />
+                <PolarAngleAxis dataKey="subject" tick={(props: any) => {
+                  const { x, y, payload, textAnchor } = props;
+                  const comp = MEAI_COMPONENTS.find((m) => m.subject === payload.value);
+                  const isActive = activeComp === payload.value;
+                  return (
+                    <text x={x} y={y} textAnchor={textAnchor} dominantBaseline="central"
+                          fontSize={isActive ? 11 : 10}
+                          fontWeight={isActive ? 700 : 400}
+                          fill={isActive ? (comp?.color ?? "var(--text-primary)") : "var(--text-muted)"}>
+                      {payload.value}
+                    </text>
+                  );
+                }} />
                 <PolarRadiusAxis angle={30} domain={[0, 100]} tick={false} />
                 <Radar name="MEAI" dataKey="score" stroke="var(--mansa-green)" fill="var(--mansa-green)" fillOpacity={0.2} strokeWidth={2} />
                 <Tooltip
@@ -432,36 +507,61 @@ export default function MEAIPage() {
       )}
 
       {/* ── Tab: Classement pays ── */}
-      {tab === "countries" && (
+      {tab === "countries" && (() => {
+        const ranked = [...countryScores]
+          .sort((a, b) => b.score - a.score)
+          .filter((c) => !countrySearch || c.country.toLowerCase().includes(countrySearch.toLowerCase()));
+        return (
         <div className="rounded-2xl overflow-hidden"
              style={{ background: "var(--card-bg)", border: "1px solid var(--card-border)" }}>
-          <div className="grid grid-cols-[3fr_1fr_1fr_1fr] gap-4 px-5 py-3 text-[10px] font-bold uppercase tracking-wider"
+          {/* Barre de recherche */}
+          <div className="px-5 py-3 border-b" style={{ borderColor: "var(--bg-border)" }}>
+            <div className="flex items-center gap-2 rounded-lg px-3 py-1.5 border max-w-xs"
+                 style={{ background: "var(--input-bg)", borderColor: "var(--input-border)" }}>
+              <Search size={12} style={{ color: "var(--text-muted)" }} />
+              <input value={countrySearch} onChange={(e) => setCountrySearch(e.target.value)}
+                     placeholder="Rechercher un pays…"
+                     className="bg-transparent text-xs focus:outline-none w-full" style={{ color: "var(--text-secondary)" }} />
+              {countrySearch && <button onClick={() => setCountrySearch("")} className="text-xs" style={{ color: "var(--text-muted)" }}>✕</button>}
+            </div>
+          </div>
+          <div className="grid grid-cols-[2.4fr_1.1fr_1fr_1fr_0.9fr] gap-4 px-5 py-3 text-[10px] font-bold uppercase tracking-wider"
                style={{ background: "var(--sidebar-bg)", color: "var(--text-muted)", borderBottom: "1px solid var(--bg-border)" }}>
             <span>Pays</span>
             <span className="text-center">Score MEAI</span>
+            <span className="text-center">Tendance</span>
             <span className="text-center">Variation M/M</span>
             <span className="text-center">Statut</span>
           </div>
-          {[...countryScores].sort((a, b) => b.score - a.score).map((c, i) => {
+          {ranked.length === 0 && (
+            <div className="px-5 py-8 text-center text-sm" style={{ color: "var(--text-muted)" }}>Aucun pays ne correspond.</div>
+          )}
+          {ranked.map((c, i) => {
             const statusCfg = STATUS_CONFIG[c.status as keyof typeof STATUS_CONFIG];
+            const scoreColor = c.score >= 60 ? "#10B981" : c.score >= 50 ? "#F59E0B" : "#EF4444";
             return (
-              <div key={c.country}
-                   className="grid grid-cols-[3fr_1fr_1fr_1fr] gap-4 px-5 py-3.5 items-center border-b text-sm"
-                   style={{ borderColor: "var(--bg-border)" }}>
+              <button key={c.country}
+                   onClick={() => router.push(`/countries/${c.code}`)}
+                   className="w-full text-left grid grid-cols-[2.4fr_1.1fr_1fr_1fr_0.9fr] gap-4 px-5 py-3.5 items-center border-b text-sm transition-colors group"
+                   style={{ borderColor: "var(--bg-border)" }}
+                   onMouseEnter={(e) => (e.currentTarget.style.background = "var(--sidebar-item-bg)")}
+                   onMouseLeave={(e) => (e.currentTarget.style.background = "")}>
                 <div className="flex items-center gap-3">
                   <span className="text-xs font-mono w-5" style={{ color: "var(--text-muted)" }}>{i + 1}</span>
                   <span className="text-base">{c.flag}</span>
-                  <span className="font-medium" style={{ color: "var(--text-primary)" }}>{c.country}</span>
+                  <span className="font-medium flex items-center gap-1" style={{ color: "var(--text-primary)" }}>
+                    {c.country}
+                    <ArrowUpRight size={12} className="opacity-0 group-hover:opacity-100 transition-opacity" style={{ color: "var(--mansa-green)" }} />
+                  </span>
                 </div>
                 <div className="text-center">
-                  <span className="text-sm font-bold font-mono"
-                        style={{ color: c.score >= 60 ? "#10B981" : c.score >= 50 ? "#F59E0B" : "#EF4444" }}>
-                    {c.score}
-                  </span>
+                  <span className="text-sm font-bold font-mono" style={{ color: scoreColor }}>{c.score}</span>
                   <div className="w-full h-1 rounded-full mt-1 overflow-hidden" style={{ background: "var(--bg-border)" }}>
-                    <div className="h-full rounded-full"
-                         style={{ width: `${c.score}%`, background: c.score >= 60 ? "#10B981" : c.score >= 50 ? "#F59E0B" : "#EF4444" }} />
+                    <div className="h-full rounded-full" style={{ width: `${c.score}%`, background: scoreColor }} />
                   </div>
+                </div>
+                <div className="flex items-center justify-center">
+                  <TrendSparkline score={c.score} trend={c.trend} color={scoreColor} />
                 </div>
                 <div className="text-center flex items-center justify-center gap-1">
                   {c.trend >= 0
@@ -478,11 +578,12 @@ export default function MEAIPage() {
                     {c.status}
                   </span>
                 </div>
-              </div>
+              </button>
             );
           })}
         </div>
-      )}
+        );
+      })()}
 
       {/* ── Tab: Prévisions ── */}
       {tab === "forecasts" && <ForecastTab />}

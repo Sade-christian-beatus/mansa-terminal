@@ -243,6 +243,18 @@ export default function IndicatorsPage() {
     }), [indSearch, indCat]
   );
 
+  // Indicateurs filtrés regroupés par catégorie (présentation organisée)
+  const groupedInds = useMemo(() => {
+    const order = Array.from(new Set(INDICATORS.map((i) => i.cat)));
+    const map = new Map<string, typeof INDICATORS>();
+    for (const ind of filteredInds) {
+      const arr = map.get(ind.cat) ?? [];
+      arr.push(ind);
+      map.set(ind.cat, arr);
+    }
+    return order.filter((c) => map.has(c)).map((c) => ({ cat: c, items: map.get(c)! }));
+  }, [filteredInds]);
+
   const indMeta = INDICATORS.find((i) => i.code === selectedInd)!;
 
   /* ── Pays disponibles ── */
@@ -394,28 +406,40 @@ export default function IndicatorsPage() {
           ))}
         </div>
 
-        {/* Liste indicateurs filtrée */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-1.5 max-h-48 overflow-y-auto pr-1">
-          {filteredInds.map((ind) => (
-            <button
-              key={ind.code}
-              onClick={() => { setSelectedInd(ind.code); setFcData(null); setChartTab("historique"); }}
-              className="px-3 py-2 rounded-xl border text-xs font-medium transition-all text-left"
-              style={selectedInd === ind.code
-                ? { background: "color-mix(in srgb, var(--mansa-green) 12%, var(--card-bg))", borderColor: "color-mix(in srgb, var(--mansa-green) 40%, transparent)", color: "var(--mansa-green)" }
-                : { background: "var(--card-bg)", borderColor: "var(--card-border)", color: "var(--text-muted)" }
-              }
-              title={`${ind.code} · ${ind.description}`}
-            >
-              <span className="block truncate">{ind.label}</span>
-              <span className="block text-[9px] mt-0.5 opacity-60 font-mono">{ind.code}</span>
-            </button>
-          ))}
-          {filteredInds.length === 0 && (
-            <p className="col-span-5 text-xs text-center py-4" style={{ color: "var(--text-muted)" }}>
+        {/* Liste indicateurs filtrée — regroupée par catégorie */}
+        <div className="max-h-60 overflow-y-auto pr-1 space-y-3">
+          {groupedInds.length === 0 && (
+            <p className="text-xs text-center py-4" style={{ color: "var(--text-muted)" }}>
               Aucun indicateur ne correspond à la recherche.
             </p>
           )}
+          {groupedInds.map(({ cat, items }) => (
+            <div key={cat}>
+              <div className="flex items-center gap-2 mb-1.5 sticky top-0 z-10 py-0.5"
+                   style={{ background: "var(--card-bg)" }}>
+                <span className="text-[10px] font-bold uppercase tracking-widest" style={{ color: "var(--text-secondary)" }}>{cat}</span>
+                <span className="text-[9px] font-mono px-1.5 py-0.5 rounded" style={{ background: "var(--bg-border)", color: "var(--text-muted)" }}>{items.length}</span>
+                <div className="flex-1 h-px" style={{ background: "var(--bg-border)" }} />
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-1.5">
+                {items.map((ind) => (
+                  <button
+                    key={ind.code}
+                    onClick={() => { setSelectedInd(ind.code); setFcData(null); setChartTab("historique"); }}
+                    className="px-3 py-2 rounded-xl border text-xs font-medium transition-all text-left"
+                    style={selectedInd === ind.code
+                      ? { background: "color-mix(in srgb, var(--mansa-green) 12%, var(--card-bg))", borderColor: "color-mix(in srgb, var(--mansa-green) 40%, transparent)", color: "var(--mansa-green)" }
+                      : { background: "var(--card-bg)", borderColor: "var(--card-border)", color: "var(--text-muted)" }
+                    }
+                    title={`${ind.code} · ${ind.description}`}
+                  >
+                    <span className="block truncate">{ind.label}</span>
+                    <span className="block text-[9px] mt-0.5 opacity-60 font-mono">{ind.code}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          ))}
         </div>
       </div>
 
@@ -434,7 +458,7 @@ export default function IndicatorsPage() {
       <div className="grid grid-cols-12 gap-4">
 
         {/* ── Colonne gauche : liste pays ── */}
-        <div className="col-span-3 mansa-card rounded-2xl overflow-hidden" style={{ maxHeight: "70vh" }}>
+        <div className="col-span-12 lg:col-span-3 mansa-card rounded-2xl overflow-hidden lg:sticky lg:top-4 self-start" style={{ maxHeight: "70vh" }}>
           {/* Filtres */}
           <div className="px-3 pt-3 pb-2 border-b space-y-2" style={{ borderColor: "var(--card-border)" }}>
             <div className="flex items-center gap-2 rounded-lg px-2 py-1.5 border"
@@ -500,7 +524,7 @@ export default function IndicatorsPage() {
         </div>
 
         {/* ── Colonne droite : graphique + stats ── */}
-        <div className="col-span-9 space-y-4">
+        <div className="col-span-12 lg:col-span-9 space-y-4">
 
           {/* KPIs résumé */}
           {activeCountryMeta && (

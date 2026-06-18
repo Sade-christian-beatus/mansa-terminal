@@ -6,6 +6,7 @@ import {
   Globe2, Sparkles, BarChart2, TrendingUp, Map, ShieldAlert,
   CloudRain, Zap, Database, ArrowRight, CheckCircle2,
 } from "lucide-react";
+import { ImageWithFallback } from "@/components/common/ImageWithFallback";
 
 const STATS = [
   { value: "54",  label: "Économies africaines",    color: "var(--mansa-green)" },
@@ -99,6 +100,20 @@ export default function AccueilPage() {
           border: "1px solid color-mix(in srgb, var(--mansa-green) 15%, var(--bg-border))",
         }}
       >
+        {/* Image de fond (IA) + voile de lisibilité */}
+        <ImageWithFallback
+          src="/images/hero-africa.jpg"
+          alt="Skyline d'une métropole africaine au crépuscule"
+          priority
+          className="absolute inset-0"
+          imgClassName="object-cover opacity-30"
+        />
+        <div
+          className="absolute inset-0 pointer-events-none"
+          style={{ background: "linear-gradient(180deg, color-mix(in srgb, var(--card-bg) 55%, transparent), color-mix(in srgb, var(--card-bg) 88%, transparent))" }}
+        />
+
+        <div className="relative z-10">
         {/* Logo */}
         <div className="flex justify-center mb-6">
           <div className="relative w-16 h-16">
@@ -134,6 +149,7 @@ export default function AccueilPage() {
             <Sparkles size={15} />
             Essayer MANSA AI
           </Link>
+        </div>
         </div>
       </div>
 
@@ -180,6 +196,53 @@ export default function AccueilPage() {
             );
           })}
         </div>
+      </div>
+
+      {/* ── Bande visuelle Données / IA ── */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {[
+          {
+            src: "/images/accueil-data.jpg",
+            from: "var(--mansa-green)", to: "#0EA5A0",
+            icon: BarChart2,
+            badge: "Données",
+            title: "141 indicateurs, 54 pays, en temps réel",
+            desc: "Séries macro, fiscales et monétaires harmonisées — FMI, Banque Mondiale, banques centrales africaines.",
+            href: "/indicators", cta: "Explorer les données",
+          },
+          {
+            src: "/images/accueil-ai.jpg",
+            from: "#8B5CF6", to: "#3B82F6",
+            icon: Sparkles,
+            badge: "Intelligence",
+            title: "MANSA AI, spécialisé sur l'Afrique",
+            desc: "Posez vos questions macro en langage naturel : l'IA lit la base et rédige des analyses sourcées.",
+            href: "/ai", cta: "Lancer l'analyse IA",
+          },
+        ].map((b) => {
+          const Icon = b.icon;
+          return (
+            <Link key={b.href} href={b.href}
+              className="mansa-card rounded-2xl overflow-hidden group relative flex flex-col">
+              <div className="relative h-40">
+                <ImageWithFallback src={b.src} alt={b.title} from={b.from} to={b.to}
+                  className="absolute inset-0" imgClassName="object-cover transition-transform duration-500 group-hover:scale-105" />
+                <div className="absolute inset-0" style={{ background: "linear-gradient(180deg, transparent 30%, color-mix(in srgb, var(--card-bg) 92%, transparent))" }} />
+                <span className="absolute top-3 left-3 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold"
+                      style={{ background: "color-mix(in srgb, var(--card-bg) 70%, transparent)", color: b.from, border: `1px solid color-mix(in srgb, ${b.from} 40%, transparent)` }}>
+                  <Icon size={12} /> {b.badge}
+                </span>
+              </div>
+              <div className="p-5">
+                <h3 className="font-semibold text-base mb-1" style={{ color: "var(--text-primary)" }}>{b.title}</h3>
+                <p className="text-xs leading-relaxed mb-3" style={{ color: "var(--text-muted)" }}>{b.desc}</p>
+                <span className="flex items-center gap-1.5 text-xs font-semibold group-hover:gap-2.5 transition-all" style={{ color: b.from }}>
+                  {b.cta} <ArrowRight size={12} />
+                </span>
+              </div>
+            </Link>
+          );
+        })}
       </div>
 
       {/* ── Sources de données ── */}

@@ -13,6 +13,7 @@ import {
   PolarAngleAxis, PolarRadiusAxis,
 } from "recharts";
 import { ExportModal } from "@/components/common/ExportModal";
+import { AfricaTempMap } from "@/components/climate/AfricaTempMap";
 import type { ExportRow } from "@/lib/export-utils";
 
 /* ─── Types ────────────────────────────────────────────────── */
@@ -562,6 +563,9 @@ export default function ClimatePage() {
 
           {/* Conditions météo par région */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+            {/* Carte thermique régionale */}
+            <AfricaTempMap />
+
             {/* Tableau régions */}
             <div className="mansa-card rounded-xl overflow-hidden">
               <div className="px-4 py-3 border-b flex items-center gap-2" style={{ borderColor: "var(--bg-border)" }}>
@@ -604,7 +608,7 @@ export default function ClimatePage() {
             </div>
 
             {/* Top villes températures */}
-            <div className="mansa-card rounded-xl overflow-hidden">
+            <div className="mansa-card rounded-xl overflow-hidden lg:col-span-2">
               <div className="px-4 py-3 border-b flex items-center gap-2" style={{ borderColor: "var(--bg-border)" }}>
                 <Flame size={14} style={{ color: "#EF4444" }} />
                 <h3 className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>Températures — Capitales africaines</h3>

@@ -20,7 +20,8 @@ const ISO3_TO_ISO2: Record<string, string> = {
 };
 import { macroApi, forecastApi, type BatchForecastResult, type ForecastResult, type Institution } from "@/lib/api";
 import {
-  getCentralBank, getStatsInstitute, getFallbackNationalIndicators,
+  getFallbackNationalIndicators,
+  getNationalCatalog, type NationalCatalogGroup,
 } from "@/lib/national-sources";
 import { ErrorCard } from "@/components/common/ErrorCard";
 import { CATALOG_BY_ID } from "@/lib/indicator-catalog";
@@ -565,17 +566,92 @@ function NationalSourcesSection({ countryId, fallbackInflation }: {
   };
 
   // Institutions : API si disponible, sinon repli côté client
-  const statsInstitute = data?.institutions?.stats_institute ?? getStatsInstitute(countryId);
-  const centralBank    = data?.institutions?.central_bank ?? getCentralBank(countryId);
-  const others         = data?.institutions?.others ?? [];
+  const others = data?.institutions?.others ?? [];
 
-  // Indicateurs : API si présents, sinon repli (taux directeur + IPC national)
+  // Valeurs connues par code : séries API (dernier point) + repli statique
   const apiIndicators = data?.indicators ?? {};
-  const apiCodes = Object.keys(apiIndicators).filter((c) => (apiIndicators[c]?.length ?? 0) > 0);
-  const indicators = apiCodes.length > 0
-    ? apiCodes.map((code) => ({ code, ...latest(apiIndicators[code])! }))
-    : getFallbackNationalIndicators(countryId, fallbackInflation);
-  const isFallback = apiCodes.length === 0;
+  const known: Record<string, { value: number; period: string; unit: string | null; source: string }> = {};
+  for (const code of Object.keys(apiIndicators)) {
+    const l = latest(apiIndicators[code]);
+    if (l) known[code] = l;
+  }
+  for (const f of getFallbackNationalIndicators(countryId, fallbackInflation)) {
+    if (!(f.code in known)) known[f.code] = f;
+  }
+
+  // Catalogue complet des indicateurs publiés par chaque institution nationale
+  const catalog = getNationalCatalog(countryId);
+  const groups = [catalog.centralBank, catalog.statsInstitute].filter(Boolean) as NationalCatalogGroup[];
+
+  const renderGroup = (g: NationalCatalogGroup) => {
+    const Icon = g.role.startsWith("Banque") ? Landmark : Building2;
+    const publishedCount = g.indicators.filter((ind) => ind.code in known).length;
+    return (
+      <div key={g.inst.abbrev} className="rounded-xl p-4" style={{ background: "var(--bg-border)" }}>
+        {/* En-tête institution */}
+        <div className="flex items-start gap-3 mb-3">
+          <div className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0"
+               style={{ background: "color-mix(in srgb, var(--mansa-green) 12%, transparent)" }}>
+            <Icon size={18} style={{ color: "var(--mansa-green)" }} />
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="text-[10px] uppercase tracking-wider mb-0.5" style={{ color: "var(--text-muted)" }}>{g.role}</p>
+            <p className="text-sm font-semibold leading-tight" style={{ color: "var(--text-primary)" }}>
+              {g.inst.abbrev}
+              {g.inst.url && (
+                <a href={g.inst.url} target="_blank" rel="noopener noreferrer"
+                   className="inline-flex items-center ml-1.5 align-middle" style={{ color: "var(--mansa-green)" }}>
+                  <ExternalLink size={12} />
+                </a>
+              )}
+            </p>
+            <p className="text-xs mt-0.5 leading-snug" style={{ color: "var(--text-muted)" }}>{g.inst.name}</p>
+          </div>
+          <span className="text-[10px] font-mono px-1.5 py-0.5 rounded flex-shrink-0"
+                style={{ background: "var(--card-bg)", color: "var(--text-muted)" }}>
+            {publishedCount}/{g.indicators.length}
+          </span>
+        </div>
+
+        {/* Tous les indicateurs proposés par la source */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
+          {g.indicators.map((ind) => {
+            const pt = known[ind.code];
+            const label = data?.indicator_names?.[ind.code] ?? ind.label ?? NATIONAL_IND_LABELS[ind.code] ?? ind.code;
+            return (
+              <div key={ind.code} className="rounded-lg p-2.5" style={{ background: "var(--card-bg)", border: "1px solid var(--bg-border)" }}>
+                <p className="text-[10px] mb-1 leading-tight" style={{ color: "var(--text-muted)" }}>{label}</p>
+                {pt ? (
+                  <>
+                    <p className="text-base font-bold font-mono" style={{ color: "var(--text-primary)" }}>
+                      {pt.value.toLocaleString("fr-FR", { maximumFractionDigits: 2 })}
+                      {pt.unit && pt.unit !== "USD"
+                        ? <span className="text-[10px] ml-0.5">{pt.unit}</span>
+                        : ind.unit && <span className="text-[10px] ml-0.5">{ind.unit}</span>}
+                    </p>
+                    <div className="flex items-center justify-between mt-1">
+                      <span className="text-[9px] font-mono px-1 py-0.5 rounded"
+                            style={{ background: "color-mix(in srgb, var(--mansa-green) 12%, transparent)", color: "var(--mansa-green)" }}>
+                        {pt.source}
+                      </span>
+                      <span className="text-[9px] font-mono" style={{ color: "var(--text-muted)" }}>{pt.period}</span>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <p className="text-sm font-mono" style={{ color: "var(--text-muted)" }}>—</p>
+                    <p className="text-[9px] mt-1 leading-tight" style={{ color: "var(--text-muted)", opacity: 0.8 }}>
+                      Publié par {g.inst.abbrev}{ind.unit ? ` · ${ind.unit}` : ""}
+                    </p>
+                  </>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    );
+  };
 
   return (
     <div className="mansa-card rounded-xl p-5">
@@ -586,70 +662,37 @@ function NationalSourcesSection({ countryId, fallbackInflation }: {
             Sources nationales
           </h3>
         </div>
-        {isFallback && indicators.length > 0 && (
-          <span className="text-[10px] font-mono px-2 py-0.5 rounded"
-                style={{ background: "var(--bg-border)", color: "var(--text-muted)" }}>
-            Dernières valeurs publiées
-          </span>
-        )}
+        <span className="text-[10px] font-mono px-2 py-0.5 rounded"
+              style={{ background: "var(--bg-border)", color: "var(--text-muted)" }}>
+          Offre statistique complète
+        </span>
       </div>
       <p className="text-xs mb-4" style={{ color: "var(--text-muted)" }}>
-        Institutions productrices de statistiques propres au pays et données qu'elles publient.
+        Institutions productrices de statistiques propres au pays et l'ensemble des indicateurs
+        qu'elles publient. Valeur affichée si déjà ingérée, sinon série référencée.
       </p>
 
       {isLoading ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          {[1, 2].map((i) => <div key={i} className="mansa-card rounded-xl h-20 skeleton" />)}
+        <div className="space-y-3">
+          {[1, 2].map((i) => <div key={i} className="mansa-card rounded-xl h-36 skeleton" />)}
         </div>
-      ) : (
-        <>
-          {/* Institutions */}
-          {(statsInstitute || centralBank || others.length > 0) && (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mb-4">
-              {statsInstitute && (
-                <InstitutionCard icon={Building2} role="Institut de statistique" inst={statsInstitute} />
-              )}
-              {centralBank && (
-                <InstitutionCard icon={Landmark} role="Banque centrale" inst={centralBank} />
-              )}
+      ) : groups.length > 0 ? (
+        <div className="space-y-3">
+          {groups.map(renderGroup)}
+          {others.length > 0 && (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
               {others.map((o) => (
                 <InstitutionCard key={o.abbrev} icon={Building2} role="Autre source" inst={o} />
               ))}
             </div>
           )}
-
-          {/* Indicateurs nationaux */}
-          {indicators.length > 0 ? (
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-              {indicators.map((pt) => (
-                <div key={pt.code} className="rounded-xl p-3" style={{ background: "var(--bg-border)" }}>
-                  <p className="text-[11px] mb-1 leading-tight" style={{ color: "var(--text-muted)" }}>
-                    {data?.indicator_names?.[pt.code] ?? NATIONAL_IND_LABELS[pt.code] ?? pt.code}
-                  </p>
-                  <p className="text-lg font-bold font-mono" style={{ color: "var(--text-primary)" }}>
-                    {pt.value.toLocaleString("fr-FR", { maximumFractionDigits: 2 })}
-                    {pt.unit && pt.unit !== "USD" && <span className="text-xs ml-0.5">{pt.unit}</span>}
-                  </p>
-                  <div className="flex items-center justify-between mt-1">
-                    <span className="text-[10px] font-mono px-1.5 py-0.5 rounded"
-                          style={{ background: "color-mix(in srgb, var(--mansa-green) 12%, transparent)", color: "var(--mansa-green)" }}>
-                      {pt.source}
-                    </span>
-                    <span className="text-[10px] font-mono" style={{ color: "var(--text-muted)" }}>{pt.period}</span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="rounded-xl p-4 text-center" style={{ background: "var(--bg-border)" }}>
-              <p className="text-xs" style={{ color: "var(--text-muted)" }}>
-                Aucune donnée nationale disponible pour ce pays. Lancez{" "}
-                <code className="text-[#00D4AA] bg-[#00D4AA]/10 px-1 rounded">dagster job execute -j daily_data_refresh</code>{" "}
-                (asset <code className="text-[#00D4AA] bg-[#00D4AA]/10 px-1 rounded">central_banks_to_database</code>) pour les charger en temps réel.
-              </p>
-            </div>
-          )}
-        </>
+        </div>
+      ) : (
+        <div className="rounded-xl p-4 text-center" style={{ background: "var(--bg-border)" }}>
+          <p className="text-xs" style={{ color: "var(--text-muted)" }}>
+            Aucune institution nationale référencée pour ce pays.
+          </p>
+        </div>
       )}
     </div>
   );

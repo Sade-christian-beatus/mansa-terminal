@@ -7,6 +7,7 @@ import {
 } from "lucide-react";
 import { macroApi } from "@/lib/api";
 import { DataSourceBadge } from "@/components/common/DataSourceBadge";
+import { RegionMap } from "@/components/regions/RegionMap";
 
 // ── 8 Communautés Économiques Régionales officielles de l'UA + AES ───────────
 
@@ -298,6 +299,19 @@ export default function RegionsPage() {
   const avgInflation = displayCountries.reduce((s: number, c: any) => s + (c.inflation ?? c.indicators?.PCPIPCH ?? 0), 0) / (displayCountries.length || 1);
   const avgDebt      = displayCountries.reduce((s: number, c: any) => s + (c.debt ?? c.indicators?.GGXWDG_NGDP ?? 0), 0) / (displayCountries.length || 1);
 
+  // Métadonnées pour la carte régionale (nom, drapeau, croissance) + classement
+  const mapMeta: Record<string, { name?: string; flag?: string; value?: number }> = {};
+  for (const c of displayCountries as any[]) {
+    const g = c.growth ?? c.indicators?.NGDP_RPCH;
+    mapMeta[c.country_id] = { name: c.name, flag: c.flag, value: typeof g === "number" ? g : undefined };
+  }
+  const mapCountryIds = (displayCountries as any[]).map((c) => c.country_id);
+  const topGrowth = [...(displayCountries as any[])]
+    .map((c) => ({ id: c.country_id, name: c.name, flag: c.flag, growth: c.growth ?? c.indicators?.NGDP_RPCH }))
+    .filter((c) => typeof c.growth === "number")
+    .sort((a, b) => b.growth - a.growth)
+    .slice(0, 6);
+
   return (
     <div className="flex-1 overflow-y-auto p-6 space-y-6">
       {/* Header */}
@@ -416,6 +430,52 @@ export default function RegionsPage() {
             ⚠ BFA, MLI, NER ont officiellement quitté la CEDEAO (janvier 2025). L'AES est en cours de structuration institutionnelle. Données source : FMI WEO 2024.
           </div>
         )}
+      </div>
+
+      {/* Carte de la zone + classement croissance */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <RegionMap
+          key={rec.id}
+          countryIds={mapCountryIds}
+          meta={mapMeta}
+          color={rec.color}
+          valueLabel="Croissance"
+          valueUnit="%"
+        />
+        <div className="mansa-card rounded-2xl p-4 flex flex-col">
+          <div className="flex items-center gap-2 mb-3">
+            <TrendingUp size={15} style={{ color: rec.color }} />
+            <h3 className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>
+              Croissance la plus forte — {rec.label}
+            </h3>
+          </div>
+          {topGrowth.length === 0 ? (
+            <p className="text-xs m-auto" style={{ color: "var(--text-muted)" }}>Aucune donnée de croissance.</p>
+          ) : (
+            <div className="space-y-2 flex-1">
+              {topGrowth.map((c, i) => {
+                const w = Math.max(4, Math.min(100, (c.growth / (topGrowth[0].growth || 1)) * 100));
+                return (
+                  <div key={c.id} className="flex items-center gap-3">
+                    <span className="text-xs font-mono w-4 text-right" style={{ color: "var(--text-muted)" }}>{i + 1}</span>
+                    <span className="text-base w-6">{c.flag ?? "🌍"}</span>
+                    <span className="text-xs w-28 truncate" style={{ color: "var(--text-secondary)" }}>{c.name}</span>
+                    <div className="flex-1 h-1.5 rounded-full overflow-hidden" style={{ background: "var(--bg-border)" }}>
+                      <div className="h-full rounded-full transition-all duration-500" style={{ width: `${w}%`, background: rec.color }} />
+                    </div>
+                    <span className="text-xs font-mono font-semibold w-14 text-right"
+                          style={{ color: c.growth >= 5 ? "#10B981" : c.growth >= 2 ? "var(--text-primary)" : "#EF4444" }}>
+                      {c.growth > 0 ? "+" : ""}{c.growth.toFixed(1)}%
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+          <p className="text-[10px] mt-3" style={{ color: "var(--text-muted)" }}>
+            Survolez la carte pour les détails · cliquez un pays pour son profil complet.
+          </p>
+        </div>
       </div>
 
       {/* Tableau des pays */}

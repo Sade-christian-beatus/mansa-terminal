@@ -2,12 +2,12 @@
 
 import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
-import { Bell, X, Sun, Moon, UserCircle2, LogOut, Settings, AlertTriangle, Menu } from "lucide-react";
+import { Bell, X, Sun, Moon, UserCircle2, LogOut, Settings, AlertTriangle, Menu, RefreshCw, Check } from "lucide-react";
 import { useAuthStore } from "@/lib/auth-store";
 import { useLangStore } from "@/lib/lang-store";
 import { useThemeStore } from "@/lib/theme-store";
 import { t } from "@/lib/translations";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { macroApi, alertsApi } from "@/lib/api";
 
 const NOTIFS = [
@@ -30,7 +30,9 @@ export function TopBar({ onMenuClick }: TopBarProps) {
 
   const [menuOpen,  setMenuOpen]  = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
+  const [refreshState, setRefreshState] = useState<"idle" | "loading" | "done">("idle");
 
+  const queryClient = useQueryClient();
   const notifRef = useRef<HTMLDivElement>(null);
   const menuRef  = useRef<HTMLDivElement>(null);
 
@@ -65,6 +67,22 @@ export function TopBar({ onMenuClick }: TopBarProps) {
     return () => document.removeEventListener("mousedown", handler);
   }, []);
 
+  // ── Actualisation générale des données ──
+  async function handleRefresh() {
+    if (refreshState === "loading") return;
+    setRefreshState("loading");
+    try {
+      // Déclenche le rafraîchissement côté serveur (ignore l'erreur en mode démo)
+      await macroApi.refresh("all").catch(() => null);
+      // Recharge tous les caches react-query (KPIs, tables, fraîcheur, alertes…)
+      await queryClient.invalidateQueries();
+      setRefreshState("done");
+      setTimeout(() => setRefreshState("idle"), 1800);
+    } catch {
+      setRefreshState("idle");
+    }
+  }
+
   return (
     <header
       className="h-14 px-6 flex items-center justify-between flex-shrink-0 z-30 relative border-b transition-colors duration-200"
@@ -82,7 +100,7 @@ export function TopBar({ onMenuClick }: TopBarProps) {
         </button>
       )}
 
-      {/* ── Indicateur de fraîcheur des données ── */}
+      {/* ── Indicateur de fraîcheur des données + actualisation ── */}
       <div className="flex items-center gap-3 flex-1 min-w-0">
         <div className="flex items-center gap-1.5">
           <span
@@ -92,7 +110,7 @@ export function TopBar({ onMenuClick }: TopBarProps) {
               animation: freshness?.is_live ? "pulse 2s infinite" : "none",
             }}
           />
-          <span className="text-xs font-medium" style={{ color: "var(--text-muted)" }}>
+          <span className="text-xs font-medium hidden sm:inline" style={{ color: "var(--text-muted)" }}>
             {freshness?.is_live
               ? `Données live · ${freshness.sources?.[0]?.source ?? "IMF"} · ${
                   freshness.last_updated
@@ -101,9 +119,31 @@ export function TopBar({ onMenuClick }: TopBarProps) {
                       })
                     : "À jour"
                 }`
-              : "Données démo · Lancez le pipeline Dagster"}
+              : "Données démo"}
           </span>
         </div>
+
+        {/* Bouton d'actualisation générale */}
+        <button
+          onClick={handleRefresh}
+          disabled={refreshState === "loading"}
+          title="Actualiser toutes les données"
+          className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium transition-all duration-150 disabled:opacity-70"
+          style={{
+            color: refreshState === "done" ? "var(--mansa-green)" : "var(--text-muted)",
+            background: "var(--input-bg)",
+            border: "1px solid var(--input-border)",
+          }}
+          onMouseEnter={(e) => { if (refreshState === "idle") e.currentTarget.style.color = "var(--mansa-green)"; }}
+          onMouseLeave={(e) => { if (refreshState === "idle") e.currentTarget.style.color = "var(--text-muted)"; }}
+        >
+          {refreshState === "done"
+            ? <Check size={13} />
+            : <RefreshCw size={13} className={refreshState === "loading" ? "animate-spin" : ""} />}
+          <span className="hidden sm:inline">
+            {refreshState === "loading" ? "Actualisation…" : refreshState === "done" ? "À jour" : "Actualiser"}
+          </span>
+        </button>
 
         {/* Badge alertes critiques */}
         {totalAlerts > 0 && (

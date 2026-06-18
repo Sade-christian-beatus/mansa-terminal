@@ -4,7 +4,7 @@ import { useState, useMemo, useEffect } from "react";
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, ReferenceLine,
 } from "recharts";
-import { GitBranch, TrendingDown, TrendingUp, Info, Sliders } from "lucide-react";
+import { GitBranch, TrendingDown, TrendingUp, Info, Sliders, RotateCcw, ArrowDownRight, ArrowUpRight } from "lucide-react";
 import { macroApi } from "@/lib/api";
 import {
   type CountryBase,
@@ -80,6 +80,7 @@ export default function ScenariosPage() {
     oil_pct: 20, bps: 100, agri_loss_pct: 20,
   });
   const [selectedMetric, setSelectedMetric] = useState<"growth" | "inflation" | "debt">("growth");
+  const [regionFilter, setRegionFilter] = useState("Toutes");
 
   // Baselines réelles depuis /macro/table (repli sur BASE_DATA statique)
   const [baseData, setBaseData] = useState<Record<string, CountryBase>>(BASE_DATA);
@@ -115,8 +116,20 @@ export default function ScenariosPage() {
 
   const scenario = SCENARIOS[selectedScenario];
 
+  const regions = useMemo(
+    () => ["Toutes", ...Array.from(new Set(Object.values(baseData).map((c) => c.region)))],
+    [baseData],
+  );
+
+  function resetParams() {
+    const p = scenario.params.reduce((acc, prm) => ({ ...acc, [prm.key]: prm.default }), {} as Record<string, number>);
+    setParams((prev) => ({ ...prev, ...p }));
+  }
+
   const results = useMemo(() => {
-    return Object.entries(baseData).map(([id, country]) => {
+    return Object.entries(baseData)
+      .filter(([, country]) => regionFilter === "Toutes" || country.region === regionFilter)
+      .map(([id, country]) => {
       const { growthDelta, inflationDelta, debtDelta } = scenario.compute(country, params);
       return {
         id,
@@ -141,7 +154,14 @@ export default function ScenariosPage() {
         oil_exporter: country.oil_exporter,
       };
     }).sort((a, b) => b.delta[selectedMetric] - a.delta[selectedMetric]);
-  }, [baseData, scenario, params, selectedMetric]);
+  }, [baseData, scenario, params, selectedMetric, regionFilter]);
+
+  // Pays le plus / le moins impacté sur la métrique courante
+  const mostImpacted  = results[0];
+  const leastImpacted = results[results.length - 1];
+  const avgDelta = results.length
+    ? results.reduce((s, r) => s + (r.delta[selectedMetric] ?? 0), 0) / results.length
+    : 0;
 
   const metricLabel = { growth: "Croissance PIB (%)", inflation: "Inflation (%)", debt: "Dette % PIB" };
 
@@ -198,6 +218,13 @@ export default function ScenariosPage() {
         <div className="flex items-center gap-2 mb-4">
           <Sliders size={15} style={{ color: "var(--mansa-green)" }} />
           <span className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>Paramètres</span>
+          <button onClick={resetParams}
+            className="ml-auto flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-lg transition-colors"
+            style={{ background: "var(--input-bg)", border: "1px solid var(--input-border)", color: "var(--text-muted)" }}
+            onMouseEnter={(e) => (e.currentTarget.style.color = "var(--mansa-green)")}
+            onMouseLeave={(e) => (e.currentTarget.style.color = "var(--text-muted)")}>
+            <RotateCcw size={11} /> Réinitialiser
+          </button>
         </div>
         <div className="grid grid-cols-1 gap-4">
           {scenario.params.map((p) => (
@@ -225,6 +252,57 @@ export default function ScenariosPage() {
           ))}
         </div>
       </div>
+
+      {/* Filtre région */}
+      <div className="flex gap-1.5 flex-wrap items-center">
+        <span className="text-xs font-medium mr-1" style={{ color: "var(--text-muted)" }}>Région :</span>
+        {regions.map((rg) => (
+          <button key={rg} onClick={() => setRegionFilter(rg)}
+            className="px-2.5 py-1 rounded-full text-xs font-medium border transition-all"
+            style={regionFilter === rg
+              ? { background: "color-mix(in srgb, var(--mansa-green) 14%, transparent)", borderColor: "var(--mansa-green)", color: "var(--mansa-green)" }
+              : { background: "var(--card-bg)", borderColor: "var(--bg-border)", color: "var(--text-muted)" }}>
+            {rg === "Toutes" ? "Toutes" : rg}
+          </button>
+        ))}
+      </div>
+
+      {/* Pays le plus / le moins impacté + impact moyen */}
+      {results.length > 0 && (
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          {[
+            { card: mostImpacted,  title: "Plus impacté",  icon: ArrowUpRight },
+            { card: leastImpacted, title: "Moins impacté", icon: ArrowDownRight },
+          ].map(({ card, title, icon: Icon }) => {
+            const d = card.delta[selectedMetric] ?? 0;
+            const c = d >= 0 ? "#00D4AA" : "#ef4444";
+            return (
+              <div key={title} className="rounded-2xl border p-4 flex items-center gap-3"
+                   style={{ background: "var(--card-bg)", borderColor: "var(--bg-border)" }}>
+                <span className="text-2xl">{card.flag}</span>
+                <div className="min-w-0 flex-1">
+                  <p className="text-[10px] uppercase tracking-wider" style={{ color: "var(--text-muted)" }}>{title}</p>
+                  <p className="text-sm font-semibold truncate" style={{ color: "var(--text-primary)" }}>{card.name}</p>
+                </div>
+                <div className="flex items-center gap-1" style={{ color: c }}>
+                  <Icon size={14} />
+                  <span className="text-base font-bold font-mono">{d > 0 ? "+" : ""}{d.toFixed(1)}</span>
+                </div>
+              </div>
+            );
+          })}
+          <div className="rounded-2xl border p-4 flex items-center justify-between"
+               style={{ background: "var(--card-bg)", borderColor: "var(--bg-border)" }}>
+            <div>
+              <p className="text-[10px] uppercase tracking-wider" style={{ color: "var(--text-muted)" }}>Impact moyen</p>
+              <p className="text-xs" style={{ color: "var(--text-muted)" }}>{results.length} pays</p>
+            </div>
+            <span className="text-xl font-bold font-mono" style={{ color: avgDelta >= 0 ? "#00D4AA" : "#ef4444" }}>
+              {avgDelta > 0 ? "+" : ""}{avgDelta.toFixed(1)}
+            </span>
+          </div>
+        </div>
+      )}
 
       {/* Sélecteur de métrique */}
       <div className="flex gap-2">
