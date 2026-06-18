@@ -6,12 +6,10 @@ import {
 } from "recharts";
 import { GitBranch, TrendingDown, TrendingUp, Info, Sliders } from "lucide-react";
 import { macroApi } from "@/lib/api";
-
-type CountryBase = {
-  name: string; flag: string; region: string;
-  growth: number; inflation: number; debt: number;
-  oil_exporter: boolean; agri_pct: number; ext_debt_usd: number;
-};
+import {
+  type CountryBase,
+  oilShockCompute, fedRateCompute, droughtSahelCompute,
+} from "@/lib/scenarios";
 
 // ── Données de base (top 15 pays) — baselines growth/inflation/dette
 //    remplacées par /macro/table (année de référence) au chargement ; les
@@ -46,14 +44,7 @@ const SCENARIOS = {
     params: [
       { key: "oil_pct", label: "Variation prix pétrole (%)", min: -50, max: 100, default: 20, step: 5 },
     ],
-    compute: (country: typeof BASE_DATA[string], params: Record<string, number>) => {
-      const shock = params.oil_pct / 100;
-      const growthDelta = country.oil_exporter
-        ? shock * 0.3
-        : -shock * 0.1 * (1 - country.agri_pct / 100);
-      const inflationDelta = country.oil_exporter ? -0.5 : shock * 1.5;
-      return { growthDelta, inflationDelta, debtDelta: 0 };
-    },
+    compute: oilShockCompute,
   },
   fed_rate: {
     id: "fed_rate",
@@ -64,13 +55,7 @@ const SCENARIOS = {
     params: [
       { key: "bps", label: "Hausse taux Fed (bps)", min: 25, max: 300, default: 100, step: 25 },
     ],
-    compute: (country: typeof BASE_DATA[string], params: Record<string, number>) => {
-      const shock = params.bps / 100;
-      const growthDelta = -0.2 * shock - (country.ext_debt_usd / 100) * 0.05 * shock;
-      const inflationDelta = 0.3 * shock;
-      const debtDelta = (country.ext_debt_usd / 100) * shock * 2;
-      return { growthDelta, inflationDelta, debtDelta };
-    },
+    compute: fedRateCompute,
   },
   drought_sahel: {
     id: "drought_sahel",
@@ -81,13 +66,7 @@ const SCENARIOS = {
     params: [
       { key: "agri_loss_pct", label: "Perte agricole (%)", min: 5, max: 50, default: 20, step: 5 },
     ],
-    compute: (country: typeof BASE_DATA[string], params: Record<string, number>) => {
-      const shock = (params.agri_loss_pct / 100) * (country.agri_pct / 100);
-      const growthDelta = -shock * 2.5;
-      const inflationDelta = shock * 8;
-      const debtDelta = shock * 5;
-      return { growthDelta, inflationDelta, debtDelta };
-    },
+    compute: droughtSahelCompute,
   },
 };
 
