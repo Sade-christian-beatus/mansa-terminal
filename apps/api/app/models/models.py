@@ -179,14 +179,15 @@ class KnowledgeDocument(Base):
     RAG knowledge base — Documents macro-économiques africains.
 
     Colonne embedding : vecteur VECTOR(1536) ajouté via migration 0003_pgvector.
-    Phase 1 : recherche par country_id (pas de vecteur requis).
-    Phase 2 : recherche sémantique par similarité cosine avec pgvector.
-              Activer en décommentant la colonne embedding ci-dessous et en
-              exécutant alembic upgrade head.
+    Recherche sémantique (cosine) ACTIVE quand OPENAI_API_KEY est configurée :
+      - génération des vecteurs : scripts/embed_knowledge.py (backfill)
+      - service d'embedding requête : app/core/embeddings.py
+      - recherche cosine + repli country_id : ai_analyst.get_relevant_context (§5)
+    La colonne embedding n'est PAS déclarée dans l'ORM (raw SQL pgvector) pour
+    rester compatible avec les bases sans l'extension (CI postgres standard) et
+    éviter de charger un vecteur 1536 à chaque SELECT.
 
-    Modèles d'embedding compatibles (dim=1536) :
-      - OpenAI text-embedding-3-small (recommandé, économique)
-      - Voyage-3 (Anthropic, haute qualité)
+    Modèle d'embedding : OpenAI text-embedding-3-small (dim=1536).
     """
     __tablename__ = "knowledge_documents"
 

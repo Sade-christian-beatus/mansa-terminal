@@ -75,6 +75,12 @@ class Settings(BaseSettings):
     ANTHROPIC_MODEL_ID: str = "claude-sonnet-4-6"
     ANTHROPIC_MAX_TOKENS: int = 4096
 
+    # Embeddings — RAG sémantique (OpenAI text-embedding-3-small, 1536 dim)
+    # Si OPENAI_API_KEY est vide, le RAG retombe sur la recherche par country_id.
+    OPENAI_API_KEY: str = ""
+    EMBEDDING_MODEL: str = "text-embedding-3-small"
+    EMBEDDING_DIM: int = 1536
+
     # Observabilité
     SENTRY_DSN: str = ""
     LOG_LEVEL: str = "INFO"
