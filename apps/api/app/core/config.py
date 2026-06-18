@@ -111,6 +111,14 @@ class Settings(BaseSettings):
     ACLED_EMAIL: str = ""
     NASA_EARTHDATA_TOKEN: str = ""
     NASA_FIRMS_MAP_KEY: str = ""   # firms.modaps.eosdis.nasa.gov — feux actifs (VIIRS)
+    ODFA_BASE_URL: str = "https://burkinafaso.opendataforafrica.org"  # Open Data for Africa / Knoema (SSN national)
+
+    # Déclenchement de la ré-ingestion depuis l'app (bouton "Mettre à jour")
+    # Lance le workflow GitHub Actions data-ingest.yml via workflow_dispatch.
+    GITHUB_INGEST_TOKEN: str = ""                               # PAT avec scope actions:write
+    GITHUB_REPO: str = "Sade-christian-beatus/mansa-terminal"   # owner/repo
+    GITHUB_INGEST_WORKFLOW: str = "data-ingest.yml"
+    GITHUB_INGEST_REF: str = "main"
 
     # AWS — hors scope MVP
     AWS_ACCESS_KEY_ID: str = ""
