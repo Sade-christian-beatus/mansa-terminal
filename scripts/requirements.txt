@@ -9,3 +9,7 @@ numpy>=1.26.0            # NASA VIIRS pixel statistics
 openpyxl>=3.1.0          # EM-DAT Excel parsing (ingest_emdat.py)
 pandas>=2.1.0            # EM-DAT data aggregation
 openai>=1.40.0           # Embeddings RAG sémantique (embed_knowledge.py)
+# Extraction locale des annuaires INSD Burkina (extract_burkina_insd.py) —
+# non requis en CI (l'ingestion se fait depuis le CSV commité).
+pdfplumber>=0.11.0       # Extraction géométrique des tableaux PDF (INSD)
+unidecode>=1.3.0         # Normalisation des slugs d'indicateurs

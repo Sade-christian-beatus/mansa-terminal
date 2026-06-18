@@ -44,6 +44,7 @@ on:
           - eia
           - nasa
           - odfa
+          - burkina
       dry_run:
         description: "Dry-run (aucune écriture DB)"
         required: false
@@ -100,7 +101,7 @@ jobs:
           SCHEDULE="${{ github.event.schedule }}"
           EVENT="${{ github.event_name }}"
           RUN_IMF="false"; RUN_WB="false"; RUN_EXTRA="false"; RUN_ODFA="false"
-          RUN_COMTRADE="false"; RUN_EIA="false"; RUN_NASA="false"
+          RUN_COMTRADE="false"; RUN_EIA="false"; RUN_NASA="false"; RUN_BURKINA="false"
           if [[ "$SOURCE" == "all" || "$SOURCE" == "imf" ]];       then RUN_IMF="true";   fi
           if [[ "$SOURCE" == "all" || "$SOURCE" == "worldbank" ]];  then RUN_WB="true";    fi
           if [[ "$SOURCE" == "all" || "$SOURCE" == "extra" ]];      then RUN_EXTRA="true"; fi
@@ -116,6 +117,12 @@ jobs:
           # ODFA seulement sur demande explicite : le portail Cloudflare bloque les
           # IP datacenter des runners GitHub (403) → à lancer depuis une IP autorisée.
           if [[ "$SOURCE" == "odfa" ]];                             then RUN_ODFA="true";  fi
+          # INSD Burkina (annuaires) : sélection explicite, OU 'all' manuel, OU refresh mensuel.
+          if [[ "$SOURCE" == "burkina" ]]; then RUN_BURKINA="true"; fi
+          if [[ "$SOURCE" == "all" && "$EVENT" == "workflow_dispatch" ]] || [[ "$SCHEDULE" == "30 7 1 * *" ]]; then
+            RUN_BURKINA="true"
+          fi
+          echo "run_burkina=$RUN_BURKINA"   >> "$GITHUB_OUTPUT"
           echo "run_imf=$RUN_IMF"           >> "$GITHUB_OUTPUT"
           echo "run_wb=$RUN_WB"             >> "$GITHUB_OUTPUT"
           echo "run_extra=$RUN_EXTRA"       >> "$GITHUB_OUTPUT"
@@ -186,6 +193,17 @@ jobs:
         run: |
           ARGS="${{ steps.sources.outputs.dry_run == 'true' && '--dry-run' || '' }}"
           python scripts/ingest_odfa.py --country BFA --limit 40 $ARGS
+
+      # ── Données nationales Burkina (Annuaires INSD) ──────────────────────
+      # Ingère depuis le CSV commité (data/burkina_insd/*.csv), produit hors-ligne
+      # par scripts/extract_burkina_insd.py à partir des annuaires PDF de l'INSD.
+      # Pas besoin des PDF en CI : l'extraction est découplée de l'ingestion.
+      - name: Ingest INSD Burkina yearbooks
+        if: steps.sources.outputs.run_burkina == 'true'
+        continue-on-error: true
+        run: |
+          ARGS="${{ steps.sources.outputs.dry_run == 'true' && '--dry-run' || '' }}"
+          python scripts/ingest_burkina_insd.py $ARGS
 
       # ── Keepalive backend ────────────────────────────────────────────────
       - name: Ping Render API (keepalive)

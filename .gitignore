@@ -47,6 +47,9 @@ dagster-daemon-heartbeat.db
 data/raw/
 data/downloads/
 *.csv
+# Exception : données nationales INSD Burkina, ingérées par la CI depuis ces CSV
+# (le pipeline d'ingestion lit ces fichiers commités — voir docs/INGESTION.md).
+!data/burkina_insd/*.csv
 *.parquet
 *.tif
 *.h5
