@@ -84,7 +84,9 @@ jobs:
           if [[ "$SOURCE" == "all" || "$SOURCE" == "imf" ]];       then RUN_IMF="true";   fi
           if [[ "$SOURCE" == "all" || "$SOURCE" == "worldbank" ]];  then RUN_WB="true";    fi
           if [[ "$SOURCE" == "all" || "$SOURCE" == "extra" ]];      then RUN_EXTRA="true"; fi
-          if [[ "$SOURCE" == "all" || "$SOURCE" == "odfa" ]];       then RUN_ODFA="true";  fi
+          # ODFA seulement sur demande explicite : le portail Cloudflare bloque les
+          # IP datacenter des runners GitHub (403) → à lancer depuis une IP autorisée.
+          if [[ "$SOURCE" == "odfa" ]];                             then RUN_ODFA="true";  fi
           # Le mensuel (1er du mois) lance tout ; l'hebdo (lundi) lance IMF+WB seulement
           echo "run_imf=$RUN_IMF"     >> "$GITHUB_OUTPUT"
           echo "run_wb=$RUN_WB"       >> "$GITHUB_OUTPUT"
@@ -115,8 +117,13 @@ jobs:
           python scripts/ingest_extra.py $ARGS
 
       # ── Sources nationales ODFA / Knoema (INSD Burkina Faso, pilote) ─────
+      # NB : le portail (Cloudflare) bloque les IP datacenter des runners GitHub
+      # (HTTP 403). À lancer plutôt depuis une IP résidentielle/autorisée :
+      #   DATABASE_URL_SYNC=... python scripts/ingest_odfa.py --country BFA --limit 40
+      # L'étape est non bloquante pour ne pas faire échouer le pipeline.
       - name: Ingest ODFA national sources (INSD)
         if: steps.sources.outputs.run_odfa == 'true'
+        continue-on-error: true
         run: |
           ARGS="${{ steps.sources.outputs.dry_run == 'true' && '--dry-run' || '' }}"
           python scripts/ingest_odfa.py --country BFA --limit 40 $ARGS
