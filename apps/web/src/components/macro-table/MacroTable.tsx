@@ -8,7 +8,7 @@ import {
   RefreshCw, CloudDownload,
 } from "lucide-react";
 
-import { macroApi } from "@/lib/api";
+import { macroApi, authApi } from "@/lib/api";
 import { exportData, type ExportRow } from "@/lib/export-utils";
 import { sparklineSeries, averageSeries } from "@/lib/sparklines";
 import { averagePolicyRate } from "@/lib/national-sources";
@@ -89,6 +89,16 @@ export function MacroTable() {
     staleTime: 1000 * 60 * 5,
     retry: false,
   });
+
+  // Rôle de l'utilisateur — le bouton « Mettre à jour » (ré-ingestion) est
+  // réservé aux admins (le backend renvoie 403 sinon).
+  const { data: me } = useQuery({
+    queryKey: ["auth-me"],
+    queryFn: () => authApi.me(),
+    staleTime: 1000 * 60 * 10,
+    retry: false,
+  });
+  const isAdmin = me?.role === "admin";
 
   const allData: CountryDatum[] = useMemo(() => {
     const apiCountries = apiResp?.countries ?? [];
@@ -285,12 +295,14 @@ export function MacroTable() {
             style={{ background: "var(--input-bg)", borderColor: "var(--input-border)", color: "var(--text-secondary)" }}>
             <RefreshCw size={14} className={isFetching ? "animate-spin" : ""} /> Rafraîchir
           </button>
-          <button onClick={onUpdate} disabled={updating}
-            title="Relancer l'ingestion des sources (FMI, Banque Mondiale…) et mettre la base à jour"
-            className="flex items-center gap-2 text-xs font-semibold px-3.5 py-2 rounded-lg border transition-colors disabled:opacity-60"
-            style={{ background: "var(--input-bg)", borderColor: "var(--input-border)", color: "var(--text-secondary)" }}>
-            <CloudDownload size={14} className={updating ? "animate-pulse" : ""} /> {updating ? "Lancement…" : "Mettre à jour"}
-          </button>
+          {isAdmin && (
+            <button onClick={onUpdate} disabled={updating}
+              title="Relancer l'ingestion des sources (FMI, Banque Mondiale…) et mettre la base à jour"
+              className="flex items-center gap-2 text-xs font-semibold px-3.5 py-2 rounded-lg border transition-colors disabled:opacity-60"
+              style={{ background: "var(--input-bg)", borderColor: "var(--input-border)", color: "var(--text-secondary)" }}>
+              <CloudDownload size={14} className={updating ? "animate-pulse" : ""} /> {updating ? "Lancement…" : "Mettre à jour"}
+            </button>
+          )}
           <button onClick={() => (compareIds.length >= 2 ? setShowCompare(true) : fireToast("Cochez au moins 2 pays à comparer"))}
             className="flex items-center gap-2 text-xs font-semibold px-3.5 py-2 rounded-lg border transition-colors"
             style={{ borderColor: "var(--mansa-green)", color: "var(--mansa-green)", background: "transparent" }}>

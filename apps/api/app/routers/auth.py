@@ -42,6 +42,7 @@ class UserResponse(BaseModel):
     preferred_currency: str | None
     preferred_language: str | None
     is_verified: bool
+    role: str = "analyst"
 
 
 # ── Endpoints ──────────────────────────────────────────────────────────────
@@ -145,6 +146,7 @@ async def sync_user(
         preferred_currency=user.preferred_currency,
         preferred_language=user.preferred_language,
         is_verified=user.is_verified,
+        role=user.role or "analyst",
     )
 
 
@@ -162,4 +164,5 @@ async def get_me(
         preferred_currency=current_user.preferred_currency,
         preferred_language=current_user.preferred_language,
         is_verified=current_user.is_verified,
+        role=current_user.role or "analyst",
     )
