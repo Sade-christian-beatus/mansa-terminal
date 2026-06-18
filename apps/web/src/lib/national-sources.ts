@@ -207,6 +207,38 @@ const STATS_CATALOG: CatalogIndicator[] = [
 ];
 
 /**
+ * Catalogue INSD propre au Burkina Faso — « chiffres clés » de l'Annuaire
+ * Statistique National (INSD). Ces codes correspondent aux séries ingérées par
+ * `scripts/ingest_burkina_insd.py` (source = INSD) : les valeurs s'affichent
+ * donc avec leur dernier point réel. Le détail exhaustif des annuaires (≈4 900
+ * indicateurs) reste interrogeable via l'API et l'IA, hors de cette vitrine.
+ */
+const STATS_CATALOG_BFA: CatalogIndicator[] = [
+  { code: "INSD_KEY_pib_production",            label: "PIB (optique production)",        unit: "Mds FCFA" },
+  { code: "INSD_KEY_taux_inflation",            label: "Taux d'inflation",                unit: "%" },
+  { code: "INSD_KEY_population_totale",         label: "Population totale",               unit: "hab." },
+  { code: "INSD_KEY_population_urbaine",        label: "Population urbaine",              unit: "hab." },
+  { code: "INSD_KEY_densite_population",        label: "Densité de population",           unit: "hab/km²" },
+  { code: "INSD_KEY_esperance_vie",             label: "Espérance de vie",                unit: "ans" },
+  { code: "INSD_KEY_taux_alphabetisation",      label: "Taux d'alphabétisation",          unit: "%" },
+  { code: "INSD_KEY_scolarisation_primaire",    label: "Scolarisation primaire (TBS)",    unit: "%" },
+  { code: "INSD_KEY_succes_bac",                label: "Taux de succès au BAC",           unit: "%" },
+  { code: "INSD_KEY_rang_idh",                  label: "Rang IDH (/193)",                 unit: "rang" },
+  { code: "INSD_KEY_incidence_pauvrete",        label: "Incidence de la pauvreté",        unit: "%" },
+  { code: "INSD_KEY_taux_chomage",              label: "Taux de chômage",                 unit: "%" },
+  { code: "INSD_KEY_smig_mensuel",              label: "SMIG mensuel",                    unit: "FCFA" },
+  { code: "INSD_KEY_agents_publics",            label: "Agents publics",                  unit: "agents" },
+  { code: "INSD_KEY_production_cereales",       label: "Production de céréales",          unit: "k tonnes" },
+  { code: "INSD_KEY_production_coton",          label: "Production de coton",             unit: "k tonnes" },
+  { code: "INSD_KEY_production_or",             label: "Production d'or",                 unit: "tonnes" },
+  { code: "INSD_KEY_taux_electrification",      label: "Taux d'électrification",          unit: "%" },
+];
+
+const STATS_CATALOG_BY_COUNTRY: Record<string, CatalogIndicator[]> = {
+  BFA: STATS_CATALOG_BFA,
+};
+
+/**
  * Catalogue des indicateurs proposés par les sources nationales d'un pays,
  * groupé par institution (banque centrale, institut de statistique).
  */
@@ -214,8 +246,9 @@ export function getNationalCatalog(countryId: string): NationalCatalog {
   const cid = countryId.toUpperCase();
   const cb = getCentralBank(cid);
   const si = getStatsInstitute(cid);
+  const statsIndicators = STATS_CATALOG_BY_COUNTRY[cid] ?? STATS_CATALOG;
   return {
     centralBank: cb ? { inst: cb, role: "Banque centrale", indicators: CENTRAL_BANK_CATALOG } : null,
-    statsInstitute: si ? { inst: si, role: "Institut de statistique", indicators: STATS_CATALOG } : null,
+    statsInstitute: si ? { inst: si, role: "Institut de statistique", indicators: statsIndicators } : null,
   };
 }

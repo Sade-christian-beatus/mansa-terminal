@@ -1,0 +1,25 @@
+country_id,indicator_code,indicator_name,value,unit,period,period_type,source,source_url,table_ref,book_year
+BFA,INSD_KEY_population_totale,Population totale,23409015,habitants,2024,annual,INSD,https://www.insd.bf,chiffres-cles,2024
+BFA,INSD_KEY_population_hommes,Population masculine,11333972,habitants,2024,annual,INSD,https://www.insd.bf,chiffres-cles,2024
+BFA,INSD_KEY_population_femmes,Population féminine,12075043,habitants,2024,annual,INSD,https://www.insd.bf,chiffres-cles,2024
+BFA,INSD_KEY_population_urbaine,Population des communes urbaines,9214338,habitants,2024,annual,INSD,https://www.insd.bf,chiffres-cles,2024
+BFA,INSD_KEY_densite_population,Densité de la population,75.1,hab/km²,2019,annual,INSD,https://www.insd.bf,chiffres-cles,2024
+BFA,INSD_KEY_pib_production,PIB selon l'optique production,10130.4,Mds FCFA,2023,annual,INSD,https://www.insd.bf,chiffres-cles,2024
+BFA,INSD_KEY_taux_inflation,Taux d'inflation,4.2,%,2024,annual,INSD,https://www.insd.bf,chiffres-cles,2024
+BFA,INSD_KEY_esperance_vie,Espérance de vie à la naissance,61.9,ans,2019,annual,INSD,https://www.insd.bf,chiffres-cles,2024
+BFA,INSD_KEY_taux_alphabetisation,Taux d'alphabétisation,42.0,%,2021,annual,INSD,https://www.insd.bf,chiffres-cles,2024
+BFA,INSD_KEY_scolarisation_primaire,Taux brut de scolarisation au primaire,78.2,%,2024,annual,INSD,https://www.insd.bf,chiffres-cles,2024
+BFA,INSD_KEY_scolarisation_post_primaire,Taux brut de scolarisation au post-primaire,40.6,%,2024,annual,INSD,https://www.insd.bf,chiffres-cles,2024
+BFA,INSD_KEY_succes_cep,Taux de succès au CEP,82.0,%,2024,annual,INSD,https://www.insd.bf,chiffres-cles,2024
+BFA,INSD_KEY_succes_bepc,Taux de succès au BEPC,47.2,%,2024,annual,INSD,https://www.insd.bf,chiffres-cles,2024
+BFA,INSD_KEY_succes_bac,Taux de succès au BAC,52.6,%,2024,annual,INSD,https://www.insd.bf,chiffres-cles,2024
+BFA,INSD_KEY_rang_idh,Rang IDH (sur 193 pays),186,rang,2024,annual,INSD,https://www.insd.bf,chiffres-cles,2024
+BFA,INSD_KEY_seuil_pauvrete,Seuil de pauvreté,247806,FCFA,2021,annual,INSD,https://www.insd.bf,chiffres-cles,2024
+BFA,INSD_KEY_incidence_pauvrete,Incidence de la pauvreté,43.2,%,2021,annual,INSD,https://www.insd.bf,chiffres-cles,2024
+BFA,INSD_KEY_taux_chomage,Taux de chômage,3.9,%,2021,annual,INSD,https://www.insd.bf,chiffres-cles,2024
+BFA,INSD_KEY_smig_mensuel,SMIG mensuel,45000,FCFA,2023,annual,INSD,https://www.insd.bf,chiffres-cles,2024
+BFA,INSD_KEY_agents_publics,Nombre d'agents publics,236263,agents,2024,annual,INSD,https://www.insd.bf,chiffres-cles,2024
+BFA,INSD_KEY_production_cereales,Production de céréales,5147.92,milliers de tonnes,2024,annual,INSD,https://www.insd.bf,chiffres-cles,2024
+BFA,INSD_KEY_production_coton,Production de coton,732.17,milliers de tonnes,2024,annual,INSD,https://www.insd.bf,chiffres-cles,2024
+BFA,INSD_KEY_production_or,Production d'or,60.77,tonnes,2024,annual,INSD,https://www.insd.bf,chiffres-cles,2024
+BFA,INSD_KEY_taux_electrification,Taux d'électrification,34.2,%,2024,annual,INSD,https://www.insd.bf,chiffres-cles,2024
