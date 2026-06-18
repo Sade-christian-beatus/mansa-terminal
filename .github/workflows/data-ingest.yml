@@ -192,7 +192,7 @@ jobs:
         continue-on-error: true
         run: |
           ARGS="${{ steps.sources.outputs.dry_run == 'true' && '--dry-run' || '' }}"
-          python scripts/ingest_odfa.py --country BFA --limit 40 $ARGS
+          python scripts/ingest_odfa.py --country BFA --limit 40 $ARGS || true
 
       # ── Données nationales Burkina (Annuaires INSD) ──────────────────────
       # Ingère depuis le CSV commité (data/burkina_insd/*.csv), produit hors-ligne
